@@ -2,7 +2,7 @@
 
 ## Rama de trabajo
 
-`main` debe permanecer ejecutable. El arranque solicitado se desarrolla en `developer/daniel`m o `developer/nombre_desarrollador`.
+`main` debe permanecer ejecutable. El arranque solicitado se desarrolla en `developer/daniel` o `developer/nombre_desarrollador`.
 Para tareas posteriores, crear ramas cortas desde ella o desde `main` cuando el equipo acuerde la
 integración.
 
