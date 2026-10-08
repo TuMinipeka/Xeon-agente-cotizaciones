@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,6 +52,29 @@ class CommandRunner(Protocol):
     ) -> CommandResult: ...
 
 
+def _resolve_command(argv: tuple[str, ...]) -> tuple[str, ...]:
+    executable = shutil.which(argv[0])
+    if executable is None:
+        raise CoordinationError(f"No se encontro el ejecutable requerido '{argv[0]}' en PATH.")
+    executable_path = Path(executable)
+    if os.name != "nt" or executable_path.suffix.lower() not in {".cmd", ".bat"}:
+        return (str(executable_path), *argv[1:])
+
+    if executable_path.stem.lower() != "kilo":
+        raise CoordinationError(
+            f"El ejecutable '{argv[0]}' es un shim de Windows no soportado: {executable_path}"
+        )
+
+    kilo_entry = executable_path.parent / "node_modules" / "@kilocode" / "cli" / "bin" / "kilo"
+    adjacent_node = executable_path.with_name("node.exe")
+    node = str(adjacent_node) if adjacent_node.is_file() else shutil.which("node.exe")
+    if node is None or not kilo_entry.is_file():
+        raise CoordinationError(
+            "Kilo se encontro como shim .CMD, pero no se pudo resolver su ejecutable Node seguro."
+        )
+    return (node, str(kilo_entry), *argv[1:])
+
+
 class SubprocessCommandRunner:
     def run(
         self,
@@ -59,9 +84,10 @@ class SubprocessCommandRunner:
         stdin: str | None = None,
         timeout_seconds: int = 900,
     ) -> CommandResult:
+        resolved_argv = _resolve_command(argv)
         try:
             completed = subprocess.run(
-                argv,
+                resolved_argv,
                 cwd=cwd,
                 input=stdin,
                 capture_output=True,
@@ -82,6 +108,8 @@ class SubprocessCommandRunner:
                 else exc.stderr or "timeout"
             )
             return CommandResult(124, stdout, stderr)
+        except OSError as exc:
+            raise CoordinationError(f"No se pudo iniciar '{argv[0]}': {exc}") from exc
         return CommandResult(completed.returncode, completed.stdout, completed.stderr)
 
 

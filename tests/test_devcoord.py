@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import sys
 from pathlib import Path
+
+import pytest
 
 from xeon.devcoord.contracts import (
     AcceptanceResult,
@@ -12,7 +17,7 @@ from xeon.devcoord.contracts import (
     WorkerReport,
     WorkOrder,
 )
-from xeon.devcoord.coordinator import AgenticCoordinator, CommandResult
+from xeon.devcoord.coordinator import AgenticCoordinator, CommandResult, SubprocessCommandRunner
 from xeon.devcoord.gates import evaluate_worker_evidence
 
 
@@ -151,6 +156,35 @@ def test_next_directive_contains_only_review_actions() -> None:
         "No ampliar el alcance de la orden.",
         "No modificar reglas de negocio sin autorizacion humana.",
     )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Regression exclusiva de shims npm en Windows")
+def test_command_runner_resolves_kilo_cmd_without_enabling_a_shell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kilo_shim = tmp_path / "kilo.CMD"
+    kilo_shim.write_text("@exit /b 99\n", encoding="utf-8")
+    kilo_entry = tmp_path / "node_modules" / "@kilocode" / "cli" / "bin" / "kilo"
+    kilo_entry.parent.mkdir(parents=True)
+    kilo_entry.write_text(
+        "import sys\nprint(sys.argv[1])\n",
+        encoding="utf-8",
+    )
+    original_which = shutil.which
+
+    def fake_which(command: str) -> str | None:
+        if command == "kilo":
+            return str(kilo_shim)
+        if command in {"node", "node.exe"}:
+            return sys.executable
+        return original_which(command)
+
+    monkeypatch.setattr(shutil, "which", fake_which)
+
+    result = SubprocessCommandRunner().run(("kilo", "safe&literal"), cwd=tmp_path)
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "safe&literal"
 
 
 class _FakeRunner:
