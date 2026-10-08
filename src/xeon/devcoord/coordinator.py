@@ -52,10 +52,24 @@ class CommandRunner(Protocol):
     ) -> CommandResult: ...
 
 
+def _codex_desktop_executable(command: str) -> Path | None:
+    if os.name != "nt" or Path(command).stem.lower() != "codex":
+        return None
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if not local_app_data:
+        return None
+    bin_root = Path(local_app_data) / "OpenAI" / "Codex" / "bin"
+    candidates = tuple(path for path in bin_root.glob("*/codex.exe") if path.is_file())
+    return max(candidates, key=lambda path: path.stat().st_mtime, default=None)
+
+
 def _resolve_command(argv: tuple[str, ...]) -> tuple[str, ...]:
     executable = shutil.which(argv[0])
     if executable is None:
-        raise CoordinationError(f"No se encontro el ejecutable requerido '{argv[0]}' en PATH.")
+        codex_fallback = _codex_desktop_executable(argv[0])
+        if codex_fallback is None:
+            raise CoordinationError(f"No se encontro el ejecutable requerido '{argv[0]}' en PATH.")
+        executable = str(codex_fallback)
     executable_path = Path(executable)
     if os.name != "nt" or executable_path.suffix.lower() not in {".cmd", ".bat"}:
         return (str(executable_path), *argv[1:])
@@ -92,6 +106,8 @@ class SubprocessCommandRunner:
                 input=stdin,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout_seconds,
                 check=False,
                 shell=False,

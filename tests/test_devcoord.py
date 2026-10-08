@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import locale
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -185,6 +187,54 @@ def test_command_runner_resolves_kilo_cmd_without_enabling_a_shell(
 
     assert result.exit_code == 0
     assert result.stdout.strip() == "safe&literal"
+
+
+def test_command_runner_decodes_utf8_independent_of_windows_code_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(locale, "getencoding", lambda: "cp1252")
+
+    result = SubprocessCommandRunner().run(
+        (
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.buffer.write(bytes((0xCF, 0x8F)))",
+        ),
+        cwd=tmp_path,
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout == "Ϗ"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Fallback exclusivo de Codex Desktop en Windows")
+def test_command_runner_finds_codex_desktop_outside_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    codex_executable = tmp_path / "OpenAI" / "Codex" / "bin" / "build-id" / "codex.exe"
+    codex_executable.parent.mkdir(parents=True)
+    codex_executable.touch()
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    original_which = shutil.which
+
+    def fake_which(command: str) -> str | None:
+        if command == "codex":
+            return None
+        return original_which(command)
+
+    captured: dict[str, tuple[str, ...]] = {}
+
+    def fake_run(argv: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured["argv"] = argv
+        return subprocess.CompletedProcess(argv, 0, "codex-cli test", "")
+
+    monkeypatch.setattr(shutil, "which", fake_which)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = SubprocessCommandRunner().run(("codex", "--version"), cwd=tmp_path)
+
+    assert result.exit_code == 0
+    assert captured["argv"] == (str(codex_executable), "--version")
 
 
 class _FakeRunner:
