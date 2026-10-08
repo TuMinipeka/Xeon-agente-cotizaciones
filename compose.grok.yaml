@@ -1,0 +1,12 @@
+services:
+  api:
+    environment:
+      LLM_PROVIDER: grok
+      RETO_KEY_FILE: /run/secrets/reto_key
+    secrets:
+      - reto_key
+
+secrets:
+  reto_key:
+    file: ./secrets/reto_key.txt
+
