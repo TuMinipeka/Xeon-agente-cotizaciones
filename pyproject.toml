@@ -1,0 +1,48 @@
+[project]
+name = "xeon"
+version = "0.1.0"
+description = "Base del agente de cotizaciones XEON"
+readme = "README.md"
+requires-python = "==3.14.8"
+dependencies = [
+  "fastapi>=0.118,<1.0",
+  "httpx>=0.28,<1.0",
+  "pydantic-settings>=2.10,<3.0",
+  "typer>=0.19,<1.0",
+  "uvicorn>=0.37,<1.0",
+]
+
+[project.scripts]
+xeon = "xeon.cli:app"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.18,<2.0",
+  "pytest>=8.4,<10.0",
+  "ruff>=0.14,<1.0",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xeon"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["xeon"]
+mypy_path = "src"
+
