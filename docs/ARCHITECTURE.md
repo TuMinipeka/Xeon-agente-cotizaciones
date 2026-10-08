@@ -2,7 +2,7 @@
 
 ## Estado implementado
 
-Hay dos cortes conectados por un composition root, no por el LLM.
+Hay tres cortes conectados por un composition root, no por el LLM.
 
 ```text
 POST /v1/chat
@@ -26,6 +26,17 @@ POST /v1/quotes  GET /v1/quotes/{id}
       |
       v
  domain: Product, Money, QuoteLine, Quote(status=DRAFT, version=1)
+
+GET /v1/stock  CLI stock show
+      |
+      v
+ AppContainer
+      |
+      +--> GetStockByBranches
+      +--> BranchInventory (memoria, snapshots sinteticos)
+      |
+      v
+ domain: StockSnapshot, AvailabilityKind(local|transfer|delivery)
 ```
 
 `MockLLM` es el perfil predeterminado y garantiza cero llamadas externas. El perfil `grok`
@@ -34,7 +45,9 @@ remoto ni la clave a la respuesta. Compose publica la API solo en `127.0.0.1:800
 
 El cotizador calcula con `Decimal` y catálogo sintético de Ferretería Demo XEON. Un reintento
 con la misma clave `tenant_id` + `request_id` devuelve el mismo borrador. `/v1/chat` no crea
-cotizaciones ni calcula precios.
+cotizaciones ni calcula precios. `GET /v1/stock` clasifica existencias observadas: una sede
+alternativa es traslado, no inventario local; la entrega conserva origen distinto. No reserva
+stock ni inventa cantidades.
 
 ## Plano de desarrollo agentico
 
@@ -54,6 +67,7 @@ agente de codigo convierta texto del LLM en una regla de negocio sin prueba y au
 | T01 | SKU y cantidad validos crean un DRAFT exacto, version 1 | `CreateQuoteDraft`, `POST/GET /v1/quotes`, CLI `quotes create/show` |
 | T02 | «El coso del aire» exige aclaracion; no inventa SKU | `ClarificationRequired.ambiguous_reference` |
 | T03 | Medidas sin unidades exigen aclaracion | `ClarificationRequired.missing_units` |
+| T04 | Producto en otra sede: origen y tipo local/traslado/entrega | `GetStockByBranches`, `GET /v1/stock`, CLI `stock show` |
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
 | T19 | Perfil mock: cero llamadas a Grok | `/health`, `/v1/chat` y suite con `LLM_PROVIDER=mock` |
