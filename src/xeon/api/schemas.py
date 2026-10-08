@@ -65,6 +65,24 @@ class QuoteDraftOut(BaseModel):
     replayed: bool = False
 
 
+class AvailabilityItemOut(BaseModel):
+    sku: str
+    branch_id: str | None
+    origin_id: str
+    origin_name: str
+    quantity: Decimal
+    kind: Literal["local", "transfer", "delivery"]
+    channel: Literal["on_hand", "delivery"]
+    source: str
+    observed_at: str
+
+
+class StockByBranchesOut(BaseModel):
+    sku: str
+    requested_branch_id: str
+    items: tuple[AvailabilityItemOut, ...]
+
+
 class QuoteOutcomeResponse(BaseModel):
     outcome: Literal[
         "draft_ready",

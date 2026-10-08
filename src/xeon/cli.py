@@ -8,7 +8,9 @@ import typer
 
 app = typer.Typer(help="Cliente minimo para operar la base de XEON.")
 quotes_app = typer.Typer(help="Revisar borradores sinteticos. No aprueba ni emite.")
+stock_app = typer.Typer(help="Consultar disponibilidad sintetica por sede. No reserva stock.")
 app.add_typer(quotes_app, name="quotes")
+app.add_typer(stock_app, name="stock")
 
 
 def _echo_json(payload: object) -> None:
@@ -68,6 +70,27 @@ def quotes_create(
     _echo_json(response.json())
     if response.status_code >= 400:
         raise typer.Exit(code=1)
+
+
+@stock_app.command("show")
+def stock_show(
+    sku: Annotated[str, typer.Option("--sku", help="SKU a consultar.")],
+    requested_branch_id: Annotated[
+        str,
+        typer.Option("--requested-branch-id", help="Sede desde la que se pregunta."),
+    ],
+    base_url: str = "http://127.0.0.1:8000",
+) -> None:
+    """Muestra origen y tipo de disponibilidad. No inventa existencias."""
+    response = httpx.get(
+        f"{base_url.rstrip('/')}/v1/stock",
+        params={"sku": sku, "requested_branch_id": requested_branch_id},
+        timeout=10,
+    )
+    if response.status_code >= 400:
+        _echo_json(response.json())
+        raise typer.Exit(code=1)
+    _echo_json(response.json())
 
 
 @quotes_app.command("show")

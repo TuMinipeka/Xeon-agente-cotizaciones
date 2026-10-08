@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Query, Response
 
 from xeon.adapters.llm.openai_compatible import LLMProviderError
 from xeon.api.schemas import (
+    AvailabilityItemOut,
     ChatRequest,
     ChatResponse,
     CreateQuoteDraftRequest,
@@ -15,9 +16,11 @@ from xeon.api.schemas import (
     QuoteDraftOut,
     QuoteLineOut,
     QuoteOutcomeResponse,
+    StockByBranchesOut,
 )
 from xeon.application.container import AppContainer, build_container
 from xeon.application.ports.catalog import ProductCatalog
+from xeon.application.ports.inventory import BranchInventory
 from xeon.application.ports.llm import LLMPort
 from xeon.application.ports.quotes import QuoteDraftRepository
 from xeon.application.quote_draft import (
@@ -30,7 +33,9 @@ from xeon.application.quote_draft import (
     QuoteDraftReady,
     QuoteNotFoundError,
 )
+from xeon.application.stock import GetStockByBranchesQuery, StockByBranches
 from xeon.config import Settings, get_settings
+from xeon.domain.inventory import InvalidInventoryError
 from xeon.domain.quote import EmptyQuoteError, InvalidQuantityError, Quote
 
 
@@ -64,16 +69,39 @@ def _quote_out(quote: Quote, *, replayed: bool = False) -> QuoteDraftOut:
     )
 
 
+def _stock_out(result: StockByBranches) -> StockByBranchesOut:
+    return StockByBranchesOut(
+        sku=result.sku,
+        requested_branch_id=result.requested_branch_id,
+        items=tuple(
+            AvailabilityItemOut(
+                sku=item.sku,
+                branch_id=item.branch_id,
+                origin_id=item.origin_id,
+                origin_name=item.origin_name,
+                quantity=item.quantity,
+                kind=item.kind.value,
+                channel=item.channel.value,
+                source=item.source,
+                observed_at=item.observed_at,
+            )
+            for item in result.items
+        ),
+    )
+
+
 def create_app(
     settings: Settings | None = None,
     llm: LLMPort | None = None,
     catalog: ProductCatalog | None = None,
+    inventory: BranchInventory | None = None,
     quotes: QuoteDraftRepository | None = None,
     container: AppContainer | None = None,
 ) -> FastAPI:
     runtime = container or build_container(
         settings or get_settings(),
         catalog=catalog,
+        inventory=inventory,
         quotes=quotes,
         llm=llm,
     )
@@ -166,6 +194,19 @@ def create_app(
                 message=result.message,
             )
         raise HTTPException(status_code=500, detail="Resultado comercial no reconocido.")
+
+    @application.get("/v1/stock", response_model=StockByBranchesOut)
+    async def get_stock(
+        sku: str = Query(min_length=1, max_length=80),
+        requested_branch_id: str = Query(min_length=1, max_length=80),
+    ) -> StockByBranchesOut:
+        try:
+            result = runtime.get_stock_by_branches.execute(
+                GetStockByBranchesQuery(sku=sku, requested_branch_id=requested_branch_id)
+            )
+        except InvalidInventoryError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return _stock_out(result)
 
     @application.get("/v1/quotes/{quote_id}", response_model=QuoteDraftOut)
     async def get_quote(

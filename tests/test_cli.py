@@ -80,3 +80,48 @@ def test_cli_creates_and_shows_draft(monkeypatch: pytest.MonkeyPatch) -> None:
     assert json.loads(shown.stdout)["status"] == "DRAFT"
     assert calls[0][0] == "POST"
     assert calls[1][0] == "GET"
+
+
+def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {
+        "sku": "TUB-PVC-20",
+        "requested_branch_id": "sede-centro",
+        "items": [
+            {
+                "sku": "TUB-PVC-20",
+                "branch_id": "sede-norte",
+                "origin_id": "sede-norte",
+                "origin_name": "Ferreteria Demo XEON Norte",
+                "quantity": "12",
+                "kind": "transfer",
+                "channel": "on_hand",
+                "source": "synthetic-ferreteria-demo-xeon",
+                "observed_at": "2026-10-08T12:00:00+00:00",
+            }
+        ],
+    }
+
+    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+        assert url.endswith("/v1/stock")
+        assert params == {"sku": "TUB-PVC-20", "requested_branch_id": "sede-centro"}
+        return _FakeResponse(200, payload)
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    shown = runner.invoke(
+        app,
+        [
+            "stock",
+            "show",
+            "--sku",
+            "TUB-PVC-20",
+            "--requested-branch-id",
+            "sede-centro",
+        ],
+    )
+
+    assert shown.exit_code == 0
+    body = json.loads(shown.stdout)
+    assert body["items"][0]["kind"] == "transfer"
+    assert body["items"][0]["origin_id"] == "sede-norte"
+    assert body["items"][0]["kind"] != "local"
