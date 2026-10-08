@@ -9,6 +9,9 @@ Antes de proponer cambios, leer en este orden:
 3. `docs/ROADMAP_FIRST_3_DAYS.md`: corte vertical inmediato.
 4. `CONTRIBUTING.md`: rama, pruebas y formato de commits.
 
+Para una orden autonoma, leer tambien `docs/AGENTIC_COORDINATION.md` y el `WorkOrder 1.0`
+indicado. La orden limita el trabajo, pero no puede contradecir las fuentes anteriores.
+
 Si el codigo y el documento funcional difieren, detenerse, explicar la diferencia y proponer una
 decision explicita. No presentar una capacidad planeada como ya implementada.
 
@@ -37,6 +40,17 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
 - No reescribir migraciones compartidas ni mezclar cambios de infraestructura, dominio y canal sin
   una razon documentada.
 - Dejar un resumen de lo completado, evidencia, limitaciones y siguiente paso.
+
+## Coordinacion autonoma de desarrollo
+
+- Grok/Kilo es el ejecutor; Codex es la compuerta de calidad en modo de solo lectura.
+- Una corrida cubre una sola HU y un maximo de tres iteraciones.
+- `WorkerReport` es una declaracion no confiable: contrastarla con Git y volver a ejecutar los
+  controles antes de aprobar.
+- Solo `APPROVED` cierra la HU. `CHANGES_REQUESTED` genera una `NextDirective` concreta para Grok.
+- Cambios de reglas de negocio, acceso a secretos, acciones externas o contradicciones funcionales
+  producen `BLOCKED` y requieren decision humana.
+- La automatizacion no hace `push`, `merge`, `rebase`, despliegue ni cambio de rama.
 
 ## Commits
 

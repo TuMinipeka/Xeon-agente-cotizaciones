@@ -22,6 +22,10 @@ ignorado por Git; no contiene la clave.
 6. Para construir: `Implementa solamente la tarea del Dia 2 sobre dominio y pruebas. Pide permiso
    antes de editar o ejecutar comandos y termina con evidencia`.
 
+Ese flujo es interactivo. Para ejecutar una HU de forma autonoma y acotada, usa el agente
+`xeon-worker` mediante `xeon-coordinate`; no cambies manualmente `xeon-builder` a permisos sin
+restricciones. La guia completa esta en [`AGENTIC_COORDINATION.md`](AGENTIC_COORDINATION.md).
+
 Kilo resuelve `{file:./secrets/reto_key.txt}` dentro del proyecto. El agente tiene lectura y
 búsqueda permitidas, pero edición y terminal requieren confirmación humana.
 
@@ -53,4 +57,8 @@ La respuesta `provider=mock` confirma que no hubo llamada externa. Una respuesta
   y cubre el comportamiento con pruebas.`
 - `Revisa el diff contra el documento funcional. Separa lo implementado de lo planeado y enumera
   riesgos antes de crear un commit.`
+
+En el ciclo autonomo estos prompts los genera el coordinador. Grok entrega `WorkerReport 1.0`,
+Codex valida evidencia real y emite `QualityReview 1.0`; solo una correccion genera una
+`NextDirective 1.0` para la siguiente iteracion.
 

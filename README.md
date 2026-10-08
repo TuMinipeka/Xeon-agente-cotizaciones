@@ -57,12 +57,33 @@ El adaptador usa un contrato OpenAI-compatible con `grok-4.6`. La clave nunca se
 activar una prueba real, rota cualquier clave expuesta y sigue
 [`docs/GROK_DEVELOPMENT.md`](docs/GROK_DEVELOPMENT.md).
 
+## Coordinacion autonoma de desarrollo
+
+El comando `xeon-coordinate` separa a Grok como ejecutor y a Codex como coordinador de calidad.
+Cada ciclo procesa una HU, verifica el diff y repite `ruff`, `mypy` y `pytest`; no hace push ni
+fusiona ramas.
+
+```powershell
+# Crea la orden local de una HU (agrega todos sus criterios y rutas permitidas).
+uv run xeon-coordinate new --story-id HU-001 --title "TituloDeLaHistoria" `
+  --objective "Resultado observable esperado para esta historia." `
+  --criterion "AC-1=Comportamiento verificable de al menos cinco caracteres." `
+  --allowed-path "src/xeon/**" --allowed-path "tests/**"
+
+# Ensayo sin consumo; agrega --execute solo tras revisar la orden.
+uv run xeon-coordinate run .agentic/work-orders/HU-001-run.json
+```
+
+La configuracion, los limites y los artefactos del ciclo se explican en
+[`docs/AGENTIC_COORDINATION.md`](docs/AGENTIC_COORDINATION.md).
+
 ## Documentación de continuidad
 
 - [`AGENTS.md`](AGENTS.md): instrucciones estables para Grok u otros agentes de código.
 - [`GLOSSARY.md`](GLOSSARY.md): lenguaje comercial del cotizador.
 - [`docs/ROADMAP_FIRST_3_DAYS.md`](docs/ROADMAP_FIRST_3_DAYS.md): corte ejecutable de tres días.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): límites implementados, trazabilidad y pendientes.
+- [`docs/AGENTIC_COORDINATION.md`](docs/AGENTIC_COORDINATION.md): protocolo Codex–Grok por HU.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): rama, pruebas y formato de commits.
 
 ## Estado
