@@ -1,0 +1,32 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "model": "openai-compatible/grok-4.6",
+  "provider": {
+    "openai-compatible": {
+      "options": {
+        "apiKey": "{file:./secrets/reto_key.txt}",
+        "baseURL": "https://api.reto.pltk.mx/v1",
+        "timeout": 300000,
+        "chunkTimeout": 30000
+      },
+      "models": {
+        "grok-4.6": {
+          "name": "Grok 4.6 (Reto)",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": true,
+          "attachment": true,
+          "modalities": {
+            "input": ["text", "image"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 500000,
+            "output": 32000
+          }
+        }
+      }
+    }
+  }
+}
+
