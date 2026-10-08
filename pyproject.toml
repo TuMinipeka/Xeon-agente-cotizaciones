@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 xeon = "xeon.cli:app"
+xeon-coordinate = "xeon.devcoord.cli:main"
 
 [dependency-groups]
 dev = [
