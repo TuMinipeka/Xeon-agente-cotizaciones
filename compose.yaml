@@ -1,0 +1,35 @@
+name: xeon
+
+services:
+  api:
+    profiles: ["core"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATA_MODE: ${DATA_MODE:-synthetic}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-America/Bogota}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_MODEL: ${LLM_MODEL:-grok-4.6}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.reto.pltk.mx/v1}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-2048}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-6}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
