@@ -75,11 +75,14 @@ $created = uv run xeon quotes create --tenant-id demo --request-id req-1 --line 
 $quoteId = $created.quote.id
 uv run xeon quotes show $quoteId --tenant-id demo
 uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte
+uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --requested-quantity 50
 ```
 
 `$quoteId` sale del campo `quote.id` que devuelve `quotes create`. `quotes create` crea o reutiliza
 un borrador `DRAFT` version 1; `quotes show` solo lo consulta. Ninguno aprueba ni emite.
 `stock show` consulta disponibilidad sintetica por sede; no reserva inventario.
+Con `--requested-quantity` informa cumplimiento local y alternativas observadas; no suma
+fuentes como promesa ni convierte un snapshot ausente en agotado.
 
 Equivalente HTTP del arranque mock:
 
@@ -159,7 +162,8 @@ uv run pytest
 
 Implementado: chat mock, cotizador determinista, API/CLI de borrador sintético, idempotencia
 `tenant_id` + `request_id`, aclaración explícita, rechazo de descuento sin política, consulta de
-stock sintético por sede (`local` / traslado / entrega) y perfiles `mock` / `grok`.
+stock sintético por sede (`local` / traslado / entrega), explicación de disponibilidad
+parcial (`sufficient` / `partial` / `unknown`) y perfiles `mock` / `grok`.
 
 Pendiente: PostgreSQL, LangGraph, Telegram, Celery, PDF, aprobación y política de descuentos.
 No atribuir datos sintéticos a una empresa real.

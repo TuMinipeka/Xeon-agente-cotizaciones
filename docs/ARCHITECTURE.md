@@ -36,7 +36,8 @@ GET /v1/stock  CLI stock show
       +--> BranchInventory (memoria, snapshots sinteticos)
       |
       v
- domain: StockSnapshot, AvailabilityKind(local|transfer|delivery)
+  domain: StockSnapshot, AvailabilityKind(local|transfer|delivery),
+          FulfillmentStatus(sufficient|partial|unknown)
 ```
 
 `MockLLM` es el perfil predeterminado y garantiza cero llamadas externas. El perfil `grok`
@@ -46,8 +47,11 @@ remoto ni la clave a la respuesta. Compose publica la API solo en `127.0.0.1:800
 El cotizador calcula con `Decimal` y catálogo sintético de Ferretería Demo XEON. Un reintento
 con la misma clave `tenant_id` + `request_id` devuelve el mismo borrador. `/v1/chat` no crea
 cotizaciones ni calcula precios. `GET /v1/stock` clasifica existencias observadas: una sede
-alternativa es traslado, no inventario local; la entrega conserva origen distinto. No reserva
-stock ni inventa cantidades.
+alternativa es traslado, no inventario local; la entrega conserva origen distinto. Con
+`requested_quantity` explica cumplimiento local (`sufficient` / `partial` / `unknown`) y
+faltante exacto; las alternativas son snapshots no locales ya observados, no una reserva ni
+una suma prometida. Sin snapshots locales el estado permanece desconocido, no agotado. No
+reserva stock ni inventa cantidades.
 
 ## Plano de desarrollo agentico
 
@@ -68,6 +72,7 @@ agente de codigo convierta texto del LLM en una regla de negocio sin prueba y au
 | T02 | «El coso del aire» exige aclaracion; no inventa SKU | `ClarificationRequired.ambiguous_reference` |
 | T03 | Medidas sin unidades exigen aclaracion | `ClarificationRequired.missing_units` |
 | T04 | Producto en otra sede: origen y tipo local/traslado/entrega | `GetStockByBranches`, `GET /v1/stock`, CLI `stock show` |
+| T05 | Pedido parcialmente cubierto: faltante local y alternativas observadas | `explain_local_fulfillment`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --requested-quantity` |
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
 | T19 | Perfil mock: cero llamadas a Grok | `/health`, `/v1/chat` y suite con `LLM_PROVIDER=mock` |
