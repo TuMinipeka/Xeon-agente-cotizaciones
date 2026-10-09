@@ -22,6 +22,12 @@ class AvailabilityKind(StrEnum):
     DELIVERY = "delivery"
 
 
+class FulfillmentStatus(StrEnum):
+    SUFFICIENT = "sufficient"
+    PARTIAL = "partial"
+    UNKNOWN = "unknown"
+
+
 def _require_text(value: str, *, field: str) -> str:
     text = value.strip()
     if not text:
@@ -75,3 +81,43 @@ def classify_availability(snapshot: StockSnapshot, *, requested_branch_id: str) 
     if snapshot.branch_id == requested:
         return AvailabilityKind.LOCAL
     return AvailabilityKind.TRANSFER
+
+
+def as_positive_requested_quantity(value: Decimal | int | str) -> Decimal:
+    quantity = parse_decimal(value, error=InvalidInventoryError)
+    if quantity <= 0:
+        raise InvalidInventoryError("La cantidad solicitada debe ser mayor que cero.")
+    return quantity
+
+
+@dataclass(frozen=True, slots=True)
+class LocalFulfillment:
+    status: FulfillmentStatus
+    local_available: Decimal | None
+    shortfall: Decimal | None
+
+
+def explain_local_fulfillment(
+    *,
+    local_quantity: Decimal | None,
+    requested_quantity: Decimal | int | str,
+) -> LocalFulfillment:
+    requested = as_positive_requested_quantity(requested_quantity)
+    if local_quantity is None:
+        return LocalFulfillment(
+            status=FulfillmentStatus.UNKNOWN,
+            local_available=None,
+            shortfall=None,
+        )
+    available = as_non_negative_quantity(local_quantity)
+    if available >= requested:
+        return LocalFulfillment(
+            status=FulfillmentStatus.SUFFICIENT,
+            local_available=available,
+            shortfall=Decimal("0"),
+        )
+    return LocalFulfillment(
+        status=FulfillmentStatus.PARTIAL,
+        local_available=available,
+        shortfall=requested - available,
+    )

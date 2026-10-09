@@ -4,10 +4,12 @@ import pytest
 
 from xeon.domain.inventory import (
     AvailabilityKind,
+    FulfillmentStatus,
     InvalidInventoryError,
     StockChannel,
     StockSnapshot,
     classify_availability,
+    explain_local_fulfillment,
 )
 
 
@@ -59,6 +61,44 @@ def test_delivery_snapshot_is_not_local_stock() -> None:
     assert kind is AvailabilityKind.DELIVERY
     assert kind is not AvailabilityKind.LOCAL
     assert snapshot.origin_id == "origen-entrega-sintetica"
+
+
+def test_local_shortfall_is_exact_when_requested_exceeds_on_hand() -> None:
+    result = explain_local_fulfillment(local_quantity=Decimal("20"), requested_quantity="50")
+
+    assert result.status is FulfillmentStatus.PARTIAL
+    assert result.local_available == Decimal("20")
+    assert result.shortfall == Decimal("30")
+
+
+def test_local_stock_covering_request_is_sufficient() -> None:
+    result = explain_local_fulfillment(local_quantity=Decimal("80"), requested_quantity="50")
+
+    assert result.status is FulfillmentStatus.SUFFICIENT
+    assert result.local_available == Decimal("80")
+    assert result.shortfall == Decimal("0")
+
+
+def test_missing_local_snapshot_stays_unknown_not_depleted() -> None:
+    result = explain_local_fulfillment(local_quantity=None, requested_quantity="10")
+
+    assert result.status is FulfillmentStatus.UNKNOWN
+    assert result.status is not FulfillmentStatus.PARTIAL
+    assert result.local_available is None
+    assert result.shortfall is None
+
+
+def test_observed_zero_is_partial_not_unknown() -> None:
+    result = explain_local_fulfillment(local_quantity=Decimal("0"), requested_quantity="10")
+
+    assert result.status is FulfillmentStatus.PARTIAL
+    assert result.local_available == Decimal("0")
+    assert result.shortfall == Decimal("10")
+
+
+def test_requested_quantity_must_be_positive() -> None:
+    with pytest.raises(InvalidInventoryError, match="mayor que cero"):
+        explain_local_fulfillment(local_quantity=Decimal("8"), requested_quantity="0")
 
 
 def test_on_hand_snapshot_requires_branch() -> None:

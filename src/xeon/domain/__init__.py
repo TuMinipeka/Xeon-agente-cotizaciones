@@ -2,10 +2,13 @@
 
 from xeon.domain.inventory import (
     AvailabilityKind,
+    FulfillmentStatus,
     InvalidInventoryError,
+    LocalFulfillment,
     StockChannel,
     StockSnapshot,
     classify_availability,
+    explain_local_fulfillment,
 )
 from xeon.domain.money import CurrencyMismatchError, InvalidMoneyError, Money
 from xeon.domain.product import Product, ProductId
@@ -27,11 +30,13 @@ __all__ = [
     "AvailabilityKind",
     "CurrencyMismatchError",
     "EmptyQuoteError",
+    "FulfillmentStatus",
     "InvalidInventoryError",
     "InvalidMoneyError",
     "InvalidQuantityError",
     "InvalidQuoteError",
     "InvalidQuoteLineError",
+    "LocalFulfillment",
     "Money",
     "Product",
     "ProductId",
@@ -43,4 +48,5 @@ __all__ = [
     "build_draft_quote",
     "build_quote_line",
     "classify_availability",
+    "explain_local_fulfillment",
 ]
