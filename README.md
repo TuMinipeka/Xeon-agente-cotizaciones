@@ -55,6 +55,12 @@ Antes de una prueba real, rota cualquier clave expuesta y sigue
 docker compose --profile core -f compose.yaml -f compose.grok.yaml up --build
 ```
 
+Para detener el stack Grok usa los mismos archivos:
+
+```powershell
+docker compose --profile core -f compose.yaml -f compose.grok.yaml down
+```
+
 `compose.grok.yaml` inyecta `LLM_PROVIDER=grok` y monta el secreto como archivo; no copies la clave
 al entorno ni al compose.
 
@@ -65,13 +71,15 @@ El CLI habla con la API en `http://127.0.0.1:8000`. Arranca mock o Grok antes de
 ```powershell
 uv run xeon health
 uv run xeon chat "hola"
-uv run xeon quotes create --tenant-id demo --request-id req-1 --line CEM-50:50 --line ALA-14:300
-uv run xeon quotes show <quote-id> --tenant-id demo
+$created = uv run xeon quotes create --tenant-id demo --request-id req-1 --line CEM-50:50 --line ALA-14:300 | ConvertFrom-Json
+$quoteId = $created.quote.id
+uv run xeon quotes show $quoteId --tenant-id demo
 uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte
 ```
 
-`quotes create` / `quotes show` crean o reutilizan un borrador `DRAFT` version 1. No aprueban ni
-emiten. `stock show` consulta disponibilidad sintetica por sede; no reserva inventario.
+`$quoteId` sale del campo `quote.id` que devuelve `quotes create`. `quotes create` crea o reutiliza
+un borrador `DRAFT` version 1; `quotes show` solo lo consulta. Ninguno aprueba ni emite.
+`stock show` consulta disponibilidad sintetica por sede; no reserva inventario.
 
 Equivalente HTTP del arranque mock:
 
@@ -122,7 +130,7 @@ La configuracion, los limites y los artefactos del ciclo se explican en
 
 ```powershell
 uv run ruff check .
-uv run ruff format .
+uv run ruff format --check .
 uv run mypy src
 uv run pytest
 ```
