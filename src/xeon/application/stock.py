@@ -6,11 +6,13 @@ from decimal import Decimal
 from xeon.application.ports.inventory import BranchInventory
 from xeon.domain.inventory import (
     AvailabilityKind,
+    Freshness,
     FulfillmentStatus,
     InvalidInventoryError,
     StockChannel,
     StockSnapshot,
     as_positive_requested_quantity,
+    assess_freshness,
     classify_availability,
     explain_local_fulfillment,
 )
@@ -20,6 +22,7 @@ from xeon.domain.inventory import (
 class GetStockByBranchesQuery:
     sku: str
     requested_branch_id: str
+    evaluated_at: str
     requested_quantity: Decimal | int | str | None = None
 
 
@@ -34,12 +37,17 @@ class AvailabilityItem:
     channel: StockChannel
     source: str
     observed_at: str
+    valid_until: str | None
+    freshness: Freshness
+    is_firm: bool
+    age: str
 
 
 @dataclass(frozen=True, slots=True)
 class StockByBranches:
     sku: str
     requested_branch_id: str
+    evaluated_at: str
     items: tuple[AvailabilityItem, ...]
     requested_quantity: Decimal | None = None
     fulfillment_status: FulfillmentStatus | None = None
@@ -48,7 +56,10 @@ class StockByBranches:
     alternatives: tuple[AvailabilityItem, ...] = ()
 
 
-def _item_from_snapshot(snapshot: StockSnapshot, *, requested_branch_id: str) -> AvailabilityItem:
+def _item_from_snapshot(
+    snapshot: StockSnapshot, *, requested_branch_id: str, evaluated_at: str
+) -> AvailabilityItem:
+    assessment = assess_freshness(snapshot, evaluated_at=evaluated_at)
     return AvailabilityItem(
         sku=snapshot.sku,
         branch_id=snapshot.branch_id,
@@ -59,6 +70,10 @@ def _item_from_snapshot(snapshot: StockSnapshot, *, requested_branch_id: str) ->
         channel=snapshot.channel,
         source=snapshot.source,
         observed_at=snapshot.observed_at,
+        valid_until=snapshot.valid_until,
+        freshness=assessment.freshness,
+        is_firm=assessment.is_firm,
+        age=assessment.age,
     )
 
 
@@ -69,26 +84,40 @@ class GetStockByBranches:
     def execute(self, query: GetStockByBranchesQuery) -> StockByBranches:
         sku = query.sku.strip().upper()
         requested_branch_id = query.requested_branch_id.strip()
+        evaluated_at = query.evaluated_at.strip()
         if not sku:
             raise InvalidInventoryError("sku es obligatorio.")
         if not requested_branch_id:
             raise InvalidInventoryError("requested_branch_id es obligatorio.")
+        if not evaluated_at:
+            raise InvalidInventoryError("evaluated_at es obligatorio.")
         items = tuple(
-            _item_from_snapshot(snapshot, requested_branch_id=requested_branch_id)
+            _item_from_snapshot(
+                snapshot,
+                requested_branch_id=requested_branch_id,
+                evaluated_at=evaluated_at,
+            )
             for snapshot in self._inventory.list_snapshots(sku)
         )
         if query.requested_quantity is None:
-            return StockByBranches(sku=sku, requested_branch_id=requested_branch_id, items=items)
+            return StockByBranches(
+                sku=sku,
+                requested_branch_id=requested_branch_id,
+                evaluated_at=evaluated_at,
+                items=items,
+            )
         requested_quantity = as_positive_requested_quantity(query.requested_quantity)
         local = next((item for item in items if item.kind is AvailabilityKind.LOCAL), None)
         fulfillment = explain_local_fulfillment(
             local_quantity=None if local is None else local.quantity,
             requested_quantity=requested_quantity,
+            freshness=None if local is None else local.freshness,
         )
         alternatives = tuple(item for item in items if item.kind is not AvailabilityKind.LOCAL)
         return StockByBranches(
             sku=sku,
             requested_branch_id=requested_branch_id,
+            evaluated_at=evaluated_at,
             items=items,
             requested_quantity=requested_quantity,
             fulfillment_status=fulfillment.status,
