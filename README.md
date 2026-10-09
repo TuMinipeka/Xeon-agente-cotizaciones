@@ -11,6 +11,137 @@ ejecución reproducible en Docker.
 - [`uv`](https://docs.astral.sh/uv/)
 - Docker (Compose v2) para el arranque empaquetado
 
+## Usar XEON paso a paso
+
+Esta es la ruta recomendada para probar el agente comercial sin consumir la API de Grok. Todos
+los comandos se ejecutan en PowerShell desde la raiz del repositorio:
+`C:\Users\danie\Documents\xeon`.
+
+### 1. Abrir el proyecto y comprobar la rama
+
+```powershell
+cd C:\Users\danie\Documents\xeon
+git branch --show-current
+```
+
+La rama de desarrollo debe ser `developer/daniel`; no ejecutes trabajo de desarrollo directamente
+en `main`.
+
+### 2. Preparar Python y las dependencias
+
+```powershell
+uv python install 3.14.8
+uv sync --locked
+```
+
+`uv` crea y administra el entorno del proyecto. No es necesario activar manualmente `.venv` para
+usar los comandos que empiezan por `uv run`.
+
+### 3. Iniciar la API en modo seguro `mock`
+
+En la primera terminal:
+
+```powershell
+$env:LLM_PROVIDER = "mock"
+uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+Mantén esa terminal abierta. El modo `mock` no llama a Grok, no consume créditos y permite probar
+el recorrido implementado con datos sintéticos.
+
+### 4. Comprobar que XEON está disponible
+
+Abre una segunda terminal en la misma carpeta y ejecuta:
+
+```powershell
+uv run xeon health
+```
+
+La respuesta debe indicar que el servicio está saludable y que el proveedor activo es `mock`.
+También puedes abrir `http://127.0.0.1:8000/docs` para usar la interfaz OpenAPI.
+
+### 5. Conversar con el agente
+
+```powershell
+uv run xeon chat "hola"
+uv run xeon chat "necesito 50 bultos de cemento"
+```
+
+Actualmente `/v1/chat` demuestra la conexión con el proveedor seleccionado. El chat todavía no
+crea por sí solo una cotización ni ejecuta las herramientas de catálogo y stock; esas operaciones
+se prueban con los comandos siguientes.
+
+### 6. Crear y consultar un borrador de cotización
+
+```powershell
+$created = uv run xeon quotes create `
+  --tenant-id demo `
+  --request-id req-1 `
+  --line CEM-50:50 `
+  --line ALA-14:300 | ConvertFrom-Json
+
+$quoteId = $created.quote.id
+uv run xeon quotes show $quoteId --tenant-id demo
+```
+
+El resultado es un borrador `DRAFT`, no una cotización aprobada ni emitida. Repetir la misma
+combinación de `tenant-id` y `request-id` reutiliza el borrador en lugar de duplicarlo.
+
+### 7. Consultar inventario y su vigencia
+
+```powershell
+uv run xeon stock show `
+  --sku CEM-50 `
+  --requested-branch-id sede-norte `
+  --requested-quantity 50 `
+  --evaluated-at 2026-10-08T15:00:00+00:00
+```
+
+El instante del ejemplo pertenece al conjunto sintético de demostración. Revisa especialmente:
+
+- `freshness`: `fresh`, `stale` o `unknown`.
+- `is_firm`: indica si el snapshot puede considerarse disponibilidad firme.
+- `local_available` y `shortfall`: solo se afirman cuando la evidencia local está vigente.
+- `origin_id` y `kind`: distinguen inventario local, traslado y entrega.
+
+La consulta no reserva inventario ni ejecuta traslados.
+
+### 8. Ejecutar los controles antes de desarrollar
+
+```powershell
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest
+```
+
+### 9. Detener XEON
+
+Vuelve a la primera terminal y presiona `Ctrl+C`. Las implementaciones actuales de catálogo,
+cotizaciones e inventario usan memoria; al detener el proceso se pierde ese estado de ejecución.
+
+### 10. Activar Grok solo para una prueba deliberada
+
+Primero guarda una clave vigente únicamente en `secrets/reto_key.txt`. No la pegues en el README,
+en el código, en `.env`, en comandos compartidos ni en commits. Después inicia una sesión nueva:
+
+```powershell
+$env:LLM_PROVIDER = "grok"
+$env:RETO_KEY_FILE = "secrets/reto_key.txt"
+uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+En otra terminal:
+
+```powershell
+uv run xeon health
+uv run xeon chat "hola"
+```
+
+Confirma que `health` informa `provider=grok` antes de la conversación. Esta prueba puede consumir
+créditos. Grok interpreta el mensaje, pero el backend sigue siendo responsable de precios,
+descuentos, impuestos, inventario y estados.
+
 ## Arranque Docker con mock (sin consumo de Grok)
 
 El perfil predeterminado usa `MockLLM`: no llama a un servicio pagado. El chat no calcula precios.
