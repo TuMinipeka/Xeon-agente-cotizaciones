@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query, Response
@@ -33,7 +35,7 @@ from xeon.application.quote_draft import (
     QuoteDraftReady,
     QuoteNotFoundError,
 )
-from xeon.application.stock import GetStockByBranchesQuery, StockByBranches
+from xeon.application.stock import AvailabilityItem, GetStockByBranchesQuery, StockByBranches
 from xeon.config import Settings, get_settings
 from xeon.domain.inventory import InvalidInventoryError
 from xeon.domain.quote import EmptyQuoteError, InvalidQuantityError, Quote
@@ -69,24 +71,32 @@ def _quote_out(quote: Quote, *, replayed: bool = False) -> QuoteDraftOut:
     )
 
 
+def _availability_item_out(item: AvailabilityItem) -> AvailabilityItemOut:
+    return AvailabilityItemOut(
+        sku=item.sku,
+        branch_id=item.branch_id,
+        origin_id=item.origin_id,
+        origin_name=item.origin_name,
+        quantity=item.quantity,
+        kind=item.kind.value,
+        channel=item.channel.value,
+        source=item.source,
+        observed_at=item.observed_at,
+    )
+
+
 def _stock_out(result: StockByBranches) -> StockByBranchesOut:
     return StockByBranchesOut(
         sku=result.sku,
         requested_branch_id=result.requested_branch_id,
-        items=tuple(
-            AvailabilityItemOut(
-                sku=item.sku,
-                branch_id=item.branch_id,
-                origin_id=item.origin_id,
-                origin_name=item.origin_name,
-                quantity=item.quantity,
-                kind=item.kind.value,
-                channel=item.channel.value,
-                source=item.source,
-                observed_at=item.observed_at,
-            )
-            for item in result.items
+        items=tuple(_availability_item_out(item) for item in result.items),
+        requested_quantity=result.requested_quantity,
+        fulfillment_status=(
+            None if result.fulfillment_status is None else result.fulfillment_status.value
         ),
+        local_available=result.local_available,
+        shortfall=result.shortfall,
+        alternatives=tuple(_availability_item_out(item) for item in result.alternatives),
     )
 
 
@@ -199,10 +209,15 @@ def create_app(
     async def get_stock(
         sku: str = Query(min_length=1, max_length=80),
         requested_branch_id: str = Query(min_length=1, max_length=80),
+        requested_quantity: Annotated[Decimal | None, Query(gt=0)] = None,
     ) -> StockByBranchesOut:
         try:
             result = runtime.get_stock_by_branches.execute(
-                GetStockByBranchesQuery(sku=sku, requested_branch_id=requested_branch_id)
+                GetStockByBranchesQuery(
+                    sku=sku,
+                    requested_branch_id=requested_branch_id,
+                    requested_quantity=requested_quantity,
+                )
             )
         except InvalidInventoryError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

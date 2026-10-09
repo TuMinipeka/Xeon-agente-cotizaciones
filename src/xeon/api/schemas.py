@@ -81,6 +81,11 @@ class StockByBranchesOut(BaseModel):
     sku: str
     requested_branch_id: str
     items: tuple[AvailabilityItemOut, ...]
+    requested_quantity: Decimal | None = None
+    fulfillment_status: Literal["sufficient", "partial", "unknown"] | None = None
+    local_available: Decimal | None = None
+    shortfall: Decimal | None = None
+    alternatives: tuple[AvailabilityItemOut, ...] = ()
 
 
 class QuoteOutcomeResponse(BaseModel):

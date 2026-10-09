@@ -103,7 +103,10 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
         assert url.endswith("/v1/stock")
-        assert params == {"sku": "TUB-PVC-20", "requested_branch_id": "sede-centro"}
+        assert params == {
+            "sku": "TUB-PVC-20",
+            "requested_branch_id": "sede-centro",
+        }
         return _FakeResponse(200, payload)
 
     monkeypatch.setattr(httpx, "get", fake_get)
@@ -125,3 +128,74 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["items"][0]["kind"] == "transfer"
     assert body["items"][0]["origin_id"] == "sede-norte"
     assert body["items"][0]["kind"] != "local"
+
+
+def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {
+        "sku": "CEM-50",
+        "requested_branch_id": "sede-norte",
+        "requested_quantity": "50",
+        "fulfillment_status": "partial",
+        "local_available": "20",
+        "shortfall": "30",
+        "items": [
+            {
+                "sku": "CEM-50",
+                "branch_id": "sede-norte",
+                "origin_id": "sede-norte",
+                "origin_name": "Ferreteria Demo XEON Norte",
+                "quantity": "20",
+                "kind": "local",
+                "channel": "on_hand",
+                "source": "synthetic-ferreteria-demo-xeon",
+                "observed_at": "2026-10-08T12:00:00+00:00",
+            }
+        ],
+        "alternatives": [
+            {
+                "sku": "CEM-50",
+                "branch_id": "sede-centro",
+                "origin_id": "sede-centro",
+                "origin_name": "Ferreteria Demo XEON Centro",
+                "quantity": "80",
+                "kind": "transfer",
+                "channel": "on_hand",
+                "source": "synthetic-ferreteria-demo-xeon",
+                "observed_at": "2026-10-08T12:00:00+00:00",
+            }
+        ],
+    }
+
+    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+        assert url.endswith("/v1/stock")
+        assert params == {
+            "sku": "CEM-50",
+            "requested_branch_id": "sede-norte",
+            "requested_quantity": "50",
+        }
+        return _FakeResponse(200, payload)
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    shown = runner.invoke(
+        app,
+        [
+            "stock",
+            "show",
+            "--sku",
+            "CEM-50",
+            "--requested-branch-id",
+            "sede-norte",
+            "--requested-quantity",
+            "50",
+        ],
+    )
+
+    assert shown.exit_code == 0
+    body = json.loads(shown.stdout)
+    assert body["requested_quantity"] == "50"
+    assert body["fulfillment_status"] == "partial"
+    assert body["local_available"] == "20"
+    assert body["shortfall"] == "30"
+    assert body["alternatives"][0]["kind"] == "transfer"
+    assert body["alternatives"][0]["origin_id"] == "sede-centro"

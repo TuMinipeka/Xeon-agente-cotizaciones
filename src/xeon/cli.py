@@ -79,12 +79,22 @@ def stock_show(
         str,
         typer.Option("--requested-branch-id", help="Sede desde la que se pregunta."),
     ],
+    requested_quantity: Annotated[
+        str | None,
+        typer.Option(
+            "--requested-quantity",
+            help="Cantidad solicitada. Explica faltante local; no reserva stock.",
+        ),
+    ] = None,
     base_url: str = "http://127.0.0.1:8000",
 ) -> None:
-    """Muestra origen y tipo de disponibilidad. No inventa existencias."""
+    """Muestra origen, tipo y, si hay cantidad, el faltante local. No inventa existencias."""
+    params: dict[str, str] = {"sku": sku, "requested_branch_id": requested_branch_id}
+    if requested_quantity is not None:
+        params["requested_quantity"] = requested_quantity
     response = httpx.get(
         f"{base_url.rstrip('/')}/v1/stock",
-        params={"sku": sku, "requested_branch_id": requested_branch_id},
+        params=params,
         timeout=10,
     )
     if response.status_code >= 400:
