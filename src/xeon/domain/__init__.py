@@ -2,12 +2,16 @@
 
 from xeon.domain.inventory import (
     AvailabilityKind,
+    Freshness,
+    FreshnessAssessment,
     FulfillmentStatus,
     InvalidInventoryError,
     LocalFulfillment,
     StockChannel,
     StockSnapshot,
+    assess_freshness,
     classify_availability,
+    classify_freshness,
     explain_local_fulfillment,
 )
 from xeon.domain.money import CurrencyMismatchError, InvalidMoneyError, Money
@@ -30,6 +34,8 @@ __all__ = [
     "AvailabilityKind",
     "CurrencyMismatchError",
     "EmptyQuoteError",
+    "Freshness",
+    "FreshnessAssessment",
     "FulfillmentStatus",
     "InvalidInventoryError",
     "InvalidMoneyError",
@@ -45,8 +51,10 @@ __all__ = [
     "QuoteStatus",
     "StockChannel",
     "StockSnapshot",
+    "assess_freshness",
     "build_draft_quote",
     "build_quote_line",
     "classify_availability",
+    "classify_freshness",
     "explain_local_fulfillment",
 ]

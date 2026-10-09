@@ -4,16 +4,24 @@ import pytest
 
 from xeon.domain.inventory import (
     AvailabilityKind,
+    Freshness,
     FulfillmentStatus,
     InvalidInventoryError,
     StockChannel,
     StockSnapshot,
+    assess_freshness,
     classify_availability,
+    classify_freshness,
     explain_local_fulfillment,
 )
 
+OBSERVED_AT = "2026-10-08T12:00:00+00:00"
+VALID_UNTIL = "2026-10-08T18:00:00+00:00"
+EVALUATED_WHILE_VALID = "2026-10-08T15:00:00+00:00"
+EVALUATED_AFTER_EXPIRY = "2026-10-09T12:00:00+00:00"
 
-def _on_hand(*, branch_id: str, quantity: str) -> StockSnapshot:
+
+def _on_hand(*, branch_id: str, quantity: str, valid_until: str | None = None) -> StockSnapshot:
     return StockSnapshot(
         sku="TUB-PVC-20",
         branch_id=branch_id,
@@ -22,7 +30,8 @@ def _on_hand(*, branch_id: str, quantity: str) -> StockSnapshot:
         quantity=Decimal(quantity),
         channel=StockChannel.ON_HAND,
         source="synthetic-ferreteria-demo-xeon",
-        observed_at="2026-10-08T12:00:00+00:00",
+        observed_at=OBSERVED_AT,
+        valid_until=valid_until,
     )
 
 
@@ -113,3 +122,86 @@ def test_on_hand_snapshot_requires_branch() -> None:
             source="synthetic-ferreteria-demo-xeon",
             observed_at="2026-10-08T12:00:00+00:00",
         )
+
+
+def test_snapshot_with_source_validity_is_fresh_at_injected_instant() -> None:
+    snapshot = _on_hand(branch_id="sede-centro", quantity="50", valid_until=VALID_UNTIL)
+
+    freshness = classify_freshness(snapshot, evaluated_at=EVALUATED_WHILE_VALID)
+    assessment = assess_freshness(snapshot, evaluated_at=EVALUATED_WHILE_VALID)
+
+    assert freshness is Freshness.FRESH
+    assert assessment.freshness is Freshness.FRESH
+    assert assessment.is_firm is True
+    assert assessment.age == "PT3H"
+    assert snapshot.valid_until == VALID_UNTIL
+    assert snapshot.observed_at == OBSERVED_AT
+    assert snapshot.origin_id == "sede-centro"
+    assert snapshot.quantity == Decimal("50")
+    assert snapshot.source == "synthetic-ferreteria-demo-xeon"
+
+
+def test_expired_snapshot_is_stale_keeps_evidence_and_is_not_firm() -> None:
+    snapshot = _on_hand(branch_id="sede-norte", quantity="20", valid_until=VALID_UNTIL)
+
+    freshness = classify_freshness(snapshot, evaluated_at=EVALUATED_AFTER_EXPIRY)
+    assessment = assess_freshness(snapshot, evaluated_at=EVALUATED_AFTER_EXPIRY)
+
+    assert freshness is Freshness.STALE
+    assert assessment.freshness is Freshness.STALE
+    assert assessment.is_firm is False
+    assert assessment.age == "PT24H"
+    assert snapshot.origin_id == "sede-norte"
+    assert snapshot.origin_name == "Ferreteria Demo XEON Norte"
+    assert snapshot.quantity == Decimal("20")
+    assert snapshot.source == "synthetic-ferreteria-demo-xeon"
+    assert snapshot.observed_at == OBSERVED_AT
+    assert snapshot.valid_until == VALID_UNTIL
+
+
+def test_snapshot_without_valid_until_is_unknown_not_firm() -> None:
+    snapshot = _on_hand(branch_id="sede-centro", quantity="50")
+
+    freshness = classify_freshness(snapshot, evaluated_at=EVALUATED_WHILE_VALID)
+    assessment = assess_freshness(snapshot, evaluated_at=EVALUATED_WHILE_VALID)
+
+    assert snapshot.valid_until is None
+    assert freshness is Freshness.UNKNOWN
+    assert assessment.freshness is Freshness.UNKNOWN
+    assert assessment.is_firm is False
+    assert assessment.age == "PT3H"
+    assert snapshot.quantity == Decimal("50")
+    assert snapshot.observed_at == OBSERVED_AT
+
+
+def test_validity_at_exact_valid_until_instant_stays_fresh() -> None:
+    snapshot = _on_hand(branch_id="sede-centro", quantity="12", valid_until=VALID_UNTIL)
+
+    assert classify_freshness(snapshot, evaluated_at=VALID_UNTIL) is Freshness.FRESH
+    assert assess_freshness(snapshot, evaluated_at=VALID_UNTIL).is_firm is True
+
+
+def test_expired_local_quantity_stays_unknown_not_zero() -> None:
+    result = explain_local_fulfillment(
+        local_quantity=Decimal("80"),
+        requested_quantity="50",
+        freshness=Freshness.STALE,
+    )
+
+    assert result.status is FulfillmentStatus.UNKNOWN
+    assert result.status is not FulfillmentStatus.SUFFICIENT
+    assert result.status is not FulfillmentStatus.PARTIAL
+    assert result.local_available is None
+    assert result.shortfall is None
+
+
+def test_unknown_freshness_local_quantity_stays_unknown_not_zero() -> None:
+    result = explain_local_fulfillment(
+        local_quantity=Decimal("20"),
+        requested_quantity="50",
+        freshness=Freshness.UNKNOWN,
+    )
+
+    assert result.status is FulfillmentStatus.UNKNOWN
+    assert result.local_available is None
+    assert result.shortfall is None
