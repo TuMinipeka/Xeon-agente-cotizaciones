@@ -52,7 +52,11 @@ alternativa es traslado, no inventario local; la entrega conserva origen distint
 `requested_quantity` explica cumplimiento local (`sufficient` / `partial` / `unknown`) y
 faltante exacto; las alternativas son snapshots no locales ya observados, no una reserva ni
 una suma prometida. Sin snapshots locales el estado permanece desconocido, no agotado. No
-reserva stock ni inventa cantidades.
+reserva stock ni inventa cantidades. La consulta exige `evaluated_at` inyectado (no el reloj
+real). Cada snapshot conserva `valid_until` de la fuente y expone `freshness`, `is_firm` y
+`age`. Solo `fresh` es disponibilidad firme; `stale` y `unknown` conservan origen, cantidad,
+fuente, fecha observada y vigencia, pero no afirman disponibilidad firme ni cumplimiento
+`sufficient` / `partial`.
 
 ## Plano de desarrollo agentico
 
@@ -75,6 +79,7 @@ agente de codigo convierta texto del LLM en una regla de negocio sin prueba y au
 | T04 | Producto en otra sede: origen y tipo local/traslado/entrega | `GetStockByBranches`, `GET /v1/stock`, CLI `stock show` |
 | T05 | Pedido parcialmente cubierto: faltante local y alternativas observadas | `explain_local_fulfillment`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --requested-quantity` |
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable` |
+| T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
 | T19 | Perfil mock: cero llamadas a Grok | `/health`, `/v1/chat` y suite con `LLM_PROVIDER=mock` |
 
