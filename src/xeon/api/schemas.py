@@ -75,11 +75,16 @@ class AvailabilityItemOut(BaseModel):
     channel: Literal["on_hand", "delivery"]
     source: str
     observed_at: str
+    valid_until: str | None = None
+    freshness: Literal["fresh", "stale", "unknown"]
+    is_firm: bool
+    age: str
 
 
 class StockByBranchesOut(BaseModel):
     sku: str
     requested_branch_id: str
+    evaluated_at: str
     items: tuple[AvailabilityItemOut, ...]
     requested_quantity: Decimal | None = None
     fulfillment_status: Literal["sufficient", "partial", "unknown"] | None = None

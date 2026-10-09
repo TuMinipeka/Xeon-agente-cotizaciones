@@ -82,6 +82,10 @@ def _availability_item_out(item: AvailabilityItem) -> AvailabilityItemOut:
         channel=item.channel.value,
         source=item.source,
         observed_at=item.observed_at,
+        valid_until=item.valid_until,
+        freshness=item.freshness.value,
+        is_firm=item.is_firm,
+        age=item.age,
     )
 
 
@@ -89,6 +93,7 @@ def _stock_out(result: StockByBranches) -> StockByBranchesOut:
     return StockByBranchesOut(
         sku=result.sku,
         requested_branch_id=result.requested_branch_id,
+        evaluated_at=result.evaluated_at,
         items=tuple(_availability_item_out(item) for item in result.items),
         requested_quantity=result.requested_quantity,
         fulfillment_status=(
@@ -209,6 +214,7 @@ def create_app(
     async def get_stock(
         sku: str = Query(min_length=1, max_length=80),
         requested_branch_id: str = Query(min_length=1, max_length=80),
+        evaluated_at: str = Query(min_length=1, max_length=40),
         requested_quantity: Annotated[Decimal | None, Query(gt=0)] = None,
     ) -> StockByBranchesOut:
         try:
@@ -216,6 +222,7 @@ def create_app(
                 GetStockByBranchesQuery(
                     sku=sku,
                     requested_branch_id=requested_branch_id,
+                    evaluated_at=evaluated_at,
                     requested_quantity=requested_quantity,
                 )
             )

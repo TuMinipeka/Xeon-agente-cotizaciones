@@ -79,6 +79,13 @@ def stock_show(
         str,
         typer.Option("--requested-branch-id", help="Sede desde la que se pregunta."),
     ],
+    evaluated_at: Annotated[
+        str,
+        typer.Option(
+            "--evaluated-at",
+            help="Instante UTC inyectado para clasificar vigencia. No usa el reloj real.",
+        ),
+    ],
     requested_quantity: Annotated[
         str | None,
         typer.Option(
@@ -88,8 +95,12 @@ def stock_show(
     ] = None,
     base_url: str = "http://127.0.0.1:8000",
 ) -> None:
-    """Muestra origen, tipo y, si hay cantidad, el faltante local. No inventa existencias."""
-    params: dict[str, str] = {"sku": sku, "requested_branch_id": requested_branch_id}
+    """Muestra origen, tipo, vigencia y faltante local. No inventa existencias."""
+    params: dict[str, str] = {
+        "sku": sku,
+        "requested_branch_id": requested_branch_id,
+        "evaluated_at": evaluated_at,
+    }
     if requested_quantity is not None:
         params["requested_quantity"] = requested_quantity
     response = httpx.get(

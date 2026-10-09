@@ -86,6 +86,7 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {
         "sku": "TUB-PVC-20",
         "requested_branch_id": "sede-centro",
+        "evaluated_at": "2026-10-08T15:00:00+00:00",
         "items": [
             {
                 "sku": "TUB-PVC-20",
@@ -97,6 +98,10 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
                 "channel": "on_hand",
                 "source": "synthetic-ferreteria-demo-xeon",
                 "observed_at": "2026-10-08T12:00:00+00:00",
+                "valid_until": "2026-10-08T18:00:00+00:00",
+                "freshness": "fresh",
+                "is_firm": True,
+                "age": "PT3H",
             }
         ],
     }
@@ -106,6 +111,7 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         assert params == {
             "sku": "TUB-PVC-20",
             "requested_branch_id": "sede-centro",
+            "evaluated_at": "2026-10-08T15:00:00+00:00",
         }
         return _FakeResponse(200, payload)
 
@@ -120,6 +126,8 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
             "TUB-PVC-20",
             "--requested-branch-id",
             "sede-centro",
+            "--evaluated-at",
+            "2026-10-08T15:00:00+00:00",
         ],
     )
 
@@ -128,12 +136,16 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
     assert body["items"][0]["kind"] == "transfer"
     assert body["items"][0]["origin_id"] == "sede-norte"
     assert body["items"][0]["kind"] != "local"
+    assert body["items"][0]["freshness"] == "fresh"
+    assert body["items"][0]["is_firm"] is True
+    assert body["evaluated_at"] == "2026-10-08T15:00:00+00:00"
 
 
 def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {
         "sku": "CEM-50",
         "requested_branch_id": "sede-norte",
+        "evaluated_at": "2026-10-08T15:00:00+00:00",
         "requested_quantity": "50",
         "fulfillment_status": "partial",
         "local_available": "20",
@@ -149,6 +161,10 @@ def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.Monk
                 "channel": "on_hand",
                 "source": "synthetic-ferreteria-demo-xeon",
                 "observed_at": "2026-10-08T12:00:00+00:00",
+                "valid_until": "2026-10-08T18:00:00+00:00",
+                "freshness": "fresh",
+                "is_firm": True,
+                "age": "PT3H",
             }
         ],
         "alternatives": [
@@ -162,6 +178,10 @@ def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.Monk
                 "channel": "on_hand",
                 "source": "synthetic-ferreteria-demo-xeon",
                 "observed_at": "2026-10-08T12:00:00+00:00",
+                "valid_until": "2026-10-08T18:00:00+00:00",
+                "freshness": "fresh",
+                "is_firm": True,
+                "age": "PT3H",
             }
         ],
     }
@@ -172,6 +192,7 @@ def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.Monk
             "sku": "CEM-50",
             "requested_branch_id": "sede-norte",
             "requested_quantity": "50",
+            "evaluated_at": "2026-10-08T15:00:00+00:00",
         }
         return _FakeResponse(200, payload)
 
@@ -188,6 +209,8 @@ def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.Monk
             "sede-norte",
             "--requested-quantity",
             "50",
+            "--evaluated-at",
+            "2026-10-08T15:00:00+00:00",
         ],
     )
 
@@ -199,3 +222,74 @@ def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.Monk
     assert body["shortfall"] == "30"
     assert body["alternatives"][0]["kind"] == "transfer"
     assert body["alternatives"][0]["origin_id"] == "sede-centro"
+    assert body["items"][0]["freshness"] == "fresh"
+    assert body["items"][0]["is_firm"] is True
+
+
+def test_cli_shows_stale_stock_without_promising_firm_availability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "sku": "CEM-50",
+        "requested_branch_id": "sede-norte",
+        "evaluated_at": "2026-10-09T12:00:00+00:00",
+        "requested_quantity": "50",
+        "fulfillment_status": "unknown",
+        "local_available": None,
+        "shortfall": None,
+        "items": [
+            {
+                "sku": "CEM-50",
+                "branch_id": "sede-norte",
+                "origin_id": "sede-norte",
+                "origin_name": "Ferreteria Demo XEON Norte",
+                "quantity": "20",
+                "kind": "local",
+                "channel": "on_hand",
+                "source": "synthetic-ferreteria-demo-xeon",
+                "observed_at": "2026-10-08T12:00:00+00:00",
+                "valid_until": "2026-10-08T18:00:00+00:00",
+                "freshness": "stale",
+                "is_firm": False,
+                "age": "PT24H",
+            }
+        ],
+        "alternatives": [],
+    }
+
+    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+        assert url.endswith("/v1/stock")
+        assert params == {
+            "sku": "CEM-50",
+            "requested_branch_id": "sede-norte",
+            "requested_quantity": "50",
+            "evaluated_at": "2026-10-09T12:00:00+00:00",
+        }
+        return _FakeResponse(200, payload)
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    shown = runner.invoke(
+        app,
+        [
+            "stock",
+            "show",
+            "--sku",
+            "CEM-50",
+            "--requested-branch-id",
+            "sede-norte",
+            "--requested-quantity",
+            "50",
+            "--evaluated-at",
+            "2026-10-09T12:00:00+00:00",
+        ],
+    )
+
+    assert shown.exit_code == 0
+    body = json.loads(shown.stdout)
+    assert body["fulfillment_status"] == "unknown"
+    assert body["items"][0]["freshness"] == "stale"
+    assert body["items"][0]["is_firm"] is False
+    assert body["items"][0]["valid_until"] == "2026-10-08T18:00:00+00:00"
+    assert body["items"][0]["age"] == "PT24H"
+    assert body["local_available"] is None
