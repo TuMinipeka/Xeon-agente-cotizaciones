@@ -74,15 +74,20 @@ uv run xeon chat "hola"
 $created = uv run xeon quotes create --tenant-id demo --request-id req-1 --line CEM-50:50 --line ALA-14:300 | ConvertFrom-Json
 $quoteId = $created.quote.id
 uv run xeon quotes show $quoteId --tenant-id demo
-uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte
-uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --requested-quantity 50
+uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00
+uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --requested-quantity 50 --evaluated-at 2026-10-08T15:00:00+00:00
 ```
 
 `$quoteId` sale del campo `quote.id` que devuelve `quotes create`. `quotes create` crea o reutiliza
 un borrador `DRAFT` version 1; `quotes show` solo lo consulta. Ninguno aprueba ni emite.
 `stock show` consulta disponibilidad sintetica por sede; no reserva inventario.
-Con `--requested-quantity` informa cumplimiento local y alternativas observadas; no suma
-fuentes como promesa ni convierte un snapshot ausente en agotado.
+`--evaluated-at` es obligatorio: instante UTC inyectado para clasificar vigencia; las pruebas no
+usan el reloj real. Cada item expone `valid_until` (vigencia explicita de la fuente, o nulo),
+`freshness` (`fresh` / `stale` / `unknown`), `is_firm` y `age` (antiguedad ISO-8601 desde
+`observed_at`). Solo `fresh` es disponibilidad firme; `stale` y `unknown` conservan origen,
+cantidad, fuente, fecha observada y vigencia, pero no prometen stock ni se usan para afirmar
+`sufficient` o `partial`. Con `--requested-quantity` informa cumplimiento local y alternativas
+observadas; no suma fuentes como promesa ni convierte un snapshot ausente o vencido en agotado.
 
 Equivalente HTTP del arranque mock:
 
@@ -101,6 +106,7 @@ $body = @{
 $created = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/quotes `
   -ContentType 'application/json' -Body $body
 Invoke-RestMethod "http://127.0.0.1:8000/v1/quotes/$($created.quote.id)?tenant_id=demo"
+curl "http://127.0.0.1:8000/v1/stock?sku=CEM-50&requested_branch_id=sede-norte&requested_quantity=50&evaluated_at=2026-10-08T15:00:00%2B00:00"
 ```
 
 OpenAPI interactivo: `http://127.0.0.1:8000/docs`.
@@ -162,7 +168,8 @@ uv run pytest
 
 Implementado: chat mock, cotizador determinista, API/CLI de borrador sintético, idempotencia
 `tenant_id` + `request_id`, aclaración explícita, rechazo de descuento sin política, consulta de
-stock sintético por sede (`local` / traslado / entrega), explicación de disponibilidad
+stock sintético por sede (`local` / traslado / entrega), vigencia de snapshots
+(`fresh` / `stale` / `unknown`, `is_firm`, `age`) y explicación de disponibilidad
 parcial (`sufficient` / `partial` / `unknown`) y perfiles `mock` / `grok`.
 
 Pendiente: PostgreSQL, LangGraph, Telegram, Celery, PDF, aprobación y política de descuentos.

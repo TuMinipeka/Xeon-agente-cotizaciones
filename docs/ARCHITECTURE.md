@@ -36,8 +36,9 @@ GET /v1/stock  CLI stock show
       +--> BranchInventory (memoria, snapshots sinteticos)
       |
       v
-  domain: StockSnapshot, AvailabilityKind(local|transfer|delivery),
-          FulfillmentStatus(sufficient|partial|unknown)
+    domain: StockSnapshot(valid_until), AvailabilityKind(local|transfer|delivery),
+            Freshness(fresh|stale|unknown),
+            FulfillmentStatus(sufficient|partial|unknown)
 ```
 
 `MockLLM` es el perfil predeterminado y garantiza cero llamadas externas. El perfil `grok`
