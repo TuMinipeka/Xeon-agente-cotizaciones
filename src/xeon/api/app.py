@@ -148,7 +148,10 @@ def create_app(
     @application.post("/v1/chat", response_model=ChatResponse)
     async def chat(request: ChatRequest) -> ChatResponse:
         try:
-            result = await runtime.agent.respond(request.message)
+            result = await runtime.agent.respond(
+                request.message,
+                conversation_id=request.conversation_id,
+            )
         except LLMProviderError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return ChatResponse(
@@ -156,6 +159,9 @@ def create_app(
             reply=result.text,
             provider=result.provider,
             model=result.model,
+            tools_used=result.tools_used,
+            outcome=result.outcome,
+            quote_id=result.quote_id,
         )
 
     @application.post("/v1/quotes", response_model=QuoteOutcomeResponse)

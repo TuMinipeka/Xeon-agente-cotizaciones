@@ -17,6 +17,9 @@ class ChatResponse(BaseModel):
     reply: str
     provider: str
     model: str
+    tools_used: tuple[str, ...] = ()
+    outcome: str = "conversation"
+    quote_id: UUID | None = None
 
 
 class HealthResponse(BaseModel):

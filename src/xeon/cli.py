@@ -27,7 +27,7 @@ def health(base_url: str = "http://127.0.0.1:8000") -> None:
 
 @app.command()
 def chat(message: str, base_url: str = "http://127.0.0.1:8000") -> None:
-    """Envia un turno al agente de producto. No calcula precios."""
+    """Envia un turno al agente. El backend calcula; el modelo no pone precios."""
     response = httpx.post(
         f"{base_url.rstrip('/')}/v1/chat",
         json={"message": message},

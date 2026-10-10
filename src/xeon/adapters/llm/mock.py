@@ -15,13 +15,13 @@ class MockLLM:
         )
         if "hola" in user_text.casefold():
             text = (
-                "Hola, soy XEON. Esta base usa datos sinteticos y todavia no consulta precios ni "
-                "inventario. Puedo ayudarte a precisar los productos de una futura cotizacion."
+                "Hola, soy XEON. Esta base usa datos sinteticos. Si pides cantidades de un "
+                "producto conocido, el backend busca, consulta stock y arma un borrador DRAFT."
             )
         else:
             text = (
-                "Entendi tu solicitud. Esta base aun no tiene conectadas las herramientas "
-                "comerciales, por lo que no inventare referencias, precios ni disponibilidad."
+                "Entendi tu solicitud. Si no hay cantidad y producto reconocibles, no inventare "
+                "referencias, precios ni disponibilidad."
             )
         return LLMResponse(text=text, provider="mock", model="mock-xeon-v1")
 
