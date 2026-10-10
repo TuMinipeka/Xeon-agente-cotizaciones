@@ -2,18 +2,22 @@
 
 ## Estado implementado
 
-Hay tres cortes conectados por un composition root, no por el LLM.
+Hay cuatro cortes conectados por un composition root, no por el LLM.
 
 ```text
 POST /v1/chat
       |
       v
- AgentService ---- system prompt acotado
+  AgentService
       |
-      v
-   LLMPort
-    /   \
- Mock   OpenAI-compatible -> Grok 4.6
+      +--> CommercialTurn (cantidad + producto reconocibles)
+      |         +--> FindProduct
+      |         +--> GetStockByBranches
+      |         +--> CreateQuoteDraft
+      |
+      +--> LLMPort (saludo u otro texto no comercial)
+            /   \
+         Mock   OpenAI-compatible -> Grok 4.6
 
 POST /v1/quotes  GET /v1/quotes/{id}
       |
@@ -46,8 +50,11 @@ exige una credencial explicita. Los errores del proveedor se normalizan sin copi
 remoto ni la clave a la respuesta. Compose publica la API solo en `127.0.0.1:8000`.
 
 El cotizador calcula con `Decimal` y catálogo sintético de Ferretería Demo XEON. Un reintento
-con la misma clave `tenant_id` + `request_id` devuelve el mismo borrador. `/v1/chat` no crea
-cotizaciones ni calcula precios. `GET /v1/stock` clasifica existencias observadas: una sede
+con la misma clave `tenant_id` + `request_id` devuelve el mismo borrador. `/v1/chat` ejecuta
+tres herramientas de aplicacion cuando el mensaje trae cantidad y producto reconocibles
+(`find_product`, `consult_stock`, `create_draft`); el modelo no calcula precios ni elige SKU.
+La interpretacion comercial de esta entrega es determinista (no LangGraph ni tool-calling del
+LLM). `GET /v1/stock` clasifica existencias observadas: una sede
 alternativa es traslado, no inventario local; la entrega conserva origen distinto. Con
 `requested_quantity` explica cumplimiento local (`sufficient` / `partial` / `unknown`) y
 faltante exacto; las alternativas son snapshots no locales ya observados, no una reserva ni
@@ -98,6 +105,6 @@ agente de codigo convierta texto del LLM en una regla de negocio sin prueba y au
 
 - PostgreSQL/Alembic, LangGraph, Telegram, Celery/RabbitMQ, PDF, aprobacion humana.
 - Politica de descuentos versionada; T08 solo declara `DiscountPolicyUnavailable`.
-- Herramientas tipadas del agente sobre busqueda y borrador.
+- Tool-calling del LLM sobre las herramientas; esta entrega las invoca el backend.
 - Reorganizacion feature-first: se pospone; exige un ADR que compare capas globales vs
   hexagono interno por modulo.

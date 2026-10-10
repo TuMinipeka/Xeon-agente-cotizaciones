@@ -67,9 +67,10 @@ uv run xeon chat "hola"
 uv run xeon chat "necesito 50 bultos de cemento"
 ```
 
-Actualmente `/v1/chat` demuestra la conexión con el proveedor seleccionado. El chat todavía no
-crea por sí solo una cotización ni ejecuta las herramientas de catálogo y stock; esas operaciones
-se prueban con los comandos siguientes.
+`uv run xeon chat "necesito 50 bultos de cemento"` busca el producto, consulta stock sintético
+y crea un borrador `DRAFT`. El backend calcula; el modelo no pone precios. Un saludo como
+`"hola"` sigue yendo al proveedor `mock` o `grok` sin crear cotización. Los comandos de quotes
+y stock siguen disponibles para pruebas directas.
 
 ### 6. Crear y consultar un borrador de cotización
 
@@ -244,9 +245,10 @@ OpenAPI interactivo: `http://127.0.0.1:8000/docs`.
 
 ## Agente comercial vs `xeon-coordinate`
 
-El **agente comercial** (runtime XEON) interpreta lenguaje del cliente por `/v1/chat`. El backend
-determina precios, descuentos, impuestos, stock y estados. El modelo no aprueba cotizaciones, no
-ejecuta SQL, no cambia inventario y no lee secretos.
+El **agente comercial** (runtime XEON) interpreta lenguaje del cliente por `/v1/chat`. Si hay
+cantidad y producto reconocibles, el backend ejecuta `find_product`, `consult_stock` y
+`create_draft`. El modelo no aprueba cotizaciones, no ejecuta SQL, no cambia inventario y no lee
+secretos.
 
 `xeon-coordinate` es tooling de desarrollo, no el runtime comercial. Separa a Grok como ejecutor de
 una HU y a Codex como coordinador de calidad. Cada ciclo verifica el diff y repite `ruff`, `mypy` y
