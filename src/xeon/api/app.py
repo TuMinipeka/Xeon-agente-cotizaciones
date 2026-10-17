@@ -171,7 +171,10 @@ def create_app(
     async def whatsapp_webhook(
         payload: Annotated[dict[str, Any], Body()],
     ) -> WhatsAppWebhookResponse:
-        incoming = parse_evolution_webhook(payload)
+        incoming = parse_evolution_webhook(
+            payload,
+            require_prefix=runtime.settings.whatsapp_require_prefix,
+        )
         if incoming is None:
             return WhatsAppWebhookResponse(status="ignored")
 
@@ -183,9 +186,10 @@ def create_app(
         delivery_status = "LOCAL_ONLY"
         if runtime.whatsapp_channel is not None:
             try:
+                outbound_text = f"🛠️ *XEON Cotizador*\n{result.text}"
                 receipt = await runtime.whatsapp_channel.send_text(
                     recipient_number=incoming.sender_number,
-                    text=result.text,
+                    text=outbound_text,
                 )
                 delivery_status = receipt.status
             except ChannelDeliveryError as exc:

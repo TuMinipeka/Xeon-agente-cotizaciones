@@ -4,6 +4,7 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-hermes}
       HERMES_BASE_URL: ${HERMES_BASE_URL:-http://host.docker.internal:8642/v1}
       WHATSAPP_SEND_ENABLED: ${WHATSAPP_SEND_ENABLED:-true}
+      WHATSAPP_REQUIRE_PREFIX: ${WHATSAPP_REQUIRE_PREFIX:-true}
       EVOLUTION_API_URL: http://evolution-api:8080
       EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-xeon-ferreteria}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-xeon-evolution-local-key}
@@ -24,10 +25,10 @@ services:
       DATABASE_CONNECTION_URI: postgresql://evolution:evolution@evolution-postgres:5432/evolution?schema=public
       DATABASE_CONNECTION_CLIENT_NAME: xeon_evolution
       DATABASE_SAVE_DATA_INSTANCE: "true"
-      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
       DATABASE_SAVE_MESSAGE_UPDATE: "false"
-      DATABASE_SAVE_DATA_CONTACTS: "true"
-      DATABASE_SAVE_DATA_CHATS: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
       CACHE_REDIS_ENABLED: "true"
       CACHE_REDIS_URI: redis://evolution-redis:6379/6
       CACHE_REDIS_PREFIX_KEY: evolution

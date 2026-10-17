@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     groq_api_key_file: Path | None = None
 
     whatsapp_send_enabled: bool = False
+    whatsapp_require_prefix: bool = False
     evolution_api_url: str = "http://evolution-api:8080"
     evolution_instance: str = "xeon-ferreteria"
     evolution_api_key: SecretStr | None = None

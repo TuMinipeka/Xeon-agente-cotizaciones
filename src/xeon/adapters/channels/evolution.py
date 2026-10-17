@@ -32,11 +32,22 @@ def _extract_message_text(message_obj: dict[str, Any]) -> str:
     return ""
 
 
-def parse_evolution_webhook(payload: dict[str, Any]) -> IncomingWhatsAppMessage | None:
+_TRIGGER_PREFIX_RE = re.compile(r"^(?:[/#]xeon)\b[\s:,-]*(.+)$", re.IGNORECASE | re.DOTALL)
+_BOT_REPLY_HEADER = "🛠️ *XEON Cotizador*"
+
+
+def parse_evolution_webhook(
+    payload: dict[str, Any],
+    *,
+    require_prefix: bool = False,
+) -> IncomingWhatsAppMessage | None:
     """Normalize an Evolution API webhook event into an IncomingWhatsAppMessage.
 
-    Ignores non-message events, outbound echoes (fromMe=True), status broadcasts,
-    and group messages.
+    - Supports self-chat testing (`fromMe=True`) when the message explicitly starts with
+      `/xeon` or `#xeon` (ignoring bot replies that start with `_BOT_REPLY_HEADER`).
+    - When `require_prefix=True` (recommended when testing on a personal WhatsApp number),
+      only messages starting with `/xeon` or `#xeon` are processed so personal chats are
+      never answered by the bot.
     """
     event = str(payload.get("event", "")).strip().lower()
     if event not in {"messages.upsert", "messages_upsert"}:
@@ -50,9 +61,6 @@ def parse_evolution_webhook(payload: dict[str, Any]) -> IncomingWhatsAppMessage 
     if not isinstance(key, dict):
         return None
 
-    if bool(key.get("fromMe", False)):
-        return None
-
     remote_jid = str(key.get("remoteJid", "")).strip()
     if not remote_jid or remote_jid.endswith("@g.us") or remote_jid == "status@broadcast":
         return None
@@ -61,9 +69,31 @@ def parse_evolution_webhook(payload: dict[str, Any]) -> IncomingWhatsAppMessage 
     if not isinstance(message_obj, dict):
         return None
 
-    text = _extract_message_text(message_obj)
+    raw_text = _extract_message_text(message_obj)
+    if not raw_text or raw_text.startswith(_BOT_REPLY_HEADER):
+        return None
+
+    from_me = bool(key.get("fromMe", False))
+    prefix_match = _TRIGGER_PREFIX_RE.match(raw_text)
+    if from_me:
+        if prefix_match is None:
+            return None
+        text = prefix_match.group(1).strip()
+    elif require_prefix:
+        if prefix_match is None:
+            return None
+        text = prefix_match.group(1).strip()
+    else:
+        text = prefix_match.group(1).strip() if prefix_match is not None else raw_text
+
     if not text:
         return None
+
+    effective_jid = remote_jid
+    if effective_jid.endswith("@lid"):
+        alt_jid = str(key.get("remoteJidAlt") or payload.get("sender") or "").strip()
+        if "@s.whatsapp.net" in alt_jid:
+            effective_jid = alt_jid
 
     instance = str(payload.get("instance", "default")).strip() or "default"
     external_id = str(key.get("id", "")).strip()
@@ -73,8 +103,8 @@ def parse_evolution_webhook(payload: dict[str, Any]) -> IncomingWhatsAppMessage 
     return IncomingWhatsAppMessage(
         instance=instance,
         external_message_id=external_id,
-        sender_jid=remote_jid,
-        sender_number=_normalize_number(remote_jid),
+        sender_jid=effective_jid,
+        sender_number=_normalize_number(effective_jid),
         text=text,
         raw_payload=payload,
     )
