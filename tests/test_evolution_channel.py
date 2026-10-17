@@ -127,12 +127,14 @@ def test_whatsapp_webhook_processes_message_with_hermes_and_dispatches_reply() -
     assert payload["status"] == "processed"
     assert payload["sender_number"] == "573001112233"
     assert payload["delivery_status"] == "ACCEPTED_BY_PROVIDER"
-    assert "CEM-50" in payload["reply"]
+    assert "Cemento gris 50 kg" in payload["reply"]
+    assert "CEM-50" not in payload["reply"]
     assert duplicate_response.status_code == 200
     assert duplicate_response.json()["status"] == "ignored"
     assert len(sent_messages) == 1
     assert sent_messages[0][0] == "573001112233"
-    assert "28900.00" in sent_messages[0][1]
+    assert "28,900.00" in sent_messages[0][1]
+    assert "CEM-50" not in sent_messages[0][1]
 
 
 def test_whatsapp_keeps_candidate_pending_until_same_sender_confirms_sku() -> None:
@@ -151,7 +153,7 @@ def test_whatsapp_keeps_candidate_pending_until_same_sender_confirms_sku() -> No
             confirmation_response = await client.post(
                 "/v1/channels/whatsapp/webhook",
                 json=_sample_upsert_payload(
-                    text="Confirmo el SKU CEM-50",
+                    text="La primera opción",
                     external_message_id="WA-CONFIRMATION-2",
                 ),
             )
@@ -161,12 +163,15 @@ def test_whatsapp_keeps_candidate_pending_until_same_sender_confirms_sku() -> No
 
     assert candidate_response.status_code == 200
     candidate_reply = candidate_response.json()["reply"]
-    assert "confirmation_required" in candidate_reply
+    assert "Cemento gris 50 kg" in candidate_reply
+    assert "CEM-50" not in candidate_reply
+    assert "SKU" not in candidate_reply
     assert "get_stock_by_branches" not in candidate_reply
     assert "create_quote_draft" not in candidate_reply
 
     assert confirmation_response.status_code == 200
     confirmation_reply = confirmation_response.json()["reply"]
-    assert "status=confirmed_selection" in confirmation_reply
-    assert "get_stock_by_branches sku=CEM-50" in confirmation_reply
-    assert "create_quote_draft" in confirmation_reply
+    assert "Preparé un borrador" in confirmation_reply
+    assert "50 bultos" in confirmation_reply
+    assert "CEM-50" not in confirmation_reply
+    assert "SKU" not in confirmation_reply

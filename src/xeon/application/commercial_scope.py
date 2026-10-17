@@ -26,10 +26,23 @@ _HELP_PHRASES = (
     "en que me ayudas",
     "ayuda para cotizar",
 )
+_SELECTION_PHRASES = (
+    "la primera",
+    "el primero",
+    "opcion 1",
+    "la segunda",
+    "el segundo",
+    "opcion 2",
+    "la tercera",
+    "el tercero",
+    "opcion 3",
+    "confirmo",
+)
 _COMMERCIAL_TERMS = frozenset(
     {
         "agro",
         "agroferreteria",
+        "aire acondicionado",
         "alambre",
         "baldosa",
         "bloque",
@@ -39,6 +52,7 @@ _COMMERCIAL_TERMS = frozenset(
         "cable",
         "cemento",
         "cerradura",
+        "clavo",
         "concreto",
         "construccion",
         "destornillador",
@@ -58,6 +72,7 @@ _COMMERCIAL_TERMS = frozenset(
         "pala",
         "pegante",
         "pintura",
+        "pieza",
         "placa",
         "plomeria",
         "potrero",
@@ -92,6 +107,7 @@ _OUT_OF_SCOPE_TERMS = frozenset(
 )
 _SEGMENT_SEPARATOR = re.compile(r"\s*(?:,|;|\by\b|\bademas\b|\btambien\b)\s*")
 _WORD_RE = re.compile(r"[a-z0-9]+")
+_SKU_LIKE_RE = re.compile(r"\b[a-z0-9]+(?:-[a-z0-9]+)+\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +145,12 @@ class CommercialScopePolicy:
                 ),
             )
 
+        if any(phrase in normalized for phrase in _SELECTION_PHRASES):
+            return ScopeDecision(kind="commercial", commercial_query=cleaned)
+
+        if _SKU_LIKE_RE.search(cleaned) is not None:
+            return ScopeDecision(kind="commercial", commercial_query=cleaned)
+
         segments = tuple(part for part in _SEGMENT_SEPARATOR.split(cleaned) if part)
         commercial_segments = tuple(part for part in segments if _is_commercial(part))
         rejected_segments = tuple(part for part in segments if _is_out_of_scope(part))
@@ -164,7 +186,12 @@ def _normalize(value: str) -> str:
 def _contains_term(value: str, terms: frozenset[str]) -> bool:
     normalized = _normalize(value)
     padded = f" {normalized} "
-    return any(f" {term} " in padded for term in terms)
+    tokens = normalized.split()
+    return any(
+        f" {term} " in padded
+        or (" " not in term and any(token == term or token.rstrip("s") == term for token in tokens))
+        for term in terms
+    )
 
 
 def _is_commercial(value: str) -> bool:

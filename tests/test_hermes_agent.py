@@ -74,8 +74,11 @@ def test_chat_endpoint_surfaces_hermes_verified_candidates() -> None:
     response = asyncio.run(run())
     assert response.status_code == 200
     reply = response.json()["reply"]
-    assert "CEM-50" in reply
-    assert "28900.00" in reply
+    assert "Cemento gris 50 kg" in reply
+    assert "28,900.00" in reply
+    assert "CEM-50" not in reply
+    assert "SKU" not in reply
+    assert "HERMES" not in reply
 
 
 def test_semantic_candidate_requires_sku_confirmation_before_stock_or_draft() -> None:
@@ -113,6 +116,28 @@ def test_semantic_candidate_requires_sku_confirmation_before_stock_or_draft() ->
     assert "get_stock_by_branches sku=CEM-50" in confirmed_context
     assert "create_quote_draft" in confirmed_context
     assert "cantidad=50" in confirmed_context
+
+
+def test_customer_can_confirm_candidate_by_natural_option_without_internal_codes() -> None:
+    container = build_container(Settings(llm_provider="mock", _env_file=None))
+
+    first = container.hermes_tools.prepare_customer_turn(
+        "necesito 50 bultos para fundir una placa",
+        conversation_id="natural-selection",
+    )
+    confirmed = container.hermes_tools.prepare_customer_turn(
+        "La primera opción",
+        conversation_id="natural-selection",
+    )
+
+    assert first is not None
+    assert "1. Cemento gris 50 kg" in first.customer_reply
+    assert "CEM-50" not in first.customer_reply
+    assert confirmed is not None
+    assert "Preparé un borrador" in confirmed.customer_reply
+    assert "50 bultos" in confirmed.customer_reply
+    assert "CEM-50" not in confirmed.customer_reply
+    assert "SKU" not in confirmed.customer_reply
 
 
 def test_hermes_provider_builds_local_api_bridge_with_temporary_model() -> None:

@@ -52,3 +52,13 @@ def test_scope_separates_mixed_request_and_keeps_only_commercial_part() -> None:
     assert decision.commercial_query == "Necesito cemento"
     assert decision.customer_message is not None
     assert "no manejo información" in decision.customer_message
+
+
+def test_scope_allows_natural_selection_and_existing_product_code_as_follow_up() -> None:
+    policy = CommercialScopePolicy()
+
+    natural_selection = policy.classify("La primera opción")
+    product_code = policy.classify("CEM-50")
+
+    assert natural_selection.kind == "commercial"
+    assert product_code.kind == "commercial"
