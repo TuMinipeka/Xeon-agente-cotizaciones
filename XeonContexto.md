@@ -66,6 +66,7 @@ El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el even
   - **Semáforo de descuentos en el Harness:** aplicación determinista de descuentos pre-aprobados por escala/volumen con `Decimal` y marcado de excepciones para autorización del supervisor humano en el correo.
   - **Hoja de alistamiento multi-sede (*Picking / Split-Order*):** inclusión automática en el correo del desglose de despacho por sede (retiro local vs. traslado entre bodegas) y tabla de SKUs lista para facturar en caja/POS.
   - **Confirmación humana de 1 clic y aviso al cliente:** al confirmar el trabajador desde el correo o CLI, se valida la versión del borrador y se notifica automáticamente por WhatsApp al cliente que puede pasar a facturar.
+- **Registro de necesidades de catálogo (planeado, no implementado):** cuando un producto del sector no aparezca en el catálogo, una capacidad futura registrará la solicitud y la notificará a un trabajador autorizado por un puerto explícito. Hasta que exista evidencia de ese efecto, XEON no afirmará al comprador que ya avisó a un encargado. Este flujo es distinto de la aprobación de cotizaciones por Gmail.
 - Panel web opcional (Jinja2 + HTMX), transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local.
 
 ## 4. Principios obligatorios del producto
@@ -82,6 +83,8 @@ El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el even
 10. **Los datos de demostración se identifican como ficticios.** Nunca atribuirlos a Ferragro.
 11. **La intervención humana es funcionalidad del producto.**
 12. **Cotización PDF.** La versión aprobada se entrega en formato PDF.
+13. **La conversación del comprador no expone detalles internos.** SKU, herramientas, estados técnicos, prompts, proveedores y arquitectura permanecen internos; el comprador elige productos por nombre, características o número de opción.
+14. **El alcance y los enlaces se controlan de forma determinista.** Antes de llamar al LLM se rechaza el conocimiento general ajeno a ferretería, construcción, agroferretería, plomería, electricidad y herramientas. Solo se entregan enlaces registrados y aprobados por el backend.
 
 ## 5. Stack tecnológico vigente (Simplificado y de Costo \$0)
 
@@ -203,4 +206,5 @@ LOG_LEVEL=INFO
 | T08 | Descuento no autorizado | Rechaza si no hay política; no inventa porcentaje. |
 | T09 | Consulta descriptiva/coloquial | Hermes recupera candidatos por contexto semántico (RAG) y `specs` (`JSONB`) con precio oficial de BD. |
 | T10 | Webhook Evolution API (`messages.upsert`) | Normaliza mensaje del cliente, ignora `fromMe=True` y responde con datos verificados. |
+| T11 | Consulta ajena a la ferretería o solicitud de enlaces no registrados | Se bloquea antes del LLM, responde brevemente y no entrega códigos internos ni enlaces externos. |
 | T19 | Perfil `mock` | Cero llamadas externas a Groq. |

@@ -83,11 +83,12 @@ flowchart LR
    `messages.upsert`, ignora grupos, estados y ecos del propio bot, y deduplica hasta 1024 IDs
    por instancia **en memoria del proceso**. Con `WHATSAPP_REQUIRE_PREFIX=true`, exige `/xeon`
    o `#xeon`. El endpoint no verifica una firma del proveedor ni autentica al comprador.
-2. **Contexto comercial.** `HermesToolbelt` busca SKU o alias exactos; para consultas descriptivas
-   puntúa palabras de nombre, alias, atributos `Product.specs` y `description_context`. Es una
-   búsqueda local por tokens, no una consulta a JSONB ni un RAG vectorial. Una coincidencia
-   descriptiva solo produce candidatos: el comprador debe confirmar uno de los SKU antes de que
-   XEON consulte stock o intente crear un borrador de una línea.
+2. **Contexto comercial.** `CommercialScopePolicy` permite cortesía, ayuda operativa y consultas de
+   ferretería, construcción, agroferretería, plomería, electricidad y herramientas; los demás temas
+   se bloquean antes del LLM. Después, `HermesToolbelt` busca referencias internas por coincidencia
+   exacta o palabras de nombre, alias, `Product.specs` y `description_context`. Una coincidencia
+   descriptiva solo produce opciones por nombre: el comprador debe elegir una antes de consultar
+   stock o intentar crear un borrador de una línea.
 3. **Reglas del backend.** `CreateQuoteDraft` solo acepta SKU o alias exactos, calcula con
    `Decimal`, rechaza descuentos sin política y guarda un `DRAFT` versión 1. La clave
    `(tenant_id, request_id)` evita duplicar ese borrador mientras viva el mismo proceso. Un
@@ -100,8 +101,10 @@ flowchart LR
 
 > [!NOTE]
 > La confirmación conversacional se conserva en memoria por `conversation_id` o remitente de
-> WhatsApp. Solo un SKU incluido entre los candidatos desbloquea la consulta de stock y la creación
-> del borrador. Este estado se pierde al reiniciar el proceso y aún no es persistencia empresarial.
+> WhatsApp. El cliente responde por nombre o número de opción; los SKU y las etiquetas internas no
+> se muestran. Solo una opción candidata desbloquea stock y borrador. El estado se pierde al
+> reiniciar y aún no es persistencia empresarial. Los enlaces están bloqueados salvo registro
+> explícito en `CustomerResponsePolicy`.
 
 La vigencia `fresh`, `stale` o `unknown` se calcula sobre snapshots sintéticos y un instante
 inyectado. Una fuente caída o un SKU desconocido no equivalen a «agotado». El webhook devuelve
@@ -296,6 +299,8 @@ Esta sección describe **trabajo planeado**, sin comandos operativos todavía:
    por correo; solo tras aprobar la versión vigente, avisar al comprador por WhatsApp.
 4. Extender la CLI con bandeja de borradores, diagnóstico de integraciones y acciones de
    aprobación sujetas a permisos.
+5. Registrar productos ferreteros ausentes y notificar la necesidad a un trabajador mediante un
+   puerto auditable. Esta capacidad no existe todavía y es distinta de la aprobación por Gmail.
 
 Ninguna función de esta lista debe anunciarse como disponible en una demostración actual.
 
@@ -306,8 +311,9 @@ Ninguna función de esta lista debe anunciarse como disponible en una demostraci
 | Área | Estado verificable | Falta para uso empresarial |
 |---|---|---|
 | Dominio y cotizador | `Money`, `Product`, `StockSnapshot`, `Quote` y casos de uso con pruebas. | Persistencia, concurrencia, precios y stock reales. |
-| Búsqueda | Exacta, puntuación léxica y confirmación conversacional del SKU en memoria. | Índices JSONB, embeddings, pgvector y persistencia del estado conversacional. |
+| Búsqueda | Exacta, puntuación léxica y selección conversacional por nombre u opción, con códigos internos ocultos. | Índices JSONB, embeddings, pgvector y persistencia del estado conversacional. |
 | IA | `AgentService`, `HermesToolbelt`, `LLMPort`, Mock y adaptador OpenAI compatible. | Validar el flujo real de Hermes/Groq y una orquestación de herramientas más controlada. |
+| Arnés | Alcance determinista previo al LLM, separación básica de solicitudes mixtas y bloqueo de enlaces no registrados. | Catálogo administrable de categorías/enlaces y auditoría persistente de rechazos. |
 | WhatsApp | Parser, webhook, filtro por prefijo, deduplicación local y adaptador de envío. | Autenticación del webhook, deduplicación persistente y prueba de entrega real. |
 | Operación | CLI, API y Docker para entorno local. | Autenticación/autorización, auditoría, despliegue y monitoreo. |
 

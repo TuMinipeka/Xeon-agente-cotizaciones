@@ -52,8 +52,15 @@ GET /v1/stock  CLI stock show
   el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`).
 - `HermesToolbelt` conecta el turno conversacional con las herramientas deterministas del backend:
   identifica referencias candidatas mediante busqueda hibrida (`search_products`) y guarda una
-  seleccion pendiente por conversacion. Solo despues de que el comprador confirma uno de esos SKU
-  consulta stock por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
+  seleccion pendiente por conversacion. El cliente elige por nombre o numero de opcion; el SKU se
+  conserva solo en el contexto interno. Solo despues de esa seleccion consulta stock por sede
+  (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
+- `CommercialScopePolicy` clasifica el mensaje antes del LLM. Cortesia y ayuda operativa se
+  resuelven localmente; temas ajenos al comercio ferretero se rechazan; una solicitud mixta conserva
+  solo su parte comercial.
+- `CustomerResponsePolicy` aplica una defensa de salida: si el modelo filtra codigos, etiquetas
+  internas o enlaces no registrados, se reemplaza su texto por una respuesta segura construida con
+  datos verificados.
 
 ### 2. Canal WhatsApp sin costo con Evolution API
 - `POST /v1/channels/whatsapp/webhook` recibe eventos `messages.upsert` desde una instancia local de
@@ -88,7 +95,8 @@ equivalente en memoria para pruebas):
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable`, `HermesToolbelt.search_products` |
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
-| T09 | Candidato descriptivo exige confirmar un SKU antes de consultar stock o crear un DRAFT | `HermesToolbelt.format_verified_context`, `/v1/chat`, webhook WhatsApp |
+| T09 | Candidato descriptivo exige elegir por nombre u opcion antes de consultar stock o crear un DRAFT | `HermesToolbelt.prepare_customer_turn`, `/v1/chat`, webhook WhatsApp |
+| T11 | Tema general se bloquea antes del LLM y no entrega enlaces externos | `CommercialScopePolicy`, `CustomerResponsePolicy` |
 | T19 | Perfil mock: cero llamadas a Groq | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse
@@ -104,4 +112,6 @@ equivalente en memoria para pruebas):
 
 - Persistencia en PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic.
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
+- Registro auditable de productos ferreteros ausentes y notificacion a un trabajador. Hasta que se
+  implemente el puerto correspondiente, el chat no promete que aviso a un encargado.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
