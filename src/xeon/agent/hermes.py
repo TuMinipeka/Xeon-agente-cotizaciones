@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -10,6 +12,7 @@ from xeon.application.quote_draft import (
     CreateQuoteDraftCommand,
     CreateQuoteResult,
     DraftLineRequest,
+    QuoteDraftReady,
 )
 from xeon.application.quote_request import classify_line_query
 from xeon.application.stock import GetStockByBranches, GetStockByBranchesQuery, StockByBranches
@@ -197,9 +200,92 @@ class HermesToolbelt:
                     f"| specs={{{specs_text}}}"
                 )
             lines.append(outcome.message)
+
+            primary = outcome.candidates[0]
+            quantity = _extract_requested_quantity(normalized)
+            branch_id = _extract_requested_branch(normalized)
+
+            try:
+                stock = self.get_stock_by_branches(
+                    sku=primary.sku,
+                    requested_branch_id=branch_id,
+                    evaluated_at="2026-10-08T15:00:00+00:00",
+                    requested_quantity=quantity,
+                )
+                status_val = (
+                    stock.fulfillment_status.value
+                    if stock.fulfillment_status is not None
+                    else "unrequested"
+                )
+                lines.append(
+                    f"[HERMES_TOOL:get_stock_by_branches sku={stock.sku} "
+                    f"sede_solicitada={stock.requested_branch_id} "
+                    f"disponible_local={stock.local_available} "
+                    f"faltante={stock.shortfall} "
+                    f"estado={status_val}]"
+                )
+                for item in stock.items:
+                    lines.append(
+                        f"- sede={item.branch_id} ({item.origin_name}) | "
+                        f"cantidad={item.quantity} | tipo={item.kind.value} | "
+                        f"vigencia={item.freshness.value}"
+                    )
+            except Exception:
+                pass
+
+            if quantity is not None:
+                try:
+                    draft_res = self.create_quote_draft(
+                        tenant_id="whatsapp",
+                        request_id=f"wa-{uuid.uuid4().hex[:12]}",
+                        lines=(DraftLineRequest(query=primary.sku, quantity=quantity),),
+                    )
+                    if isinstance(draft_res, QuoteDraftReady):
+                        q = draft_res.quote
+                        lines.append(
+                            f"[HERMES_TOOL:create_quote_draft quote_id={q.id} "
+                            f"status={q.status.value} version=v{q.version} "
+                            f"sku={primary.sku} cantidad={quantity} "
+                            f"subtotal={q.subtotal.amount} {q.currency} "
+                            f"total={q.total.amount} {q.currency}]"
+                        )
+                except Exception:
+                    pass
+
             return "\n".join(lines)
 
         if outcome.status in {"clarification_required", "catalog_unavailable"}:
             return f"[HERMES_TOOL:search_products status={outcome.status}] {outcome.message}"
 
         return None
+
+
+_QTY_RE = re.compile(
+    r"\b(\d+(?:[.,]\d+)?)\s*(?:unidades|unidad|unds|und|tubos|bultos|rollos|metros|m)\b",
+    re.IGNORECASE,
+)
+_LEADING_QTY_RE = re.compile(
+    r"(?:cotizar|cotizame|necesito|quiero|dame)\s+(\d+(?:[.,]\d+)?)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_requested_quantity(text: str) -> Decimal | None:
+    match = _QTY_RE.search(text) or _LEADING_QTY_RE.search(text)
+    if match is None:
+        return None
+    raw = match.group(1).replace(",", ".")
+    try:
+        value = Decimal(raw)
+    except Exception:
+        return None
+    return value if value > Decimal("0") else None
+
+
+def _extract_requested_branch(text: str) -> str:
+    lowered = text.casefold()
+    if "sur" in lowered:
+        return "sede-sur"
+    if "centro" in lowered:
+        return "sede-centro"
+    return "sede-norte"
