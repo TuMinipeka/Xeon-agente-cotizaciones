@@ -93,6 +93,16 @@ def test_semantic_candidate_requires_sku_confirmation_before_stock_or_draft() ->
     assert "get_stock_by_branches" not in candidate_context
     assert "create_quote_draft" not in candidate_context
 
+    rejected_context = container.hermes_tools.format_verified_context(
+        "Confirmo el SKU ALA-14",
+        conversation_id="conversation-confirmation",
+    )
+
+    assert rejected_context is not None
+    assert "confirmation_required" in rejected_context
+    assert "get_stock_by_branches" not in rejected_context
+    assert "create_quote_draft" not in rejected_context
+
     confirmed_context = container.hermes_tools.format_verified_context(
         "Confirmo el SKU CEM-50",
         conversation_id="conversation-confirmation",

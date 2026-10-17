@@ -16,6 +16,7 @@ def _sample_upsert_payload(
     text: str = "necesito 50 bultos de cemento",
     from_me: bool = False,
     remote_jid: str = "573001112233@s.whatsapp.net",
+    external_message_id: str = "BAE5F9A123",
 ) -> dict[str, object]:
     return {
         "event": "messages.upsert",
@@ -24,7 +25,7 @@ def _sample_upsert_payload(
             "key": {
                 "remoteJid": remote_jid,
                 "fromMe": from_me,
-                "id": "BAE5F9A123",
+                "id": external_message_id,
             },
             "message": {
                 "conversation": text,
@@ -132,3 +133,40 @@ def test_whatsapp_webhook_processes_message_with_hermes_and_dispatches_reply() -
     assert len(sent_messages) == 1
     assert sent_messages[0][0] == "573001112233"
     assert "28900.00" in sent_messages[0][1]
+
+
+def test_whatsapp_keeps_candidate_pending_until_same_sender_confirms_sku() -> None:
+    async def run() -> tuple[httpx.Response, httpx.Response]:
+        settings = Settings(llm_provider="mock", _env_file=None)
+        app = create_app(settings=settings)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            candidate_response = await client.post(
+                "/v1/channels/whatsapp/webhook",
+                json=_sample_upsert_payload(
+                    text="necesito 50 bultos para fundir una placa y pegar ladrillo",
+                    external_message_id="WA-CANDIDATE-1",
+                ),
+            )
+            confirmation_response = await client.post(
+                "/v1/channels/whatsapp/webhook",
+                json=_sample_upsert_payload(
+                    text="Confirmo el SKU CEM-50",
+                    external_message_id="WA-CONFIRMATION-2",
+                ),
+            )
+        return candidate_response, confirmation_response
+
+    candidate_response, confirmation_response = asyncio.run(run())
+
+    assert candidate_response.status_code == 200
+    candidate_reply = candidate_response.json()["reply"]
+    assert "confirmation_required" in candidate_reply
+    assert "get_stock_by_branches" not in candidate_reply
+    assert "create_quote_draft" not in candidate_reply
+
+    assert confirmation_response.status_code == 200
+    confirmation_reply = confirmation_response.json()["reply"]
+    assert "status=confirmed_selection" in confirmation_reply
+    assert "get_stock_by_branches sku=CEM-50" in confirmation_reply
+    assert "create_quote_draft" in confirmation_reply
