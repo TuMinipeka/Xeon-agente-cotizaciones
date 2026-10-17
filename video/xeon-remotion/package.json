@@ -6,8 +6,8 @@
     "demo": "node demo/server.mjs",
     "studio": "remotion studio src/index.ts",
     "compositions": "remotion compositions src/index.ts",
-    "render": "remotion render src/index.ts XeonDemoV2 xeon-demo-v2.mp4 --codec=h264 --crf=18 --concurrency=4",
-    "still": "remotion still src/index.ts XeonDemoV2"
+    "render": "remotion render src/index.ts XeonDemo xeon-demo.mp4 --codec=h264 --crf=18 --concurrency=4",
+    "still": "remotion still src/index.ts XeonDemo"
   },
   "dependencies": {
     "@remotion/cli": "4.0.536",

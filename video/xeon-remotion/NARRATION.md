@@ -1,16 +1,15 @@
-# Narración revisada · demo XEON
+# Narración · XEON
 
-Esta pieza muestra una **simulación local** del canal WhatsApp y de datos comerciales ficticios. La integración con Evolution API existe, pero el video no afirma que se haya entregado un mensaje a un teléfono real. El catálogo y las cotizaciones siguen en memoria; no hay PostgreSQL comercial, pgvector operativo, aprobación humana ni PDF.
+La fuente editable del texto está en `narration-script.json`. La voz se genera localmente con Microsoft Sabina Desktop (`es-MX`) y no necesita una API externa. `scripts/build-media.py` alinea cada frase con su subtítulo y genera una base sonora estéreo original.
 
-| Escena | Texto de voz | Evidencia |
+| Escena | Mensaje | Límite factual |
 |---|---|---|
-| 1. Apertura | Esto es XEON: una demostración de asistencia comercial para ferreterías. De una consulta, a un borrador calculado y verificable. | API, agente y cotizador en perfil mock. |
-| 2. WhatsApp | El cliente escribe por WhatsApp: necesito dos bultos de cemento. Evolution API entrega el mensaje a XEON. Aquí simulamos el webhook, sin enviar nada a un teléfono real. | `scripts/simulate_whatsapp_webhook.py`, `POST /v1/channels/whatsapp/webhook`, `delivery_status=LOCAL_ONLY`. |
-| 3. Producto | XEON busca referencias por SKU, alias y descripción. Si faltan datos para identificar un producto, puede pedir aclaración. La IA interpreta; el backend conserva las reglas comerciales. | `HermesToolbelt.search_products`, pruebas de ambigüedad y catálogo sintético. La búsqueda actual es por palabras, no pgvector. |
-| 4. Inventario | Para cincuenta bultos en la sede Norte, el inventario de prueba distingue veinte locales, ochenta en Centro para traslado y cuarenta por entrega. Cada dato tiene origen y fecha; otra sede no es stock local. | `GetStockByBranches`, snapshot sintético del 8 de octubre de 2026. |
-| 5. Borrador | Para dos bultos de CEM cincuenta, el backend calcula dos por veintiocho mil novecientos: cincuenta y siete mil ochocientos pesos. Se crea un borrador versión uno; no se aprueba ni se reserva inventario. | `CreateQuoteDraft`, `Decimal`, `DRAFT` v1, prueba del webhook simulado. La referencia candidata debe confirmarse antes de una venta. |
-| 6. Alcance | XEON prepara la respuesta por el canal de WhatsApp. Esta prueba queda local: vincular el teléfono y comprobar la entrega real es un paso aparte. La base empresarial y el PDF aún están pendientes. | Adaptador Evolution API probado con transporte simulado; envío real no verificado aquí. |
+| Apertura | XEON prepara datos para que una persona continúe. | Es una demostración con datos sintéticos. |
+| Consulta | Un comprador escribe por WhatsApp. | El webhook se simula; no hay entrega a un teléfono real. |
+| Código y SKU | El código de producto, o SKU, identifica la referencia candidata `CEM-50`. | Si hay ambigüedad, se necesita aclaración. |
+| Inventario | Se distingue stock local, traslado y entrega, con origen y fecha. | Es un snapshot sintético, no inventario actual. |
+| Borrador | El backend calcula `57.800 COP` y crea `DRAFT` v1. | No hay aprobación ni reserva. |
+| Asesor real | El objetivo diferencial es entregar código/SKU, disponibilidad y borrador a una persona. | El traspaso automático al asesor sigue pendiente. |
+| Cierre | La IA prepara; una persona ayuda a decidir. | Base comercial, aprobación y PDF no están implementados. |
 
-## Voz ElevenLabs
-
-El plan gratuito de ElevenLabs permite generar audio con créditos incluidos, pero **no otorga licencia de uso comercial**. La distribución no comercial requiere atribución a `elevenlabs.io` o `11.ai` en el título. El proyecto no almacena una clave; la generación solo se realizará tras confirmar el uso permitido, tener `ELEVENLABS_API_KEY` configurada localmente y comprobar cuota disponible.
+El cierre invita a hablar con un asesor como dirección del producto. No se muestra un botón funcional, un contacto existente ni una entrega real.

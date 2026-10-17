@@ -1,0 +1,273 @@
+{
+  "scenes": [
+    {
+      "id": "opening",
+      "label": "Apertura",
+      "start": 0.0,
+      "end": 9.423,
+      "lines": [
+        {
+          "start": 0.48,
+          "end": 4.319,
+          "text": "Una consulta comercial no debería perderse entre mensajes."
+        },
+        {
+          "start": 4.499,
+          "end": 8.423,
+          "text": "XEON prepara datos verificables para que una persona continúe."
+        }
+      ]
+    },
+    {
+      "id": "whatsapp",
+      "label": "Consulta",
+      "start": 9.423,
+      "end": 20.825,
+      "lines": [
+        {
+          "start": 9.903,
+          "end": 13.617,
+          "text": "El cliente escribe: necesito dos bultos de cemento."
+        },
+        {
+          "start": 13.797,
+          "end": 16.822,
+          "text": "En esta demo simulamos el webhook de WhatsApp."
+        },
+        {
+          "start": 17.002,
+          "end": 19.825,
+          "text": "No enviamos mensajes a un teléfono real."
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "label": "Código y SKU",
+      "start": 20.825,
+      "end": 33.237,
+      "lines": [
+        {
+          "start": 21.305,
+          "end": 25.35,
+          "text": "Cada candidato se muestra con su código de producto, el SKU."
+        },
+        {
+          "start": 25.53,
+          "end": 28.69,
+          "text": "El SKU candidato es CEM guion cincuenta."
+        },
+        {
+          "start": 28.87,
+          "end": 32.237,
+          "text": "Si la referencia es ambigua, primero se aclara."
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "label": "Inventario",
+      "start": 33.237,
+      "end": 45.615,
+      "lines": [
+        {
+          "start": 33.717,
+          "end": 37.35,
+          "text": "En el escenario de prueba, Norte tiene veinte bultos."
+        },
+        {
+          "start": 37.53,
+          "end": 41.431,
+          "text": "Centro tiene ochenta para traslado; hay cuarenta por entrega."
+        },
+        {
+          "start": 41.611,
+          "end": 44.615,
+          "text": "Cada cantidad conserva su origen y su fecha."
+        }
+      ]
+    },
+    {
+      "id": "quote",
+      "label": "Borrador",
+      "start": 45.615,
+      "end": 58.764,
+      "lines": [
+        {
+          "start": 46.095,
+          "end": 51.295,
+          "text": "Dos bultos a veintiocho mil novecientos suman cincuenta y siete mil ochocientos pesos."
+        },
+        {
+          "start": 51.475,
+          "end": 54.658,
+          "text": "El backend calcula con Decimal y guarda un borrador."
+        },
+        {
+          "start": 54.838,
+          "end": 57.764,
+          "text": "El borrador no aprueba ni reserva inventario."
+        }
+      ]
+    },
+    {
+      "id": "advisor",
+      "label": "Asesor real",
+      "start": 58.764,
+      "end": 75.649,
+      "lines": [
+        {
+          "start": 59.244,
+          "end": 63.204,
+          "text": "Nuestro diferencial buscado es el contacto con un asesor real."
+        },
+        {
+          "start": 63.384,
+          "end": 67.147,
+          "text": "XEON le entrega el SKU, la disponibilidad y el borrador."
+        },
+        {
+          "start": 67.327,
+          "end": 71.062,
+          "text": "Así el asesor puede conversar contigo sin empezar de cero."
+        },
+        {
+          "start": 71.242,
+          "end": 74.649,
+          "text": "Este traspaso automático aún está por implementar."
+        }
+      ]
+    },
+    {
+      "id": "closing",
+      "label": "Cierre",
+      "start": 75.649,
+      "end": 92.094,
+      "lines": [
+        {
+          "start": 76.129,
+          "end": 80.615,
+          "text": "La inteligencia artificial prepara; una persona te ayuda a decidir."
+        },
+        {
+          "start": 80.795,
+          "end": 86.656,
+          "text": "Esto usa datos sintéticos: base comercial, aprobación y PDF siguen pendientes."
+        },
+        {
+          "start": 86.836,
+          "end": 91.094,
+          "text": "XEON. De la consulta al asesor, con contexto."
+        }
+      ]
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.48,
+      "end": 4.319,
+      "text": "Una consulta comercial no debería perderse entre mensajes."
+    },
+    {
+      "start": 4.499,
+      "end": 8.423,
+      "text": "XEON prepara datos verificables para que una persona continúe."
+    },
+    {
+      "start": 9.903,
+      "end": 13.617,
+      "text": "El cliente escribe: necesito dos bultos de cemento."
+    },
+    {
+      "start": 13.797,
+      "end": 16.822,
+      "text": "En esta demo simulamos el webhook de WhatsApp."
+    },
+    {
+      "start": 17.002,
+      "end": 19.825,
+      "text": "No enviamos mensajes a un teléfono real."
+    },
+    {
+      "start": 21.305,
+      "end": 25.35,
+      "text": "Cada candidato se muestra con su código de producto, el SKU."
+    },
+    {
+      "start": 25.53,
+      "end": 28.69,
+      "text": "El SKU candidato es CEM guion cincuenta."
+    },
+    {
+      "start": 28.87,
+      "end": 32.237,
+      "text": "Si la referencia es ambigua, primero se aclara."
+    },
+    {
+      "start": 33.717,
+      "end": 37.35,
+      "text": "En el escenario de prueba, Norte tiene veinte bultos."
+    },
+    {
+      "start": 37.53,
+      "end": 41.431,
+      "text": "Centro tiene ochenta para traslado; hay cuarenta por entrega."
+    },
+    {
+      "start": 41.611,
+      "end": 44.615,
+      "text": "Cada cantidad conserva su origen y su fecha."
+    },
+    {
+      "start": 46.095,
+      "end": 51.295,
+      "text": "Dos bultos a veintiocho mil novecientos suman cincuenta y siete mil ochocientos pesos."
+    },
+    {
+      "start": 51.475,
+      "end": 54.658,
+      "text": "El backend calcula con Decimal y guarda un borrador."
+    },
+    {
+      "start": 54.838,
+      "end": 57.764,
+      "text": "El borrador no aprueba ni reserva inventario."
+    },
+    {
+      "start": 59.244,
+      "end": 63.204,
+      "text": "Nuestro diferencial buscado es el contacto con un asesor real."
+    },
+    {
+      "start": 63.384,
+      "end": 67.147,
+      "text": "XEON le entrega el SKU, la disponibilidad y el borrador."
+    },
+    {
+      "start": 67.327,
+      "end": 71.062,
+      "text": "Así el asesor puede conversar contigo sin empezar de cero."
+    },
+    {
+      "start": 71.242,
+      "end": 74.649,
+      "text": "Este traspaso automático aún está por implementar."
+    },
+    {
+      "start": 76.129,
+      "end": 80.615,
+      "text": "La inteligencia artificial prepara; una persona te ayuda a decidir."
+    },
+    {
+      "start": 80.795,
+      "end": 86.656,
+      "text": "Esto usa datos sintéticos: base comercial, aprobación y PDF siguen pendientes."
+    },
+    {
+      "start": 86.836,
+      "end": 91.094,
+      "text": "XEON. De la consulta al asesor, con contexto."
+    }
+  ],
+  "duration": 92.094
+}
