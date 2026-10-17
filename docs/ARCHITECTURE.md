@@ -102,3 +102,4 @@ equivalente en memoria para pruebas):
 
 - Persistencia en PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic.
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
+- Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.

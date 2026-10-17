@@ -61,7 +61,12 @@ El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el even
 
 ### 3.3. Posterior al MVP
 
-Panel web opcional (Jinja2 + HTMX), transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local.
+- **Copiloto para el trabajador con confirmación por Gmail antes de facturar (planeado, no implementado):**
+  - Cuando la cotización (`DRAFT`) con el cliente tiene definidos los productos, cantidades, sede de despacho y términos/descuentos internos del *harness*, el backend enviará un correo estructurado por **Gmail (SMTP)** al trabajador/vendedor esperando su confirmación antes de pasar a facturación (`PENDING_APPROVAL` → `APPROVED_FOR_BILLING`).
+  - **Semáforo de descuentos en el Harness:** aplicación determinista de descuentos pre-aprobados por escala/volumen con `Decimal` y marcado de excepciones para autorización del supervisor humano en el correo.
+  - **Hoja de alistamiento multi-sede (*Picking / Split-Order*):** inclusión automática en el correo del desglose de despacho por sede (retiro local vs. traslado entre bodegas) y tabla de SKUs lista para facturar en caja/POS.
+  - **Confirmación humana de 1 clic y aviso al cliente:** al confirmar el trabajador desde el correo o CLI, se valida la versión del borrador y se notifica automáticamente por WhatsApp al cliente que puede pasar a facturar.
+- Panel web opcional (Jinja2 + HTMX), transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local.
 
 ## 4. Principios obligatorios del producto
 
