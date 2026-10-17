@@ -75,11 +75,7 @@ def parse_evolution_webhook(
 
     from_me = bool(key.get("fromMe", False))
     prefix_match = _TRIGGER_PREFIX_RE.match(raw_text)
-    if from_me:
-        if prefix_match is None:
-            return None
-        text = prefix_match.group(1).strip()
-    elif require_prefix:
+    if from_me or require_prefix:
         if prefix_match is None:
             return None
         text = prefix_match.group(1).strip()
