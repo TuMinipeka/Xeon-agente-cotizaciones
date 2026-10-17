@@ -1,6 +1,15 @@
 services:
+  api:
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-hermes}
+      HERMES_BASE_URL: ${HERMES_BASE_URL:-http://host.docker.internal:8642/v1}
+      WHATSAPP_SEND_ENABLED: ${WHATSAPP_SEND_ENABLED:-true}
+      EVOLUTION_API_URL: http://evolution-api:8080
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-xeon-ferreteria}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-xeon-evolution-local-key}
+
   evolution-api:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.2.3
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
@@ -24,7 +33,7 @@ services:
       CACHE_LOCAL_ENABLED: "false"
       DEL_INSTANCE: "false"
       WEBHOOK_GLOBAL_ENABLED: "true"
-      WEBHOOK_GLOBAL_URL: ${XEON_WEBHOOK_URL:-http://host.docker.internal:8000/v1/channels/whatsapp/webhook}
+      WEBHOOK_GLOBAL_URL: ${XEON_WEBHOOK_URL:-http://api:8000/v1/channels/whatsapp/webhook}
       WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
       WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
     depends_on:
@@ -66,3 +75,4 @@ volumes:
   evolution_instances:
   evolution_pgdata:
   evolution_redisdata:
+

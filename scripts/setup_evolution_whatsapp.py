@@ -112,7 +112,7 @@ def main() -> int:
         "--webhook-url",
         default=os.getenv(
             "XEON_WEBHOOK_URL",
-            "http://host.docker.internal:8000/v1/channels/whatsapp/webhook",
+            "http://api:8000/v1/channels/whatsapp/webhook",
         ),
         help="URL del webhook de XEON que recibira MESSAGES_UPSERT",
     )
