@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>XEON · Consola Comercial Interactiva (MVP)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">X</span>
+        <div>
+          <span class="brand-name">XEON</span>
+          <small>CONSOLA COMERCIAL · MVP DETERMINISTA</small>
+        </div>
+      </div>
+      <div class="topbar-meta">
+        <span class="meta-badge">PRECISIÓN DECIMAL</span>
+        <div id="connection" class="connection" role="status" aria-live="polite">Comprobando API…</div>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">ASISTENCIA COMERCIAL FERRETERA · ENTORNO DE PRUEBA</p>
+          <h1>De una pregunta coloquial a un <em>borrador verificable.</em></h1>
+          <p class="hero-lead">
+            La IA interpreta y desambigua; el backend calcula precios con <code>Decimal</code>, verifica vigencia de inventario por sede y construye borradores <code>DRAFT</code> sin alucinar cifras.
+          </p>
+          <div class="hero-metrics" aria-label="Garantías del sistema">
+            <div class="metric-chip">
+              <span class="metric-label">ARITMÉTICA</span>
+              <strong class="metric-val">Decimal Exacto</strong>
+            </div>
+            <div class="metric-chip">
+              <span class="metric-label">CATÁLOGO HÍBRIDO</span>
+              <strong class="metric-val">SQL + JSONB + RAG</strong>
+            </div>
+            <div class="metric-chip">
+              <span class="metric-label">ESTADO INICIAL</span>
+              <strong class="metric-val">100% DRAFT v1</strong>
+            </div>
+          </div>
+        </div>
+        <div class="hero-art">
+          <img src="/xeon.png" alt="Mascota de XEON" width="320" height="320">
+        </div>
+      </section>
+
+      <nav class="steps" role="tablist" aria-label="Etapas de la demostración comercial">
+        <button class="step active" role="tab" aria-selected="true" aria-controls="chat" id="tab-chat" data-step="chat">
+          <span class="step-num">01 · INTÉRPRETE IA</span>
+          <strong>Consultar y desambiguar</strong>
+          <small>RAG semántico, specs JSONB y reglas T02/T03</small>
+        </button>
+        <button class="step" role="tab" aria-selected="false" aria-controls="stock" id="tab-stock" data-step="stock">
+          <span class="step-num">02 · DISPONIBILIDAD</span>
+          <strong>Inventario por sede</strong>
+          <small>Local, traslado, entrega y vigencia (T04/T05/T07)</small>
+        </button>
+        <button class="step" role="tab" aria-selected="false" aria-controls="quote" id="tab-quote" data-step="quote">
+          <span class="step-num">03 · MOTOR DECIMAL</span>
+          <strong>Crear borrador DRAFT</strong>
+          <small>Idempotencia y bloqueo de descuentos libres (T01/T08)</small>
+        </button>
+      </nav>
+
+      <section class="workbench" aria-labelledby="panel-title">
+        <div class="workbench-head">
+          <div>
+            <p class="eyebrow" id="panel-eyebrow">ETAPA 01 · BÚSQUEDA HÍBRIDA Y DESAMBIGUACIÓN</p>
+            <h2 id="panel-title">Consulta comercial</h2>
+          </div>
+          <span class="pill" id="mode-pill">MODO MOCK · COSTO $0</span>
+        </div>
+
+        <!-- PANEL 1: CHAT -->
+        <section id="chat" class="panel active" role="tabpanel" aria-labelledby="tab-chat">
+          <p class="panel-desc">
+            Prueba cómo <code>HermesToolbelt</code> identifica SKUs por descripción coloquial o exige aclaración cuando faltan unidades o la referencia es ambigua. Haz clic en un escenario real o escribe tu consulta:
+          </p>
+
+          <div class="preset-group" role="group" aria-label="Escenarios rápidos de prueba">
+            <span class="preset-label">Casos rápidos:</span>
+            <button type="button" class="chip" data-preset="Necesito 50 bultos de cemento en sede norte">🧱 50 bultos cemento (T01)</button>
+            <button type="button" class="chip" data-preset="Tubería para agua fría de 200 psi">🚰 Tubería 200 PSI (T09 · Specs)</button>
+            <button type="button" class="chip" data-preset="Necesito el coso que va en el aire acondicionado">❄️ «El coso del aire» (T02 · Ambiguo)</button>
+            <button type="button" class="chip" data-preset="La pieza mide 20 x 30 x 10">📏 «Mide 20 × 30 × 10» (T03 · Sin unidades)</button>
+          </div>
+
+          <div class="field-group">
+            <label for="question">Mensaje del comprador <span class="kbd-hint">Ctrl + Enter para enviar</span></label>
+            <textarea id="question" rows="3" placeholder="Ej. Necesito 50 bultos de cemento para fundir placa…">Necesito 50 bultos de cemento en sede norte</textarea>
+          </div>
+
+          <div class="action-bar">
+            <button class="action" id="chat-send" type="button">
+              <span class="action-text">Consultar a XEON</span>
+              <span class="action-icon" aria-hidden="true">↗</span>
+            </button>
+          </div>
+
+          <div id="chat-result" class="result" aria-live="polite">
+            <div class="empty-state">Selecciona un caso rápido o presiona <strong>Consultar a XEON</strong> para inspeccionar la respuesta verificada.</div>
+          </div>
+        </section>
+
+        <!-- PANEL 2: STOCK -->
+        <section id="stock" class="panel" role="tabpanel" aria-labelledby="tab-stock">
+          <p class="panel-desc">
+            Evalúa snapshots sintéticos al <code>2026-10-08T15:00:00Z</code>. Distingue inventario firme (<code>FRESH</code>) de lecturas vencidas (<code>STALE</code>) y calcula el faltante local sin prometer reservas.
+          </p>
+
+          <div class="controls-grid">
+            <div class="field-group">
+              <label for="stock-sku">Referencia (SKU)</label>
+              <select id="stock-sku">
+                <option value="CEM-50">CEM-50 · Cemento gris 50 kg</option>
+                <option value="ALA-14">ALA-14 · Alambre de púas calibre 14</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="stock-branch">Sede solicitada</label>
+              <select id="stock-branch">
+                <option value="sede-norte">Sede Norte (20 unds locales)</option>
+                <option value="sede-centro">Sede Centro (80 unds locales)</option>
+                <option value="sede-sur">Sede Sur (Snapshot vencido · T07)</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="quantity">Cantidad solicitada</label>
+              <input id="quantity" type="number" min="1" max="500" value="50">
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button class="action" id="stock-send" type="button">
+              <span class="action-text">Evaluar disponibilidad por sede</span>
+              <span class="action-icon" aria-hidden="true">↗</span>
+            </button>
+          </div>
+
+          <div id="stock-result" class="result" aria-live="polite">
+            <div class="empty-state">Verás el cumplimiento local, el faltante exacto y las alternativas por traslado o entrega con su sello de vigencia.</div>
+          </div>
+        </section>
+
+        <!-- PANEL 3: QUOTE DRAFT -->
+        <section id="quote" class="panel" role="tabpanel" aria-labelledby="tab-quote">
+          <p class="panel-desc">
+            El caso de uso <code>CreateQuoteDraft</code> calcula subtotales y totales con <code>Decimal</code> a partir del precio oficial de lista y rechaza descuentos sin política aprobada (Caso <code>T08</code>).
+          </p>
+
+          <div class="controls-grid quote-inputs">
+            <div class="field-group">
+              <label for="quote-sku">Producto o consulta</label>
+              <select id="quote-sku">
+                <option value="CEM-50">CEM-50 · Cemento gris 50 kg ($28.900 COP)</option>
+                <option value="ALA-14">ALA-14 · Alambre de púas cal. 14 ($185.000 COP)</option>
+                <option value="TUB-PVC-12">TUB-PVC-12 · Tubo PVC 1/2" 200 PSI ($16.400 COP)</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="quote-qty">Cantidad a cotizar</label>
+              <input id="quote-qty" type="number" min="1" max="1000" value="50">
+            </div>
+          </div>
+
+          <label class="checkbox-row" for="quote-discount">
+            <input type="checkbox" id="quote-discount">
+            <span>Solicitar descuento manual sin política aprobada <em>(Probar bloqueo de seguridad T08)</em></span>
+          </label>
+
+          <div class="action-bar">
+            <button class="action" id="quote-send" type="button">
+              <span class="action-text">Calcular borrador DRAFT</span>
+              <span class="action-icon" aria-hidden="true">↗</span>
+            </button>
+          </div>
+
+          <div id="quote-result" class="result" aria-live="polite">
+            <div class="empty-state">El desglose financiero calculado con <code>Decimal</code> y el identificador de versión aparecerán aquí.</div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="truth" aria-label="Nota de transparencia arquitectónica">
+        <div class="truth-title">
+          <span class="truth-dot" aria-hidden="true"></span>
+          <strong>Frontera Hexagonal Verificada</strong>
+        </div>
+        <p>
+          Los precios (<code>Decimal</code>), el cumplimiento de inventario y los borradores <code>DRAFT</code> se calculan exclusivamente en el dominio de XEON. Los datos mostrados son sintéticos de <em>Ferretería Demo XEON</em> y no pertenecen a ninguna empresa real.
+        </p>
+      </aside>
+    </main>
+
+    <footer>
+      <span>XEON · Arquitectura Hexagonal (Hermes + Groq + Evolution API)</span>
+      <span class="mono-meta">Sistema de diseño: .interface-design/system.md</span>
+    </footer>
+  </div>
+</body>
+</html>

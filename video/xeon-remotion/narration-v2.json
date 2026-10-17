@@ -1,0 +1,32 @@
+[
+  {
+    "id": "opening",
+    "label": "Apertura",
+    "text": "Esto es XEON: una demostración de asistencia comercial para ferreterías. De una consulta, a un borrador calculado y verificable."
+  },
+  {
+    "id": "whatsapp",
+    "label": "WhatsApp",
+    "text": "El cliente escribe por WhatsApp: necesito dos bultos de cemento. Evolution API entrega el mensaje a XEON. Aquí simulamos el webhook, sin enviar nada a un teléfono real."
+  },
+  {
+    "id": "product",
+    "label": "Producto",
+    "text": "XEON busca referencias por SKU, alias y descripción. Si faltan datos para identificar un producto, puede pedir aclaración. La IA interpreta; el backend conserva las reglas comerciales."
+  },
+  {
+    "id": "inventory",
+    "label": "Inventario",
+    "text": "Para cincuenta bultos en la sede Norte, el inventario de prueba distingue veinte locales, ochenta en Centro para traslado y cuarenta por entrega. Cada dato tiene origen y fecha; otra sede no es stock local."
+  },
+  {
+    "id": "quote",
+    "label": "Borrador",
+    "text": "Para dos bultos de CEM cincuenta, el backend calcula dos por veintiocho mil novecientos: cincuenta y siete mil ochocientos pesos. Se crea un borrador versión uno; no se aprueba ni se reserva inventario."
+  },
+  {
+    "id": "limits",
+    "label": "Alcance",
+    "text": "XEON prepara la respuesta por el canal de WhatsApp. Esta prueba queda local: vincular el teléfono y comprobar la entrega real es un paso aparte. La base empresarial y el PDF aún están pendientes."
+  }
+]

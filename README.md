@@ -26,7 +26,8 @@ pero requiere una instancia vinculada para operar con personas reales.
 
 **Ir directo a:** [primer uso](#4-guía-para-el-siguiente-desarrollador-instalación-desde-cero) ·
 [comandos CLI](#6-herramienta-cli-actual-uv-run-xeon) ·
-[estado y pendientes](#8-estado-del-corte-actual).
+[estado y pendientes](#8-estado-del-corte-actual) ·
+[video y demo interactiva](video/xeon-remotion/README.md).
 
 ## Tabla de Contenidos
 
@@ -130,6 +131,7 @@ src/xeon/
 └── config.py               Configuración tipada
 scripts/                    Simulación y aprovisionamiento de Evolution API
 tests/                      Pruebas de dominio, API, CLI y adaptadores
+video/xeon-remotion/        Video Remotion y demo interactiva en perfil mock
 ```
 
 La arquitectura es **hexagonal, organizada por cortes verticales comerciales**: catálogo,

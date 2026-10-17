@@ -1,0 +1,159 @@
+{
+  "ready": true,
+  "scenes": [
+    {
+      "id": "opening",
+      "label": "Apertura",
+      "start": 0,
+      "end": 8.707,
+      "text": "Esto es XEON: una demostración de asistencia comercial para ferreterías. De una consulta, a un borrador calculado y verificable."
+    },
+    {
+      "id": "whatsapp",
+      "label": "WhatsApp",
+      "start": 9.033,
+      "end": 20.794,
+      "text": "El cliente escribe por WhatsApp: necesito dos bultos de cemento. Evolution API entrega el mensaje a XEON. Aquí simulamos el webhook, sin enviar nada a un teléfono real."
+    },
+    {
+      "id": "product",
+      "label": "Producto",
+      "start": 21.177,
+      "end": 33.994,
+      "text": "XEON busca referencias por SKU, alias y descripción. Si faltan datos para identificar un producto, puede pedir aclaración. La IA interpreta; el backend conserva las reglas comerciales."
+    },
+    {
+      "id": "inventory",
+      "label": "Inventario",
+      "start": 34.238,
+      "end": 47.648,
+      "text": "Para cincuenta bultos en la sede Norte, el inventario de prueba distingue veinte locales, ochenta en Centro para traslado y cuarenta por entrega. Cada dato tiene origen y fecha; otra sede no es stock local."
+    },
+    {
+      "id": "quote",
+      "label": "Borrador",
+      "start": 47.926,
+      "end": 60.848,
+      "text": "Para dos bultos de CEM cincuenta, el backend calcula dos por veintiocho mil novecientos: cincuenta y siete mil ochocientos pesos. Se crea un borrador versión uno; no se aprueba ni se reserva inventario."
+    },
+    {
+      "id": "limits",
+      "label": "Alcance",
+      "start": 61.173,
+      "end": 74.305,
+      "text": "XEON prepara la respuesta por el canal de WhatsApp. Esta prueba queda local: vincular el teléfono y comprobar la entrega real es un paso aparte. La base empresarial y el PDF aún están pendientes."
+    }
+  ],
+  "captions": [
+    {
+      "start": 0,
+      "end": 4.783,
+      "text": "Esto es XEON: una demostración de asistencia comercial para ferreterías."
+    },
+    {
+      "start": 5.166,
+      "end": 8.707,
+      "text": "De una consulta, a un borrador calculado y verificable."
+    },
+    {
+      "start": 9.033,
+      "end": 13.108,
+      "text": "El cliente escribe por WhatsApp: necesito dos bultos de cemento."
+    },
+    {
+      "start": 13.259,
+      "end": 16.637,
+      "text": "Evolution API entrega el mensaje a XEON."
+    },
+    {
+      "start": 16.916,
+      "end": 20.201,
+      "text": "Aquí simulamos el webhook, sin enviar nada a un teléfono"
+    },
+    {
+      "start": 20.283,
+      "end": 20.794,
+      "text": "real."
+    },
+    {
+      "start": 21.177,
+      "end": 25.333,
+      "text": "XEON busca referencias por SKU, alias y descripción."
+    },
+    {
+      "start": 25.716,
+      "end": 29.606,
+      "text": "Si faltan datos para identificar un producto, puede pedir aclaración."
+    },
+    {
+      "start": 29.989,
+      "end": 33.994,
+      "text": "La IA interpreta; el backend conserva las reglas comerciales."
+    },
+    {
+      "start": 34.238,
+      "end": 37.291,
+      "text": "Para cincuenta bultos en la sede Norte, el inventario de"
+    },
+    {
+      "start": 37.338,
+      "end": 41.657,
+      "text": "prueba distingue veinte locales, ochenta en Centro para traslado y"
+    },
+    {
+      "start": 41.726,
+      "end": 42.969,
+      "text": "cuarenta por entrega."
+    },
+    {
+      "start": 43.41,
+      "end": 46.719,
+      "text": "Cada dato tiene origen y fecha; otra sede no es"
+    },
+    {
+      "start": 46.8,
+      "end": 47.648,
+      "text": "stock local."
+    },
+    {
+      "start": 47.926,
+      "end": 51.595,
+      "text": "Para dos bultos de CEM cincuenta, el backend calcula dos"
+    },
+    {
+      "start": 51.676,
+      "end": 56.332,
+      "text": "por veintiocho mil novecientos: cincuenta y siete mil ochocientos pesos."
+    },
+    {
+      "start": 56.657,
+      "end": 59.467,
+      "text": "Se crea un borrador versión uno; no se aprueba ni"
+    },
+    {
+      "start": 59.513,
+      "end": 60.848,
+      "text": "se reserva inventario."
+    },
+    {
+      "start": 61.173,
+      "end": 64.041,
+      "text": "XEON prepara la respuesta por el canal de WhatsApp."
+    },
+    {
+      "start": 64.483,
+      "end": 68.186,
+      "text": "Esta prueba queda local: vincular el teléfono y comprobar la"
+    },
+    {
+      "start": 68.221,
+      "end": 70.311,
+      "text": "entrega real es un paso aparte."
+    },
+    {
+      "start": 70.752,
+      "end": 74.305,
+      "text": "La base empresarial y el PDF aún están pendientes."
+    }
+  ]
+}

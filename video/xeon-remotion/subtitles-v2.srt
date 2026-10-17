@@ -1,0 +1,87 @@
+1
+00:00:00,000 --> 00:00:04,783
+Esto es XEON: una demostración de asistencia comercial para ferreterías.
+
+2
+00:00:05,166 --> 00:00:08,707
+De una consulta, a un borrador calculado y verificable.
+
+3
+00:00:09,033 --> 00:00:13,108
+El cliente escribe por WhatsApp: necesito dos bultos de cemento.
+
+4
+00:00:13,259 --> 00:00:16,637
+Evolution API entrega el mensaje a XEON.
+
+5
+00:00:16,916 --> 00:00:20,201
+Aquí simulamos el webhook, sin enviar nada a un teléfono
+
+6
+00:00:20,283 --> 00:00:20,794
+real.
+
+7
+00:00:21,177 --> 00:00:25,333
+XEON busca referencias por SKU, alias y descripción.
+
+8
+00:00:25,716 --> 00:00:29,606
+Si faltan datos para identificar un producto, puede pedir aclaración.
+
+9
+00:00:29,989 --> 00:00:33,994
+La IA interpreta; el backend conserva las reglas comerciales.
+
+10
+00:00:34,238 --> 00:00:37,291
+Para cincuenta bultos en la sede Norte, el inventario de
+
+11
+00:00:37,338 --> 00:00:41,657
+prueba distingue veinte locales, ochenta en Centro para traslado y
+
+12
+00:00:41,726 --> 00:00:42,969
+cuarenta por entrega.
+
+13
+00:00:43,410 --> 00:00:46,719
+Cada dato tiene origen y fecha; otra sede no es
+
+14
+00:00:46,800 --> 00:00:47,648
+stock local.
+
+15
+00:00:47,926 --> 00:00:51,595
+Para dos bultos de CEM cincuenta, el backend calcula dos
+
+16
+00:00:51,676 --> 00:00:56,332
+por veintiocho mil novecientos: cincuenta y siete mil ochocientos pesos.
+
+17
+00:00:56,657 --> 00:00:59,467
+Se crea un borrador versión uno; no se aprueba ni
+
+18
+00:00:59,513 --> 00:01:00,848
+se reserva inventario.
+
+19
+00:01:01,173 --> 00:01:04,041
+XEON prepara la respuesta por el canal de WhatsApp.
+
+20
+00:01:04,483 --> 00:01:08,186
+Esta prueba queda local: vincular el teléfono y comprobar la
+
+21
+00:01:08,221 --> 00:01:10,311
+entrega real es un paso aparte.
+
+22
+00:01:10,752 --> 00:01:14,305
+La base empresarial y el PDF aún están pendientes.
