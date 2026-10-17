@@ -21,7 +21,7 @@ Ejemplos:
 ```text
 Feat: :sparkles: ImplementsDoneInTheProject
 Fix: :bug: RejectsUnknownStockState
-Docs: :memo: ExplainsGrokSeparation
+Docs: :memo: ExplainsGroqSeparation
 Test: :test_tube: CoversMockEndToEndFlow
 ```
 
@@ -38,6 +38,5 @@ uv run mypy src
 uv run pytest
 ```
 
-La prueba real de Grok no forma parte de la suite normal. Debe ejecutarse de forma explícita, con
+La prueba real de Groq no forma parte de la suite normal. Debe ejecutarse de forma explícita, con
 clave local, presupuesto acordado y sin registrar mensajes sensibles.
-

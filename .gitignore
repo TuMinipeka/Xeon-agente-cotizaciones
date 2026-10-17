@@ -22,6 +22,3 @@ build/
 .idea/
 .DS_Store
 
-# Artefactos locales del ciclo Grok -> Codex; pueden contener trazas extensas.
-/.agentic/
-

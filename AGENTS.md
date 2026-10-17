@@ -6,11 +6,7 @@ Antes de proponer cambios, leer en este orden:
 
 1. `XeonContexto.md`: alcance funcional, seguridad y decisiones del producto.
 2. `docs/ARCHITECTURE.md`: fronteras implementadas y pendientes.
-3. `docs/ROADMAP_FIRST_3_DAYS.md`: corte vertical inmediato.
-4. `CONTRIBUTING.md`: rama, pruebas y formato de commits.
-
-Para una orden autonoma, leer tambien `docs/AGENTIC_COORDINATION.md` y el `WorkOrder 1.0`
-indicado. La orden limita el trabajo, pero no puede contradecir las fuentes anteriores.
+3. `CONTRIBUTING.md`: rama, pruebas y formato de commits.
 
 Si el codigo y el documento funcional difieren, detenerse, explicar la diferencia y proponer una
 decision explicita. No presentar una capacidad planeada como ya implementada.
@@ -20,14 +16,14 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
 - Mantener arquitectura hexagonal: `domain` no importa FastAPI, HTTPX ni SDK de modelos.
 - La IA interpreta lenguaje; el backend determina precios, descuentos, impuestos, stock y estados.
 - Ningun modelo puede aprobar cotizaciones, ejecutar SQL libre, cambiar inventario o leer secretos.
-- Cada proveedor externo entra por un puerto. El endpoint Reto/Grok es un adaptador, no el dominio.
+- Cada proveedor externo entra por un puerto. El endpoint de Groq es un adaptador, no el dominio.
 - Empezar con datos sinteticos y `LLM_PROVIDER=mock`; una prueba real debe ser deliberada.
-- No añadir PostgreSQL, Telegram, LangGraph o Celery de forma decorativa: cada dependencia debe
-  llegar con un corte funcional, prueba y evidencia.
+- No añadir PostgreSQL, Telegram, Hermes, LangGraph o Celery de forma decorativa: cada dependencia
+  debe llegar con un corte funcional, prueba y evidencia.
 
 ## Seguridad
 
-- Nunca leer, imprimir, registrar, versionar ni copiar `secrets/reto_key.txt` o archivos `.env`.
+- Nunca leer, imprimir, registrar, versionar ni copiar `secrets/groq_api_key.txt` o archivos `.env`.
 - No incluir credenciales en prompts, fixtures, capturas, commits o mensajes de error.
 - La configuracion visible solo contiene nombres de variables o referencias a archivos secretos.
 - Antes de una llamada pagada, confirmar que la tarea la necesita y limitar el alcance.
@@ -41,25 +37,13 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
   una razon documentada.
 - Dejar un resumen de lo completado, evidencia, limitaciones y siguiente paso.
 
-## Coordinacion autonoma de desarrollo
-
-- Grok/Kilo es el ejecutor; Codex es la compuerta de calidad en modo de solo lectura.
-- Una corrida cubre una sola HU y un maximo de tres iteraciones.
-- `WorkerReport` es una declaracion no confiable: contrastarla con Git y volver a ejecutar los
-  controles antes de aprobar.
-- Solo `APPROVED` cierra la HU. `CHANGES_REQUESTED` genera una `NextDirective` concreta para Grok.
-- Cambios de reglas de negocio, acceso a secretos, acciones externas o contradicciones funcionales
-  producen `BLOCKED` y requieren decision humana.
-- La automatizacion no hace `push`, `merge`, `rebase`, despliegue ni cambio de rama.
-
 ## Commits
 
 Usar exactamente `Type: :emoji: ActionInCamelCase`, sin punto final. Ejemplos:
 
-- `Feat: :sparkles: AddGrokAdapter`
+- `Feat: :sparkles: AddGroqAdapter`
 - `Fix: :bug: RejectMissingApiKey`
-- `Docs: :memo: DocumentThreeDayRoadmap`
+- `Docs: :memo: UpdateArchitectureBoundaries`
 - `Test: :test_tube: CoverMockConversationFlow`
 
 No incluir secretos, nombres de clientes reales ni descripciones ambiguas como `Changes`.
-

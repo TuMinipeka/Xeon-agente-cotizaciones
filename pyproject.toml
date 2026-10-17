@@ -14,7 +14,6 @@ dependencies = [
 
 [project.scripts]
 xeon = "xeon.cli:app"
-xeon-coordinate = "xeon.devcoord.cli:main"
 
 [dependency-groups]
 dev = [
@@ -37,7 +36,6 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-extend-exclude = [".agents"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

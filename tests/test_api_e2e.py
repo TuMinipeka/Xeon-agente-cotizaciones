@@ -24,7 +24,7 @@ def test_mock_chat_runs_end_to_end_without_external_calls() -> None:
 
 def test_health_does_not_expose_secrets() -> None:
     async def run() -> httpx.Response:
-        settings = Settings(llm_provider="mock", reto_key="sensitive-value", _env_file=None)
+        settings = Settings(llm_provider="mock", groq_api_key="sensitive-value", _env_file=None)
         transport = httpx.ASGITransport(app=create_app(settings=settings))
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             return await client.get("/health")

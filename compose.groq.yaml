@@ -1,0 +1,12 @@
+services:
+  api:
+    environment:
+      LLM_PROVIDER: groq
+      GROQ_API_KEY_FILE: /run/secrets/groq_api_key
+    secrets:
+      - groq_api_key
+
+secrets:
+  groq_api_key:
+    file: ./secrets/groq_api_key.txt
+

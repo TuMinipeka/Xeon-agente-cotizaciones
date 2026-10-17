@@ -12,7 +12,7 @@ def test_adapter_uses_expected_chat_completions_contract() -> None:
             assert str(request.url) == "https://provider.example/v1/chat/completions"
             assert request.headers["Authorization"] == "Bearer test-secret"
             payload = __import__("json").loads(request.content)
-            assert payload["model"] == "grok-4.6"
+            assert payload["model"] == "llama-3.3-70b-versatile"
             assert payload["messages"][-1] == {"role": "user", "content": "hola"}
             return httpx.Response(
                 200,
@@ -23,7 +23,7 @@ def test_adapter_uses_expected_chat_completions_contract() -> None:
         adapter = OpenAICompatibleLLM(
             base_url="https://provider.example/v1/",
             api_key="test-secret",
-            model="grok-4.6",
+            model="llama-3.3-70b-versatile",
             max_output_tokens=256,
             timeout_seconds=5,
             client=client,
@@ -32,6 +32,6 @@ def test_adapter_uses_expected_chat_completions_contract() -> None:
         await client.aclose()
 
         assert result.text == "respuesta"
-        assert result.provider == "grok"
+        assert result.provider == "groq"
 
     asyncio.run(run())

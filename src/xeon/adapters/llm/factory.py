@@ -10,7 +10,7 @@ def build_llm(settings: Settings) -> LLMPort:
     if settings.llm_provider == "mock":
         return MockLLM()
 
-    key = settings.require_reto_key().get_secret_value()
+    key = settings.require_groq_api_key().get_secret_value()
     return OpenAICompatibleLLM(
         base_url=settings.llm_base_url,
         api_key=key,

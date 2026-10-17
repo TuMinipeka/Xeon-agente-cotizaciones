@@ -59,7 +59,7 @@ class OpenAICompatibleLLM:
                 "No fue posible obtener una respuesta valida del proveedor LLM."
             ) from exc
 
-        return LLMResponse(text=text, provider="grok", model=self._model)
+        return LLMResponse(text=text, provider="groq", model=self._model)
 
     async def aclose(self) -> None:
         if self._owns_client:

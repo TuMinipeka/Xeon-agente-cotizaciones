@@ -102,8 +102,8 @@ No forman parte del MVP las compras autónomas, pagos, campañas masivas, modifi
 | API | FastAPI + Uvicorn + Pydantic 2 | REST, validación y permisos | Inicio |
 | Dominio | Python + Decimal | Cálculos y estados comerciales | Inicio |
 | Agente | LangGraph | Conversación y flujo reanudable | Tras cotizador determinista |
-| Modelo | Grok 4.6 de xAI, `grok-4.6` | Interpretación y llamadas a herramientas | Pruebas reales controladas |
-| Adaptador LLM | `LLMPort` + `xai-sdk` | Aislar proveedor y normalizar resultados | Agente |
+| Modelo | Groq (`llama-3.3-70b-versatile`) | Interpretación y llamadas a herramientas | Pruebas reales controladas |
+| Adaptador LLM | `LLMPort` + HTTPX (OpenAI-compatible) | Aislar proveedor y normalizar resultados | Agente |
 | Base de datos | PostgreSQL 17 | Datos transaccionales e historial | Inicio |
 | Acceso SQL | SQLAlchemy 2 + psycopg 3 | Repositorios y transacciones | Inicio |
 | Migraciones | Alembic | Evolución del esquema | Inicio |
@@ -130,11 +130,11 @@ No forman parte del MVP las compras autónomas, pagos, campañas masivas, modifi
 
 No habrá Redis, una base vectorial independiente ni un gateway LLM desplegado por separado. Las versiones exactas se fijarán tras resolver dependencias y verificar compatibilidad; no usar imágenes `latest` en una entrega reproducible.
 
-La ficha oficial de Grok 4.6 confirma el identificador y capacidades de funciones/salida estructurada. La API es externa y facturable; el modelo no se ejecutará dentro del equipo local. [Grok 4.6](https://docs.x.ai/developers/models/grok-4.6).
+La documentación oficial de Groq confirma los modelos y capacidades de llamadas a funciones/salida estructurada mediante su endpoint OpenAI-compatible. La API es externa; el modelo no se ejecutará dentro del equipo local. [Groq Models](https://console.groq.com/docs/models).
 
 ## 6. Arquitectura del sistema
 
-Se utilizará un monolito modular con arquitectura hexagonal: el dominio define lo que necesita mediante interfaces, y los adaptadores conectan Telegram, xAI, archivos o el futuro ERP. Los workers ejecutan el mismo código de negocio que la API; no son microservicios con reglas duplicadas.
+Se utilizará un monolito modular con arquitectura hexagonal: el dominio define lo que necesita mediante interfaces, y los adaptadores conectan Telegram, Hermes, Groq, archivos o el futuro ERP. Los workers ejecutan el mismo código de negocio que la API; no son microservicios con reglas duplicadas.
 
 ```mermaid
 flowchart TD
@@ -146,7 +146,7 @@ flowchart TD
     Relay --> Rabbit[RabbitMQ]
     Rabbit --> Worker[Workers Celery]
     Worker --> Grafo[LangGraph]
-    Grafo <--> LLM[LLMPort: Mock o Grok 4.6]
+    Grafo <--> LLM[LLMPort: Mock o Groq]
     Grafo --> Tools[Herramientas autorizadas]
     Tools --> Dominio[Casos de uso y dominio]
     Dominio <--> DB
@@ -282,9 +282,9 @@ Habrá dos modos:
 | Modo | Canal | Inteligencia | Coste externo esperado |
 |---|---|---|---|
 | Prueba determinista | Telegram | `MockLLM` con respuestas/casos predefinidos | Sin llamadas pagadas al modelo; requiere conexión. |
-| Prueba de agente | Telegram | Grok 4.6 real | Mensajería ordinaria gratuita; consumo API xAI según cuenta. |
+| Prueba de agente | Telegram | Groq real | Mensajería ordinaria gratuita; consumo API Groq según cuenta. |
 
-El mock sirve para probar estados, herramientas y recuperación. No demuestra calidad de comprensión ni rendimiento de Grok.
+El mock sirve para probar estados, herramientas y recuperación. No demuestra calidad de comprensión ni rendimiento de Groq.
 
 ### 10.2. Preparación prevista
 
@@ -303,7 +303,7 @@ Un grupo privado del equipo puede servir para coordinación humana, pero no ser�
 
 El adaptador utilizará `getUpdates` con timeout y cursor persistido. Polling y webhook no operarán simultáneamente para el mismo bot. Para pasar a polling se revisará `getWebhookInfo` y, si corresponde, se eliminará el webhook sin descartar pendientes por defecto. [Bot API](https://core.telegram.org/bots/api#getupdates).
 
-Nuestra regla de implementación será guardar todos los eventos de un lote en inbox y su siguiente cursor en la misma transacción antes de avanzar. Solo después se solicita el siguiente lote. Si la base falla, no avanzar. Deduplicar por canal/cuenta/`update_id`; procesar por conversación desde la cola, sin mantener al receptor esperando a Grok. No usar un bucle que confirme novedades antes de persistirlas.
+Nuestra regla de implementación será guardar todos los eventos de un lote en inbox y su siguiente cursor en la misma transacción antes de avanzar. Solo después se solicita el siguiente lote. Si la base falla, no avanzar. Deduplicar por canal/cuenta/`update_id`; procesar por conversación desde la cola, sin mantener al receptor esperando a Groq. No usar un bucle que confirme novedades antes de persistirlas.
 
 Comprobar aislamiento de usuarios antes de invocar IA o consultar datos privados. Los eventos no soportados se registran como ignorados, sin inventar interpretación. Esta estrategia es un diseño de XEON y requiere pruebas de caída/reinicio.
 
@@ -343,7 +343,7 @@ La tabla indica el uso que deberá quedar demostrado, no solo qué instalar.
 | FastAPI/Uvicorn | Rutas delgadas que invocan casos de uso | API valida solicitudes y errores sin duplicar cálculos | [FastAPI](https://fastapi.tiangolo.com/) |
 | Pydantic | Contratos REST, herramientas y configuración | Entradas incompletas o inválidas fallan de forma explícita | [Pydantic](https://docs.pydantic.dev/latest/) |
 | LangGraph | Nodos acotados y checkpoints PostgreSQL | Reanudar una conversación sin repetir un efecto comercial | [LangGraph](https://docs.langchain.com/oss/python/langgraph/overview) |
-| xai-sdk | Adaptador con llamadas y consumo normalizados | Prueba de contrato y límite de gasto aplicado | [SDK xAI](https://github.com/xai-org/xai-sdk-python) |
+| Groq API (HTTPX) | Adaptador OpenAI-compatible con llamadas y consumo normalizados | Prueba de contrato y límite de gasto aplicado | [Groq Docs](https://console.groq.com/docs/api-reference) |
 | PostgreSQL | Restricciones, índices, transacciones y roles | No mezclar empresas ni aceptar estados inválidos | [PostgreSQL 17](https://www.postgresql.org/docs/17/) |
 | SQLAlchemy/psycopg | Repositorios parametrizados y unidad de trabajo | Rollback conserva coherencia al fallar un caso de uso | [SQLAlchemy](https://docs.sqlalchemy.org/en/20/), [psycopg](https://www.psycopg.org/psycopg3/docs/) |
 | Alembic | Migraciones revisadas; no crear tablas automáticamente al arrancar | Base vacía llega al esquema requerido; actualización conserva datos | [Alembic](https://alembic.sqlalchemy.org/en/latest/) |
@@ -372,7 +372,7 @@ La tabla indica el uso que deberá quedar demostrado, no solo qué instalar.
 
 Usar Python 3.14, uv, Git, Docker Engine y Compose. En Windows, ejecutar los servicios Linux mediante WSL2; mantener el proyecto de XEON en el sistema de archivos Linux cuando se trabaje dentro de WSL2 para simplificar permisos y volúmenes. Docker Desktop no es requisito. Verificar capacidad real del equipo antes de levantar todo el stack; 16 GB de RAM y SSD son una referencia inicial, no garantía de rendimiento.
 
-No es necesario contar con GPU para consumir Grok por API. Los embeddings se ejecutarán en CPU y su modelo se descargará/cacheará de forma controlada. Celery y las dependencias del PDF se ejecutarán en Linux, no como procesos Windows nativos. [FAQ de Celery](https://docs.celeryq.dev/en/stable/faq.html).
+No es necesario contar con GPU para consumir Groq por API. Los embeddings se ejecutarán en CPU y su modelo se descargará/cacheará de forma controlada. Celery y las dependencias del PDF se ejecutarán en Linux, no como procesos Windows nativos. [FAQ de Celery](https://docs.celeryq.dev/en/stable/faq.html).
 
 ### 12.2. Perfiles de ejecución previstos
 
@@ -399,10 +399,10 @@ DEFAULT_TIMEZONE=America/Bogota
 ENABLE_PANEL=false
 ENABLED_CHANNELS=telegram
 
-# Inicio sin gasto de inferencia; activar xai solo para pruebas presupuestadas.
+# Inicio sin gasto de inferencia; activar groq solo para pruebas presupuestadas.
 LLM_PROVIDER=mock
-LLM_MODEL=grok-4.6
-XAI_API_KEY_FILE=/run/secrets/xai_api_key
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY_FILE=/run/secrets/groq_api_key
 AGENT_MAX_STEPS=6
 
 DATABASE_URL_FILE=/run/secrets/database_url
@@ -425,7 +425,7 @@ OIDC_CLI_CLIENT_ID=xeon-cli
 LOG_LEVEL=INFO
 ```
 
-La configuración validará perfiles: un entorno `mock` no necesita clave xAI ni debe llamar accidentalmente al proveedor. El entorno Telegram exige token y allowlist; el modo de prueba completamente simulado no los necesita. No incluir nombres reales de clientes o contraseñas en fixtures ni `.env.example`.
+La configuración validará perfiles: un entorno `mock` no necesita clave Groq ni debe llamar accidentalmente al proveedor. El entorno Telegram exige token y allowlist; el modo de prueba completamente simulado no los necesita. No incluir nombres reales de clientes o contraseñas en fixtures ni `.env.example`.
 
 ### 12.4. Estructura propuesta
 
@@ -439,7 +439,7 @@ xeon/
     application/            # casos de uso, puertos, autorizacion y transacciones
     agent/                  # grafo, prompts, contexto y herramientas
     adapters/
-      llm/                  # mock y xai
+      llm/                  # mock y groq (OpenAI-compatible)
       channels/             # telegram; whatsapp despues
       persistence/          # SQLAlchemy, repositorios y checkpoints
       catalog/              # CSV y futuro ERP
@@ -493,7 +493,7 @@ Los comandos administrativos invocarán la API con la identidad del operador. La
 
 Keycloak identifica vendedores y supervisores; la API verifica tokens y aplica roles, empresa y sucursal. La allowlist Telegram habilita pruebas del bot, no autoriza descuentos ni acceso administrativo. Las credenciales de servicio del receptor solo permiten su función.
 
-Usar datos sintéticos al inicio. Cuando haya datos reales, definir acceso, finalidad, retención y eliminación con la empresa. El historial enviado a Telegram o xAI sale del equipo local: reducir el contexto a lo necesario y no prometer privacidad exclusivamente local. No incorporar documentos reales de Ferragro sin autorización.
+Usar datos sintéticos al inicio. Cuando haya datos reales, definir acceso, finalidad, retención y eliminación con la empresa. El historial enviado a Telegram o Groq sale del equipo local: reducir el contexto a lo necesario y no prometer privacidad exclusivamente local. No incorporar documentos reales de Ferragro sin autorización.
 
 ### 13.2. Entradas no confiables
 
@@ -503,7 +503,7 @@ Validar cantidades positivas, unidades, referencias, tamaños y permisos. Limita
 
 ### 13.3. Secretos
 
-Nunca subir tokens Telegram/xAI, archivos `.env`, credenciales de base, backups reales ni tokens OIDC. Enmascarar URLs de Telegram en logs: el token forma parte de la ruta de la Bot API. Compartir credenciales únicamente por un mecanismo privado acordado; cada desarrollador conserva las de su entorno.
+Nunca subir tokens Telegram/Groq, archivos `.env`, credenciales de base, backups reales ni tokens OIDC. Enmascarar URLs de Telegram en logs: el token forma parte de la ruta de la Bot API. Compartir credenciales únicamente por un mecanismo privado acordado; cada desarrollador conserva las de su entorno.
 
 Si hay filtración: revocar/rotar, revisar uso, corregir logs/artefactos y registrar el incidente. Borrar el token del último commit no lo elimina de todo el historial.
 
@@ -532,7 +532,7 @@ La propuesta aprovecha el contexto de negocio aportado por Daniel y reparte la i
 | Casos de negocio y catálogo de prueba | Daniel Mayorga | Juan Pablo Conde Zapata | Reglas, unidades, excepciones y ejemplos esperados. |
 | Dominio de precios/cotización y persistencia | Daniel Mayorga | Juan Pablo Conde Zapata | Cotizador determinista y migraciones. |
 | Adaptador Telegram y contrato de mensajes | Juan Pablo Conde Zapata | Daniel Mayorga | Chat de prueba con persistencia y aislamiento. |
-| LangGraph, xAI y herramientas | Juan Pablo Conde Zapata | Daniel Mayorga | Agente acotado y evaluación documentada. |
+| LangGraph, Groq y herramientas | Juan Pablo Conde Zapata | Daniel Mayorga | Agente acotado y evaluación documentada. |
 | API, CLI y permisos | Ambos, un responsable por tarea | El compañero | Revisión humana sin panel. |
 | Infraestructura local, copias y CI | Ambos, un responsable por tarea | El compañero | Arranque reproducible y recuperación comprobada. |
 | Pruebas de negocio y demostración | Ambos | Revisión cruzada | Evidencias y reporte de pendientes. |
@@ -542,7 +542,7 @@ Asignar responsable concreto antes de comenzar cada tarea compartida; «ambos» 
 ### 14.2. Reglas del equipo
 
 1. Trabajar desde una tarea registrada con objetivo, alcance, criterio de aceptación y responsable.
-2. Mantener `main` ejecutable. Desarrollar en ramas cortas como `codex/catalogo-inicial` o `codex/telegram-adapter`.
+2. Mantener `main` ejecutable. Desarrollar en ramas cortas como `developer/daniel` o `developer/juanpablo`.
 3. Solicitar revisión del compañero antes de integrar cambios de lógica comercial, contratos, permisos o migraciones.
 4. Dividir tareas para que cada entrega pueda revisarse y demostrarse. No mezclar catálogo, autenticación y rediseño del agente en una sola PR extensa.
 5. Acordar contratos compartidos antes de implementar adaptadores en paralelo. Revisar ejemplos de entrada/salida entre los dos.
@@ -586,12 +586,12 @@ Estado: pendiente | en curso | en revision | terminada
 - **Unitarias:** dinero, unidades, redondeos, descuentos, estados, permisos y selección de datos vigentes.
 - **Propiedades:** totales consistentes con líneas, cantidades válidas y transiciones que no permitan enviar sin aprobación.
 - **Integración:** PostgreSQL/pgvector, migraciones, transacciones, broker, archivos y autenticación.
-- **Contratos:** mensajes Telegram, resultados de herramientas, adaptador xAI y errores de fuentes externas.
+- **Contratos:** mensajes Telegram, resultados de herramientas, adaptador Groq y errores de fuentes externas.
 - **Agente:** intención, preguntas, referencias candidatas, uso de herramientas y rechazo de instrucciones que intenten evadir reglas.
 - **Extremo a extremo:** Telegram → borrador → aprobación humana → PDF → mensaje final.
 - **Operación:** reinicio, reintentos, datos desactualizados, envíos inciertos y restauración.
 
-Las pruebas normales de CI usarán mock y fixtures; las evaluaciones con Grok serán explícitas, con presupuesto. Una prueba de prompt no sustituye la prueba de una regla en código. Mantener un conjunto de evaluación separado de los ejemplos usados para ajustar prompts.
+Las pruebas normales de CI usarán mock y fixtures; las evaluaciones con Groq serán explícitas, con presupuesto. Una prueba de prompt no sustituye la prueba de una regla en código. Mantener un conjunto de evaluación separado de los ejemplos usados para ajustar prompts.
 
 ### 16.2. Casos mínimos que deben pasar
 
@@ -615,7 +615,7 @@ Las pruebas normales de CI usarán mock y fixtures; las evaluaciones con Grok se
 | T16 | Vendedor toma conversación | Bot deja de responder hasta devolución explícita. |
 | T17 | PDF de muchas líneas | Totales, páginas, tildes y unidades correctos. |
 | T18 | Reinicio de contenedores | Base, versiones y archivos permanecen disponibles. |
-| T19 | Perfil mock | Cero llamadas externas a xAI. |
+| T19 | Perfil mock | Cero llamadas externas a Groq. |
 | T20 | Frontend deshabilitado | CLI y agente completan el flujo del MVP. |
 | T21 | Acceso a ID de otra empresa/cliente | Denegado en API, herramientas y documentos. |
 | T22 | Envío con timeout ambiguo | Estado incierto visible; no reenvío ciego. |
@@ -652,15 +652,15 @@ Usar una empresa ficticia, por ejemplo «Ferretería Demo XEON», tres sedes fic
 |---|---|
 | Equipo y disco | Propios; no alquiler cloud, pero requieren capacidad, energía y mantenimiento. |
 | Telegram | Mensajes ordinarios de bot sin coste dentro de límites; broadcasts pagados desactivados. |
-| Grok 4.6 | API facturable o cubierta por créditos si la cuenta los tiene; no asumirlos. |
-| Modo mock | Sin consumo xAI; comprueba integración, no calidad del modelo. |
+| Groq API | API sujeta a límites de cuota o facturación según plan; no asumir cuota ilimitada. |
+| Modo mock | Sin consumo Groq; comprueba integración, no calidad del modelo. |
 | Software local | Herramientas seleccionadas ejecutables localmente; revisar licencias al fijar versiones. |
 | GitHub Actions/GHCR | Depende de las cuotas del repositorio/cuenta; alternativa de ejecución local. |
 | HTTPS | Innecesario como endpoint público con polling Telegram; necesario para webhooks posteriores. |
 | Respaldo | Medio propio separado; no implica almacenamiento gratuito ilimitado. |
 | WhatsApp | Costes y condiciones del canal se validarán antes de habilitar el piloto. |
 
-Antes de activar Grok real, acordar un presupuesto máximo por sesión y por día, configurar alertas y registrar consumo de todas las llamadas, incluidos reintentos y razonamiento facturable. El límite de gasto pertenece al backend, no a una sugerencia dentro del prompt. Consultar [tarifas y condiciones de Grok 4.6](https://docs.x.ai/developers/models/grok-4.6).
+Antes de activar Groq real, acordar un presupuesto máximo por sesión y por día, configurar alertas y registrar consumo de todas las llamadas, incluidos reintentos y razonamiento facturable. El límite de gasto pertenece al backend, no a una sugerencia dentro del prompt. Consultar [modelos y límites de Groq](https://console.groq.com/docs/rate-limits).
 
 El equipo puede apagar los servicios de demostración, pero un bot no atenderá mientras el proceso o Internet estén caídos. No presentar un portátil de pruebas como un servicio empresarial con disponibilidad garantizada.
 
@@ -684,7 +684,7 @@ Las reglas críticas —no enviar sin aprobación vigente, no mezclar clientes y
 - [ ] Preparar entornos locales reproducibles.
 - [ ] Crear bots personales de pruebas; guardar tokens fuera de Git.
 - [ ] Establecer IDs permitidos y política del bot compartido.
-- [ ] Empezar con `LLM_PROVIDER=mock`; acordar presupuesto antes de xAI real.
+- [ ] Empezar con `LLM_PROVIDER=mock`; acordar presupuesto antes de Groq real.
 
 ### Antes de un piloto con datos empresariales
 
@@ -701,5 +701,5 @@ Las reglas críticas —no enviar sin aprobación vigente, no mezclar clientes y
 
 Cada cambio que altere proveedor, modelo, canal, persistencia, autenticación, aprobación o despliegue debe actualizar este documento y la decisión de stack. Un ADR registrará contexto, decisión, razones, consecuencias y fecha. El historial de Git permitirá conocer quién cambió qué.
 
-Esta versión entrega el acuerdo técnico inicial y el plan de trabajo. No se han creado bots, compartido credenciales, instalado servicios ni implementado el agente como parte de la redacción. El primer resultado de desarrollo será un cotizador determinista probado; sobre él se incorporarán la conversación, Telegram y Grok.
+Esta versión entrega el acuerdo técnico inicial y el plan de trabajo. No se han creado bots, compartido credenciales, instalado servicios ni implementado el agente como parte de la redacción. El primer resultado de desarrollo será un cotizador determinista probado; sobre él se incorporarán la conversación, Hermes, Telegram y Groq.
 

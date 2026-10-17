@@ -13,7 +13,7 @@ ejecución reproducible en Docker.
 
 ## Usar XEON paso a paso
 
-Esta es la ruta recomendada para probar el agente comercial sin consumir la API de Grok. Todos
+Esta es la ruta recomendada para probar el agente comercial sin consumir la API de Groq. Todos
 los comandos se ejecutan en PowerShell desde la raiz del repositorio:
 `C:\Users\danie\Documents\xeon`.
 
@@ -46,7 +46,7 @@ $env:LLM_PROVIDER = "mock"
 uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Mantén esa terminal abierta. El modo `mock` no llama a Grok, no consume créditos y permite probar
+Mantén esa terminal abierta. El modo `mock` no llama a Groq, no consume créditos y permite probar
 el recorrido implementado con datos sintéticos.
 
 ### 4. Comprobar que XEON está disponible
@@ -120,14 +120,14 @@ uv run pytest
 Vuelve a la primera terminal y presiona `Ctrl+C`. Las implementaciones actuales de catálogo,
 cotizaciones e inventario usan memoria; al detener el proceso se pierde ese estado de ejecución.
 
-### 10. Activar Grok solo para una prueba deliberada
+### 10. Activar Groq solo para una prueba deliberada
 
-Primero guarda una clave vigente únicamente en `secrets/reto_key.txt`. No la pegues en el README,
+Primero guarda una clave vigente únicamente en `secrets/groq_api_key.txt`. No la pegues en el README,
 en el código, en `.env`, en comandos compartidos ni en commits. Después inicia una sesión nueva:
 
 ```powershell
-$env:LLM_PROVIDER = "grok"
-$env:RETO_KEY_FILE = "secrets/reto_key.txt"
+$env:LLM_PROVIDER = "groq"
+$env:GROQ_API_KEY_FILE = "secrets/groq_api_key.txt"
 uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -138,13 +138,13 @@ uv run xeon health
 uv run xeon chat "hola"
 ```
 
-Confirma que `health` informa `provider=grok` antes de la conversación. Esta prueba puede consumir
-créditos. Grok interpreta el mensaje, pero el backend sigue siendo responsable de precios,
+Confirma que `health` informa `provider=groq` antes de la conversación. Esta prueba puede consumir
+créditos. Groq interpreta el mensaje, pero el backend sigue siendo responsable de precios,
 descuentos, impuestos, inventario y estados.
 
-## Arranque Docker con mock (sin consumo de Grok)
+## Arranque Docker con mock (sin consumo de Groq)
 
-El perfil predeterminado usa `MockLLM`: no llama a un servicio pagado. El chat no calcula precios.
+El perfil predeterminado usa `MockLLM`: no llama a un servicio externo. El chat no calcula precios.
 
 ```powershell
 docker compose --profile core up --build
@@ -166,38 +166,35 @@ uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1
 
 `LLM_PROVIDER` no definido o `mock` mantiene cero llamadas externas.
 
-## Grok local con `RETO_KEY_FILE`
+## Groq local con `GROQ_API_KEY_FILE`
 
-La clave nunca se versiona ni se pega en comandos. Apunta a un archivo secreto local e activa el
+La clave nunca se versiona ni se pega en comandos. Apunta a un archivo secreto local y activa el
 proveedor solo para esa sesión:
 
 ```powershell
-$env:LLM_PROVIDER = "grok"
-$env:RETO_KEY_FILE = "secrets/reto_key.txt"
+$env:LLM_PROVIDER = "groq"
+$env:GROQ_API_KEY_FILE = "secrets/groq_api_key.txt"
 uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1
 ```
 
-Antes de una prueba real, rota cualquier clave expuesta y sigue
-[`docs/GROK_DEVELOPMENT.md`](docs/GROK_DEVELOPMENT.md).
-
-## Grok en Docker
+## Groq en Docker
 
 ```powershell
-docker compose --profile core -f compose.yaml -f compose.grok.yaml up --build
+docker compose --profile core -f compose.yaml -f compose.groq.yaml up --build
 ```
 
-Para detener el stack Grok usa los mismos archivos:
+Para detener el stack Groq usa los mismos archivos:
 
 ```powershell
-docker compose --profile core -f compose.yaml -f compose.grok.yaml down
+docker compose --profile core -f compose.yaml -f compose.groq.yaml down
 ```
 
-`compose.grok.yaml` inyecta `LLM_PROVIDER=grok` y monta el secreto como archivo; no copies la clave
+`compose.groq.yaml` inyecta `LLM_PROVIDER=groq` y monta el secreto como archivo; no copies la clave
 al entorno ni al compose.
 
 ## CLI
 
-El CLI habla con la API en `http://127.0.0.1:8000`. Arranca mock o Grok antes de usarlo.
+El CLI habla con la API en `http://127.0.0.1:8000`. Arranca mock o Groq antes de usarlo.
 
 ```powershell
 uv run xeon health
@@ -242,30 +239,6 @@ curl "http://127.0.0.1:8000/v1/stock?sku=CEM-50&requested_branch_id=sede-norte&r
 
 OpenAPI interactivo: `http://127.0.0.1:8000/docs`.
 
-## Agente comercial vs `xeon-coordinate`
-
-El **agente comercial** (runtime XEON) interpreta lenguaje del cliente por `/v1/chat`. El backend
-determina precios, descuentos, impuestos, stock y estados. El modelo no aprueba cotizaciones, no
-ejecuta SQL, no cambia inventario y no lee secretos.
-
-`xeon-coordinate` es tooling de desarrollo, no el runtime comercial. Separa a Grok como ejecutor de
-una HU y a Codex como coordinador de calidad. Cada ciclo verifica el diff y repite `ruff`, `mypy` y
-`pytest`; no hace push ni fusiona ramas.
-
-```powershell
-# Crea la orden local de una HU (agrega todos sus criterios y rutas permitidas).
-uv run xeon-coordinate new --story-id HU-001 --title "TituloDeLaHistoria" `
-  --objective "Resultado observable esperado para esta historia." `
-  --criterion "AC-1=Comportamiento verificable de al menos cinco caracteres." `
-  --allowed-path "src/xeon/**" --allowed-path "tests/**"
-
-# Ensayo sin consumo; agrega --execute solo tras revisar la orden.
-uv run xeon-coordinate run .agentic/work-orders/HU-001-run.json
-```
-
-La configuracion, los limites y los artefactos del ciclo se explican en
-[`docs/AGENTIC_COORDINATION.md`](docs/AGENTIC_COORDINATION.md).
-
 ## Controles
 
 ```powershell
@@ -283,16 +256,13 @@ uv run pytest
 2. **Health.** `uv run xeon health` o `GET /health` debe responder 200. Sin eso, chat, quotes y
    stock no tienen API detrás.
 3. **Perfil.** En mock, `/health` y el chat confirman `provider=mock` (cero llamadas externas). Una
-   prueba Grok deliberada debe mostrar `provider=grok`. No actives Grok para revisar el cotizador.
+   prueba Groq deliberada debe mostrar `provider=groq`. No actives Groq para revisar el cotizador.
 
 ## Documentación de continuidad
 
-- [`AGENTS.md`](AGENTS.md): instrucciones estables para Grok u otros agentes de código.
+- [`AGENTS.md`](AGENTS.md): instrucciones estables para agentes de código.
 - [`GLOSSARY.md`](GLOSSARY.md): lenguaje comercial del cotizador.
-- [`docs/ROADMAP_FIRST_3_DAYS.md`](docs/ROADMAP_FIRST_3_DAYS.md): corte ejecutable de tres días.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): límites implementados, trazabilidad y pendientes.
-- [`docs/AGENTIC_COORDINATION.md`](docs/AGENTIC_COORDINATION.md): protocolo Codex–Grok por HU.
-- [`docs/GROK_DEVELOPMENT.md`](docs/GROK_DEVELOPMENT.md): Grok de codigo vs Grok dentro de XEON.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): rama, pruebas y formato de commits.
 
 ## Estado
@@ -301,7 +271,7 @@ Implementado: chat mock, cotizador determinista, API/CLI de borrador sintético,
 `tenant_id` + `request_id`, aclaración explícita, rechazo de descuento sin política, consulta de
 stock sintético por sede (`local` / traslado / entrega), vigencia de snapshots
 (`fresh` / `stale` / `unknown`, `is_firm`, `age`) y explicación de disponibilidad
-parcial (`sufficient` / `partial` / `unknown`) y perfiles `mock` / `grok`.
+parcial (`sufficient` / `partial` / `unknown`) y perfiles `mock` / `groq`.
 
-Pendiente: PostgreSQL, LangGraph, Telegram, Celery, PDF, aprobación y política de descuentos.
+Pendiente: Hermes, PostgreSQL, Telegram, Celery, PDF, aprobación y política de descuentos.
 No atribuir datos sintéticos a una empresa real.
