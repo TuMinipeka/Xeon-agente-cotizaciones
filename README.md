@@ -1,13 +1,13 @@
 # XEON
 
-Base inicial del agente de asistencia comercial y cotizaciones descrito en
-[`XeonContexto.md`](XeonContexto.md). Esta entrega fija Python 3.14.8, arquitectura hexagonal,
-configuración segura, un flujo conversacional mínimo, un cotizador determinista en memoria y
-ejecución reproducible en Docker.
+Base del agente de asistencia comercial y cotizaciones para ferreterías y agroferreterías descrito
+en [`XeonContexto.md`](XeonContexto.md). Esta entrega fija Python 3.14.8, arquitectura hexagonal,
+orquestación con **Hermes**, proveedor **Groq API**, canal **WhatsApp vía Evolution API** (sin costo
+por mensaje) y un modelo de datos híbrido (**SQL Relacional + NoSQL `JSONB` + RAG Semántico**).
 
 ## Requisitos
 
-- Python 3.14.8 (lo puede instalar y administrar `uv`, aunque el Python global de Windows sea otro)
+- Python 3.14.8 (administrado por `uv`)
 - [`uv`](https://docs.astral.sh/uv/)
 - Docker (Compose v2) para el arranque empaquetado
 
@@ -34,9 +34,6 @@ uv python install 3.14.8
 uv sync --locked
 ```
 
-`uv` crea y administra el entorno del proyecto. No es necesario activar manualmente `.venv` para
-usar los comandos que empiezan por `uv run`.
-
 ### 3. Iniciar la API en modo seguro `mock`
 
 En la primera terminal:
@@ -46,9 +43,6 @@ $env:LLM_PROVIDER = "mock"
 uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Mantén esa terminal abierta. El modo `mock` no llama a Groq, no consume créditos y permite probar
-el recorrido implementado con datos sintéticos.
-
 ### 4. Comprobar que XEON está disponible
 
 Abre una segunda terminal en la misma carpeta y ejecuta:
@@ -57,21 +51,41 @@ Abre una segunda terminal en la misma carpeta y ejecuta:
 uv run xeon health
 ```
 
-La respuesta debe indicar que el servicio está saludable y que el proveedor activo es `mock`.
-También puedes abrir `http://127.0.0.1:8000/docs` para usar la interfaz OpenAPI.
-
-### 5. Conversar con el agente
+### 5. Conversar con el agente (Hermes + Búsqueda Híbrida RAG/Specs)
 
 ```powershell
 uv run xeon chat "hola"
-uv run xeon chat "necesito 50 bultos de cemento"
+uv run xeon chat "busco material para fundir placa y pegar ladrillo"
+uv run xeon chat "necesito algo para cercar ganado en un potrero"
 ```
 
-Actualmente `/v1/chat` demuestra la conexión con el proveedor seleccionado. El chat todavía no
-crea por sí solo una cotización ni ejecuta las herramientas de catálogo y stock; esas operaciones
-se prueban con los comandos siguientes.
+`/v1/chat` ejecuta las herramientas de **Hermes** (`HermesToolbelt`): ante descripciones coloquiales
+o especificaciones técnicas, busca candidatos por contexto semántico (RAG) y atributos polimórficos
+(`specs`), y consulta el precio oficial (`Decimal`) en el catálogo estructurado sin inventar datos.
 
-### 6. Crear y consultar un borrador de cotización
+### 6. Simular un mensaje entrante de WhatsApp (Evolution API Webhook)
+
+```powershell
+$webhook = @{
+  event = "messages.upsert"
+  instance = "xeon-ferreteria"
+  data = @{
+    key = @{
+      remoteJid = "573001112233@s.whatsapp.net"
+      fromMe = $false
+      id = "MSG-001"
+    }
+    message = @{
+      conversation = "tuberia para agua fria de 200 psi"
+    }
+  }
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/channels/whatsapp/webhook `
+  -ContentType 'application/json' -Body $webhook
+```
+
+### 7. Crear y consultar un borrador de cotización
 
 ```powershell
 $created = uv run xeon quotes create `
@@ -84,10 +98,7 @@ $quoteId = $created.quote.id
 uv run xeon quotes show $quoteId --tenant-id demo
 ```
 
-El resultado es un borrador `DRAFT`, no una cotización aprobada ni emitida. Repetir la misma
-combinación de `tenant-id` y `request-id` reutiliza el borrador en lugar de duplicarlo.
-
-### 7. Consultar inventario y su vigencia
+### 8. Consultar inventario y su vigencia
 
 ```powershell
 uv run xeon stock show `
@@ -97,16 +108,7 @@ uv run xeon stock show `
   --evaluated-at 2026-10-08T15:00:00+00:00
 ```
 
-El instante del ejemplo pertenece al conjunto sintético de demostración. Revisa especialmente:
-
-- `freshness`: `fresh`, `stale` o `unknown`.
-- `is_firm`: indica si el snapshot puede considerarse disponibilidad firme.
-- `local_available` y `shortfall`: solo se afirman cuando la evidencia local está vigente.
-- `origin_id` y `kind`: distinguen inventario local, traslado y entrega.
-
-La consulta no reserva inventario ni ejecuta traslados.
-
-### 8. Ejecutar los controles antes de desarrollar
+### 9. Ejecutar los controles de calidad
 
 ```powershell
 uv run ruff check .
@@ -115,15 +117,9 @@ uv run mypy src
 uv run pytest
 ```
 
-### 9. Detener XEON
-
-Vuelve a la primera terminal y presiona `Ctrl+C`. Las implementaciones actuales de catálogo,
-cotizaciones e inventario usan memoria; al detener el proceso se pierde ese estado de ejecución.
-
 ### 10. Activar Groq solo para una prueba deliberada
 
-Primero guarda una clave vigente únicamente en `secrets/groq_api_key.txt`. No la pegues en el README,
-en el código, en `.env`, en comandos compartidos ni en commits. Después inicia una sesión nueva:
+Guarda tu clave en `secrets/groq_api_key.txt` (nunca en `.env` ni en Git):
 
 ```powershell
 $env:LLM_PROVIDER = "groq"
@@ -131,135 +127,15 @@ $env:GROQ_API_KEY_FILE = "secrets/groq_api_key.txt"
 uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
-En otra terminal:
-
-```powershell
-uv run xeon health
-uv run xeon chat "hola"
-```
-
-Confirma que `health` informa `provider=groq` antes de la conversación. Esta prueba puede consumir
-créditos. Groq interpreta el mensaje, pero el backend sigue siendo responsable de precios,
-descuentos, impuestos, inventario y estados.
-
-## Arranque Docker con mock (sin consumo de Groq)
-
-El perfil predeterminado usa `MockLLM`: no llama a un servicio externo. El chat no calcula precios.
-
-```powershell
-docker compose --profile core up --build
-```
-
-La API queda en `http://127.0.0.1:8000` (loopback) y su OpenAPI en `/docs`.
-
-```powershell
-docker compose --profile core down
-```
-
-## Arranque local con mock
-
-```powershell
-uv python install 3.14.8
-uv sync --locked
-uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1
-```
-
-`LLM_PROVIDER` no definido o `mock` mantiene cero llamadas externas.
-
-## Groq local con `GROQ_API_KEY_FILE`
-
-La clave nunca se versiona ni se pega en comandos. Apunta a un archivo secreto local y activa el
-proveedor solo para esa sesión:
-
-```powershell
-$env:LLM_PROVIDER = "groq"
-$env:GROQ_API_KEY_FILE = "secrets/groq_api_key.txt"
-uv run uvicorn xeon.api.app:app --reload --host 127.0.0.1
-```
-
-## Groq en Docker
+En Docker:
 
 ```powershell
 docker compose --profile core -f compose.yaml -f compose.groq.yaml up --build
 ```
 
-Para detener el stack Groq usa los mismos archivos:
-
-```powershell
-docker compose --profile core -f compose.yaml -f compose.groq.yaml down
-```
-
-`compose.groq.yaml` inyecta `LLM_PROVIDER=groq` y monta el secreto como archivo; no copies la clave
-al entorno ni al compose.
-
-## CLI
-
-El CLI habla con la API en `http://127.0.0.1:8000`. Arranca mock o Groq antes de usarlo.
-
-```powershell
-uv run xeon health
-uv run xeon chat "hola"
-$created = uv run xeon quotes create --tenant-id demo --request-id req-1 --line CEM-50:50 --line ALA-14:300 | ConvertFrom-Json
-$quoteId = $created.quote.id
-uv run xeon quotes show $quoteId --tenant-id demo
-uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00
-uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --requested-quantity 50 --evaluated-at 2026-10-08T15:00:00+00:00
-```
-
-`$quoteId` sale del campo `quote.id` que devuelve `quotes create`. `quotes create` crea o reutiliza
-un borrador `DRAFT` version 1; `quotes show` solo lo consulta. Ninguno aprueba ni emite.
-`stock show` consulta disponibilidad sintetica por sede; no reserva inventario.
-`--evaluated-at` es obligatorio: instante UTC inyectado para clasificar vigencia; las pruebas no
-usan el reloj real. Cada item expone `valid_until` (vigencia explicita de la fuente, o nulo),
-`freshness` (`fresh` / `stale` / `unknown`), `is_firm` y `age` (antiguedad ISO-8601 desde
-`observed_at`). Solo `fresh` es disponibilidad firme; `stale` y `unknown` conservan origen,
-cantidad, fuente, fecha observada y vigencia, pero no prometen stock ni se usan para afirmar
-`sufficient` o `partial`. Con `--requested-quantity` informa cumplimiento local y alternativas
-observadas; no suma fuentes como promesa ni convierte un snapshot ausente o vencido en agotado.
-
-Equivalente HTTP del arranque mock:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/chat `
-  -ContentType 'application/json' -Body '{"message":"hola"}'
-$body = @{
-  tenant_id = "demo"
-  request_id = "req-1"
-  lines = @(
-    @{ query = "CEM-50"; quantity = "50" }
-    @{ query = "ALA-14"; quantity = "300" }
-  )
-} | ConvertTo-Json -Depth 5
-$created = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/v1/quotes `
-  -ContentType 'application/json' -Body $body
-Invoke-RestMethod "http://127.0.0.1:8000/v1/quotes/$($created.quote.id)?tenant_id=demo"
-curl "http://127.0.0.1:8000/v1/stock?sku=CEM-50&requested_branch_id=sede-norte&requested_quantity=50&evaluated_at=2026-10-08T15:00:00%2B00:00"
-```
-
-OpenAPI interactivo: `http://127.0.0.1:8000/docs`.
-
-## Controles
-
-```powershell
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy src
-uv run pytest
-```
-
-## Diagnostico
-
-1. **Puerto.** Compose publica solo `127.0.0.1:8000`. Si el bind falla, otro proceso ocupa el
-   puerto; detén el stack (`docker compose --profile core down`) o el `uvicorn` local antes de
-   reintentar.
-2. **Health.** `uv run xeon health` o `GET /health` debe responder 200. Sin eso, chat, quotes y
-   stock no tienen API detrás.
-3. **Perfil.** En mock, `/health` y el chat confirman `provider=mock` (cero llamadas externas). Una
-   prueba Groq deliberada debe mostrar `provider=groq`. No actives Groq para revisar el cotizador.
-
 ## Documentación de continuidad
 
+- [`XeonContexto.md`](XeonContexto.md): especificación funcional, base de datos híbrida y stack.
 - [`AGENTS.md`](AGENTS.md): instrucciones estables para agentes de código.
 - [`GLOSSARY.md`](GLOSSARY.md): lenguaje comercial del cotizador.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): límites implementados, trazabilidad y pendientes.
@@ -267,11 +143,11 @@ uv run pytest
 
 ## Estado
 
-Implementado: chat mock, cotizador determinista, API/CLI de borrador sintético, idempotencia
-`tenant_id` + `request_id`, aclaración explícita, rechazo de descuento sin política, consulta de
-stock sintético por sede (`local` / traslado / entrega), vigencia de snapshots
-(`fresh` / `stale` / `unknown`, `is_firm`, `age`) y explicación de disponibilidad
-parcial (`sufficient` / `partial` / `unknown`) y perfiles `mock` / `groq`.
+Implementado: orquestación base de **Hermes** (`HermesToolbelt`), búsqueda híbrida de candidatos
+(exacta + contexto semántico RAG + atributos polimórficos `specs`), adaptador de canal **WhatsApp
+vía Evolution API** (`POST /v1/channels/whatsapp/webhook` y envío `sendText`), cotizador
+determinista `DRAFT` con `Decimal`, idempotencia `tenant_id` + `request_id`, consulta de stock por
+sede con vigencia (`fresh` / `stale` / `unknown`) y perfiles `mock` / `groq`.
 
-Pendiente: Hermes, PostgreSQL, Telegram, Celery, PDF, aprobación y política de descuentos.
-No atribuir datos sintéticos a una empresa real.
+Pendiente: persistencia PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic, PDF y aprobación
+humana. No atribuir datos sintéticos a una empresa real.

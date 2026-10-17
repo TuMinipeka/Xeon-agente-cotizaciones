@@ -33,6 +33,13 @@ class Settings(BaseSettings):
 
     groq_api_key: SecretStr | None = None
     groq_api_key_file: Path | None = None
+
+    whatsapp_send_enabled: bool = False
+    evolution_api_url: str = "http://evolution-api:8080"
+    evolution_instance: str = "xeon-ferreteria"
+    evolution_api_key: SecretStr | None = None
+    evolution_api_key_file: Path | None = None
+
     log_level: str = "INFO"
 
     def require_groq_api_key(self) -> SecretStr:
@@ -50,6 +57,22 @@ class Settings(BaseSettings):
         raise SettingsError(
             "LLM_PROVIDER=groq requiere GROQ_API_KEY o GROQ_API_KEY_FILE; "
             "no se usara una clave implicita."
+        )
+
+    def require_evolution_api_key(self) -> SecretStr:
+        if self.evolution_api_key is not None and self.evolution_api_key.get_secret_value().strip():
+            return self.evolution_api_key
+
+        if self.evolution_api_key_file is not None:
+            try:
+                value = self.evolution_api_key_file.read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                raise SettingsError("No se pudo leer EVOLUTION_API_KEY_FILE.") from exc
+            if value:
+                return SecretStr(value)
+
+        raise SettingsError(
+            "WHATSAPP_SEND_ENABLED=true requiere EVOLUTION_API_KEY o EVOLUTION_API_KEY_FILE."
         )
 
 

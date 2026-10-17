@@ -29,12 +29,15 @@ class Product:
     aliases: tuple[str, ...]
     source: str
     catalog_version: str
+    specs: tuple[tuple[str, str], ...] = ()
+    description_context: str = ""
 
     def __post_init__(self) -> None:
         name = self.name.strip()
         unit = self.unit.strip()
         source = self.source.strip()
         catalog_version = self.catalog_version.strip()
+        description_context = self.description_context.strip()
         if not name:
             raise InvalidProductError("El nombre del producto es obligatorio.")
         if not unit:
@@ -44,12 +47,21 @@ class Product:
         if not catalog_version:
             raise InvalidProductError("La version del catalogo es obligatoria.")
         aliases = tuple(alias.strip() for alias in self.aliases if alias.strip())
+        normalized_specs = tuple(
+            (key.strip(), val.strip()) for key, val in self.specs if key.strip() and val.strip()
+        )
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "unit", unit)
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "catalog_version", catalog_version)
         object.__setattr__(self, "aliases", aliases)
+        object.__setattr__(self, "specs", normalized_specs)
+        object.__setattr__(self, "description_context", description_context)
 
     @property
     def sku(self) -> str:
         return self.id.value
+
+    @property
+    def specs_dict(self) -> dict[str, str]:
+        return dict(self.specs)

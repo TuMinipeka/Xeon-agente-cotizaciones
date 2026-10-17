@@ -3,11 +3,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Body, FastAPI, HTTPException, Query, Response
 
+from xeon.adapters.channels.evolution import parse_evolution_webhook
 from xeon.adapters.llm.openai_compatible import LLMProviderError
 from xeon.api.schemas import (
     AvailabilityItemOut,
@@ -19,9 +20,11 @@ from xeon.api.schemas import (
     QuoteLineOut,
     QuoteOutcomeResponse,
     StockByBranchesOut,
+    WhatsAppWebhookResponse,
 )
 from xeon.application.container import AppContainer, build_container
 from xeon.application.ports.catalog import ProductCatalog
+from xeon.application.ports.channels import ChannelDeliveryError, WhatsAppChannelPort
 from xeon.application.ports.inventory import BranchInventory
 from xeon.application.ports.llm import LLMPort
 from xeon.application.ports.quotes import QuoteDraftRepository
@@ -111,6 +114,7 @@ def create_app(
     catalog: ProductCatalog | None = None,
     inventory: BranchInventory | None = None,
     quotes: QuoteDraftRepository | None = None,
+    whatsapp_channel: WhatsAppChannelPort | None = None,
     container: AppContainer | None = None,
 ) -> FastAPI:
     runtime = container or build_container(
@@ -119,6 +123,7 @@ def create_app(
         inventory=inventory,
         quotes=quotes,
         llm=llm,
+        whatsapp_channel=whatsapp_channel,
     )
 
     @asynccontextmanager
@@ -130,7 +135,8 @@ def create_app(
         title="XEON API",
         version="0.1.0",
         description=(
-            "API local de XEON. El chat interpreta; el cotizador calcula borradores DRAFT. "
+            "API local de XEON orquestada con Hermes y canal WhatsApp (Evolution API). "
+            "El chat interpreta; el cotizador calcula borradores DRAFT. "
             "No emite ni aprueba cotizaciones."
         ),
         lifespan=lifespan,
@@ -154,6 +160,44 @@ def create_app(
         return ChatResponse(
             conversation_id=request.conversation_id,
             reply=result.text,
+            provider=result.provider,
+            model=result.model,
+        )
+
+    @application.post(
+        "/v1/channels/whatsapp/webhook",
+        response_model=WhatsAppWebhookResponse,
+    )
+    async def whatsapp_webhook(
+        payload: Annotated[dict[str, Any], Body()],
+    ) -> WhatsAppWebhookResponse:
+        incoming = parse_evolution_webhook(payload)
+        if incoming is None:
+            return WhatsAppWebhookResponse(status="ignored")
+
+        try:
+            result = await runtime.agent.respond(incoming.text)
+        except LLMProviderError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        delivery_status = "LOCAL_ONLY"
+        if runtime.whatsapp_channel is not None:
+            try:
+                receipt = await runtime.whatsapp_channel.send_text(
+                    recipient_number=incoming.sender_number,
+                    text=result.text,
+                )
+                delivery_status = receipt.status
+            except ChannelDeliveryError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+        return WhatsAppWebhookResponse(
+            status="processed",
+            instance=incoming.instance,
+            external_message_id=incoming.external_message_id,
+            sender_number=incoming.sender_number,
+            reply=result.text,
+            delivery_status=delivery_status,
             provider=result.provider,
             model=result.model,
         )
