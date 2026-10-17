@@ -10,7 +10,7 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-xeon-evolution-local-key}
 
   evolution-api:
-    image: evoapicloud/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:latest
     restart: unless-stopped
     ports:
       - "127.0.0.1:8080:8080"
