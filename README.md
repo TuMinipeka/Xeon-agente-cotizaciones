@@ -85,8 +85,9 @@ flowchart LR
    o `#xeon`. El endpoint no verifica una firma del proveedor ni autentica al comprador.
 2. **Contexto comercial.** `HermesToolbelt` busca SKU o alias exactos; para consultas descriptivas
    puntúa palabras de nombre, alias, atributos `Product.specs` y `description_context`. Es una
-   búsqueda local por tokens, no una consulta a JSONB ni un RAG vectorial. También consulta
-   snapshots sintéticos de stock y, si detecta cantidad, intenta crear un borrador de una línea.
+   búsqueda local por tokens, no una consulta a JSONB ni un RAG vectorial. Una coincidencia
+   descriptiva solo produce candidatos: el comprador debe confirmar uno de los SKU antes de que
+   XEON consulte stock o intente crear un borrador de una línea.
 3. **Reglas del backend.** `CreateQuoteDraft` solo acepta SKU o alias exactos, calcula con
    `Decimal`, rechaza descuentos sin política y guarda un `DRAFT` versión 1. La clave
    `(tenant_id, request_id)` evita duplicar ese borrador mientras viva el mismo proceso. Un
@@ -97,12 +98,10 @@ flowchart LR
    antes de la llamada al modelo. El envío por WhatsApp solo se intenta cuando
    `WHATSAPP_SEND_ENABLED=true`.
 
-> [!WARNING]
-> En el chat, el código actual toma el primer candidato de una búsqueda descriptiva para
-> consultar stock y podría crear un borrador si encuentra una cantidad. **No interpretes ese
-> candidato como referencia confirmada por el comprador.** Para el flujo de cotización
-> explícito usa `POST /v1/quotes` con SKU o alias exacto. La confirmación conversacional de
-> candidatos múltiples sigue pendiente.
+> [!NOTE]
+> La confirmación conversacional se conserva en memoria por `conversation_id` o remitente de
+> WhatsApp. Solo un SKU incluido entre los candidatos desbloquea la consulta de stock y la creación
+> del borrador. Este estado se pierde al reiniciar el proceso y aún no es persistencia empresarial.
 
 La vigencia `fresh`, `stale` o `unknown` se calcula sobre snapshots sintéticos y un instante
 inyectado. Una fuente caída o un SKU desconocido no equivalen a «agotado». El webhook devuelve
@@ -291,13 +290,11 @@ Esta sección describe **trabajo planeado**, sin comandos operativos todavía:
 
 1. Persistir catálogo, stock y borradores de XEON en PostgreSQL 17 con esquema relacional,
    atributos `JSONB`, búsqueda vectorial `pgvector` y migraciones Alembic.
-2. Confirmar con el comprador un SKU ambiguo antes de usarlo en stock o borrador; conservar
-   esa elección a lo largo de la conversación.
-3. Aplicar políticas de descuento versionadas, aprobación humana por versión y generación
+2. Aplicar políticas de descuento versionadas, aprobación humana por versión y generación
    de PDF de la cotización autorizada.
-4. Enviar al trabajador una hoja de alistamiento multi-sede y una solicitud de confirmación
+3. Enviar al trabajador una hoja de alistamiento multi-sede y una solicitud de confirmación
    por correo; solo tras aprobar la versión vigente, avisar al comprador por WhatsApp.
-5. Extender la CLI con bandeja de borradores, diagnóstico de integraciones y acciones de
+4. Extender la CLI con bandeja de borradores, diagnóstico de integraciones y acciones de
    aprobación sujetas a permisos.
 
 Ninguna función de esta lista debe anunciarse como disponible en una demostración actual.
@@ -309,7 +306,7 @@ Ninguna función de esta lista debe anunciarse como disponible en una demostraci
 | Área | Estado verificable | Falta para uso empresarial |
 |---|---|---|
 | Dominio y cotizador | `Money`, `Product`, `StockSnapshot`, `Quote` y casos de uso con pruebas. | Persistencia, concurrencia, precios y stock reales. |
-| Búsqueda | Exacta y puntuación léxica sobre datos sintéticos. | Índices JSONB, embeddings, pgvector y confirmación conversacional del SKU. |
+| Búsqueda | Exacta, puntuación léxica y confirmación conversacional del SKU en memoria. | Índices JSONB, embeddings, pgvector y persistencia del estado conversacional. |
 | IA | `AgentService`, `HermesToolbelt`, `LLMPort`, Mock y adaptador OpenAI compatible. | Validar el flujo real de Hermes/Groq y una orquestación de herramientas más controlada. |
 | WhatsApp | Parser, webhook, filtro por prefijo, deduplicación local y adaptador de envío. | Autenticación del webhook, deduplicación persistente y prueba de entrega real. |
 | Operación | CLI, API y Docker para entorno local. | Autenticación/autorización, auditoría, despliegue y monitoreo. |

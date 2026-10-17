@@ -51,8 +51,9 @@ GET /v1/stock  CLI stock show
 - El perfil `groq` exige una credencial explicita (`GROQ_API_KEY` o `GROQ_API_KEY_FILE`) y consume
   el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`).
 - `HermesToolbelt` conecta el turno conversacional con las herramientas deterministas del backend:
-  identifica referencias candidatas mediante busqueda hibrida (`search_products`), consulta stock
-  por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
+  identifica referencias candidatas mediante busqueda hibrida (`search_products`) y guarda una
+  seleccion pendiente por conversacion. Solo despues de que el comprador confirma uno de esos SKU
+  consulta stock por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
 
 ### 2. Canal WhatsApp sin costo con Evolution API
 - `POST /v1/channels/whatsapp/webhook` recibe eventos `messages.upsert` desde una instancia local de
@@ -87,6 +88,7 @@ equivalente en memoria para pruebas):
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable`, `HermesToolbelt.search_products` |
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
+| T09 | Candidato descriptivo exige confirmar un SKU antes de consultar stock o crear un DRAFT | `HermesToolbelt.format_verified_context`, `/v1/chat`, webhook WhatsApp |
 | T19 | Perfil mock: cero llamadas a Groq | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse
