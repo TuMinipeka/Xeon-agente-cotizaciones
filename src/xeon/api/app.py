@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -42,6 +43,8 @@ from xeon.application.stock import AvailabilityItem, GetStockByBranchesQuery, St
 from xeon.config import Settings, get_settings
 from xeon.domain.inventory import InvalidInventoryError
 from xeon.domain.quote import EmptyQuoteError, InvalidQuantityError, Quote
+
+_MAX_SEEN_WEBHOOK_IDS = 1024
 
 
 def _quote_out(quote: Quote, *, replayed: bool = False) -> QuoteDraftOut:
@@ -125,6 +128,7 @@ def create_app(
         llm=llm,
         whatsapp_channel=whatsapp_channel,
     )
+    seen_webhook_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -178,9 +182,22 @@ def create_app(
         if incoming is None:
             return WhatsAppWebhookResponse(status="ignored")
 
+        dedup_key = (incoming.instance, incoming.external_message_id)
+        if dedup_key in seen_webhook_messages:
+            return WhatsAppWebhookResponse(
+                status="ignored",
+                instance=incoming.instance,
+                external_message_id=incoming.external_message_id,
+                sender_number=incoming.sender_number,
+            )
+        seen_webhook_messages[dedup_key] = None
+        while len(seen_webhook_messages) > _MAX_SEEN_WEBHOOK_IDS:
+            seen_webhook_messages.popitem(last=False)
+
         try:
             result = await runtime.agent.respond(incoming.text)
         except LLMProviderError as exc:
+            seen_webhook_messages.pop(dedup_key, None)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         delivery_status = "LOCAL_ONLY"
@@ -193,6 +210,7 @@ def create_app(
                 )
                 delivery_status = receipt.status
             except ChannelDeliveryError as exc:
+                seen_webhook_messages.pop(dedup_key, None)
                 raise HTTPException(status_code=502, detail=str(exc)) from exc
 
         return WhatsAppWebhookResponse(

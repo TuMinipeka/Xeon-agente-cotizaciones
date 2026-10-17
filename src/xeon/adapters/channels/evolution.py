@@ -13,9 +13,14 @@ from xeon.application.ports.channels import (
 
 
 def _normalize_number(remote_jid: str) -> str:
-    user_part = remote_jid.split("@", 1)[0]
-    digits = re.sub(r"\D+", "", user_part)
-    return digits or user_part.strip()
+    cleaned = remote_jid.strip()
+    user_part, sep, domain = cleaned.partition("@")
+    user_no_device = user_part.split(":", 1)[0]
+    digits = re.sub(r"\D+", "", user_no_device)
+    normalized_user = digits or user_no_device.strip()
+    if sep and domain.lower() == "lid":
+        return f"{normalized_user}@lid"
+    return normalized_user
 
 
 def _extract_message_text(message_obj: dict[str, Any]) -> str:
@@ -87,7 +92,7 @@ def parse_evolution_webhook(
 
     effective_jid = remote_jid
     if effective_jid.endswith("@lid"):
-        alt_jid = str(key.get("remoteJidAlt") or payload.get("sender") or "").strip()
+        alt_jid = str(key.get("remoteJidAlt") or "").strip()
         if "@s.whatsapp.net" in alt_jid:
             effective_jid = alt_jid
 
