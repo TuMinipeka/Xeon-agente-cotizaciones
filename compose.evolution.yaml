@@ -18,6 +18,7 @@ services:
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY:-xeon-evolution-local-key}
       CONFIG_SESSION_PHONE_CLIENT: XEON-Ferreteria
       CONFIG_SESSION_PHONE_NAME: Chrome
+      CONFIG_SESSION_PHONE_VERSION: ${CONFIG_SESSION_PHONE_VERSION:-2.3000.1043857760}
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: postgresql
       DATABASE_CONNECTION_URI: postgresql://evolution:evolution@evolution-postgres:5432/evolution?schema=public
