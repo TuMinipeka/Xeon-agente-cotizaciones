@@ -139,4 +139,3 @@ class EvolutionAPIChannelAdapter:
     async def aclose(self) -> None:
         if self._owns_client:
             await self._client.aclose()
-

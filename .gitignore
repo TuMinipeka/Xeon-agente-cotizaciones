@@ -22,3 +22,14 @@ build/
 .idea/
 .DS_Store
 
+# Obsidian: la configuracion compartida se versiona; el estado personal no.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache/
+.obsidian/plugins/
+.obsidian/themes/
+.obsidian/snippets/
+
+# Boveda local creada antes de usar la raiz del repositorio como vault.
+/Xeon/
+qr_whatsapp.png

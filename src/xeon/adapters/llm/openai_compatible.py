@@ -21,12 +21,14 @@ class OpenAICompatibleLLM:
         model: str,
         max_output_tokens: int,
         timeout_seconds: float,
+        provider_name: str = "groq",
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._url = f"{base_url.rstrip('/')}/chat/completions"
         self._model = model
         self._max_output_tokens = max_output_tokens
         self._api_key = api_key
+        self._provider_name = provider_name
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=timeout_seconds)
 
@@ -59,7 +61,7 @@ class OpenAICompatibleLLM:
                 "No fue posible obtener una respuesta valida del proveedor LLM."
             ) from exc
 
-        return LLMResponse(text=text, provider="groq", model=self._model)
+        return LLMResponse(text=text, provider=self._provider_name, model=self._model)
 
     async def aclose(self) -> None:
         if self._owns_client:

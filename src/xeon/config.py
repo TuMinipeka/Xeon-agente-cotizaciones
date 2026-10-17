@@ -24,12 +24,17 @@ class Settings(BaseSettings):
     data_mode: Literal["synthetic"] = "synthetic"
     default_timezone: str = "America/Bogota"
 
-    llm_provider: Literal["mock", "groq"] = "mock"
+    llm_provider: Literal["mock", "groq", "hermes"] = "mock"
     llm_model: str = "llama-3.3-70b-versatile"
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_max_output_tokens: int = Field(default=2048, ge=1, le=32_000)
     llm_timeout_seconds: float = Field(default=120, gt=0, le=600)
     agent_max_steps: int = Field(default=6, ge=1, le=24)
+
+    hermes_base_url: str = "http://127.0.0.1:8642/v1"
+    hermes_model: str = "gpt-5.6-luna"
+    hermes_api_key: SecretStr = SecretStr("xeon-hermes-local-bridge-2026")
+    hermes_api_key_file: Path | None = None
 
     groq_api_key: SecretStr | None = None
     groq_api_key_file: Path | None = None
@@ -58,6 +63,20 @@ class Settings(BaseSettings):
             "LLM_PROVIDER=groq requiere GROQ_API_KEY o GROQ_API_KEY_FILE; "
             "no se usara una clave implicita."
         )
+
+    def resolve_hermes_api_key(self) -> SecretStr:
+        if self.hermes_api_key_file is not None:
+            try:
+                value = self.hermes_api_key_file.read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                raise SettingsError("No se pudo leer HERMES_API_KEY_FILE.") from exc
+            if value:
+                return SecretStr(value)
+
+        if self.hermes_api_key.get_secret_value().strip():
+            return self.hermes_api_key
+
+        raise SettingsError("LLM_PROVIDER=hermes requiere HERMES_API_KEY o HERMES_API_KEY_FILE.")
 
     def require_evolution_api_key(self) -> SecretStr:
         if self.evolution_api_key is not None and self.evolution_api_key.get_secret_value().strip():

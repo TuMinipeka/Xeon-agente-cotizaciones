@@ -77,3 +77,19 @@ def test_chat_endpoint_surfaces_hermes_verified_candidates() -> None:
     assert "CEM-50" in reply
     assert "28900.00" in reply
 
+
+def test_hermes_provider_builds_local_api_bridge_with_temporary_model() -> None:
+    settings = Settings(
+        llm_provider="hermes",
+        hermes_base_url="http://127.0.0.1:8642/v1",
+        hermes_model="gpt-5.6-luna",
+        _env_file=None,
+    )
+    container = build_container(settings)
+    try:
+        assert (
+            settings.resolve_hermes_api_key().get_secret_value() == "xeon-hermes-local-bridge-2026"
+        )
+        assert container.settings.hermes_model == "gpt-5.6-luna"
+    finally:
+        asyncio.run(container.aclose())

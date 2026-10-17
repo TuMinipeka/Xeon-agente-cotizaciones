@@ -16,6 +16,13 @@ services:
       LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-2048}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
       AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-6}
+      HERMES_BASE_URL: ${HERMES_BASE_URL:-http://host.docker.internal:8642/v1}
+      HERMES_MODEL: ${HERMES_MODEL:-gpt-5.6-luna}
+      HERMES_API_KEY: ${HERMES_API_KEY:-xeon-hermes-local-bridge-2026}
+      WHATSAPP_SEND_ENABLED: ${WHATSAPP_SEND_ENABLED:-false}
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-http://evolution-api:8080}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-xeon-ferreteria}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-xeon-evolution-local-key}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "127.0.0.1:8000:8000"

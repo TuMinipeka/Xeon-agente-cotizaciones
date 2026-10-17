@@ -4,4 +4,3 @@ from xeon.adapters.channels.evolution import (
 )
 
 __all__ = ["EvolutionAPIChannelAdapter", "parse_evolution_webhook"]
-
