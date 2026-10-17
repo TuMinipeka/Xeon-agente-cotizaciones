@@ -216,6 +216,7 @@ class HermesToolbelt:
             if confirmed is None:
                 return self._format_confirmation_request(pending)
 
+            assert conversation_key is not None
             self._pending_selections.pop(conversation_key, None)
             quantity = _extract_requested_quantity(normalized) or pending.requested_quantity
             branch_id = _extract_requested_branch(
