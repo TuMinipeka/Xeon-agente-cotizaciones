@@ -78,6 +78,33 @@ def test_chat_endpoint_surfaces_hermes_verified_candidates() -> None:
     assert "28900.00" in reply
 
 
+def test_semantic_candidate_requires_sku_confirmation_before_stock_or_draft() -> None:
+    container = build_container(Settings(llm_provider="mock", _env_file=None))
+
+    candidate_context = container.hermes_tools.format_verified_context(
+        "necesito 50 bultos para fundir una placa y pegar ladrillo",
+        conversation_id="conversation-confirmation",
+    )
+
+    assert candidate_context is not None
+    assert "status=semantic_candidates" in candidate_context
+    assert "SKU=CEM-50" in candidate_context
+    assert "confirmation_required" in candidate_context
+    assert "get_stock_by_branches" not in candidate_context
+    assert "create_quote_draft" not in candidate_context
+
+    confirmed_context = container.hermes_tools.format_verified_context(
+        "Confirmo el SKU CEM-50",
+        conversation_id="conversation-confirmation",
+    )
+
+    assert confirmed_context is not None
+    assert "status=confirmed_selection" in confirmed_context
+    assert "get_stock_by_branches sku=CEM-50" in confirmed_context
+    assert "create_quote_draft" in confirmed_context
+    assert "cantidad=50" in confirmed_context
+
+
 def test_hermes_provider_builds_local_api_bridge_with_temporary_model() -> None:
     settings = Settings(
         llm_provider="hermes",

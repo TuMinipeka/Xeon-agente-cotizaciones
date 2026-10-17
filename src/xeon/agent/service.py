@@ -14,12 +14,20 @@ class AgentService:
     def tools(self) -> HermesToolbelt | None:
         return self._tools
 
-    async def respond(self, user_message: str) -> LLMResponse:
+    async def respond(
+        self,
+        user_message: str,
+        *,
+        conversation_id: str | None = None,
+    ) -> LLMResponse:
         message_list: list[ChatMessage] = [
             ChatMessage(role="system", content=SYSTEM_PROMPT),
         ]
         if self._tools is not None:
-            verified_context = self._tools.format_verified_context(user_message)
+            verified_context = self._tools.format_verified_context(
+                user_message,
+                conversation_id=conversation_id,
+            )
             if verified_context is not None:
                 message_list.append(ChatMessage(role="system", content=verified_context))
         message_list.append(ChatMessage(role="user", content=user_message))

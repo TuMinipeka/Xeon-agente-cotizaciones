@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -39,6 +40,17 @@ class SearchProductsOutcome:
     message: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class PendingProductSelection:
+    query: str
+    candidates: tuple[CandidateProductInfo, ...]
+    requested_quantity: Decimal | None
+    requested_branch_id: str
+
+
+_MAX_PENDING_SELECTIONS = 1024
+
+
 class HermesToolbelt:
     """Authorized commercial tools exposed to the Hermes orchestrator.
 
@@ -56,6 +68,7 @@ class HermesToolbelt:
         self._catalog = catalog
         self._create_quote_draft = create_quote_draft
         self._get_stock_by_branches = get_stock_by_branches
+        self._pending_selections: OrderedDict[str, PendingProductSelection] = OrderedDict()
 
     def search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
         cleaned = query.strip()
@@ -184,80 +197,143 @@ class HermesToolbelt:
             )
         )
 
-    def format_verified_context(self, user_message: str) -> str | None:
+    def format_verified_context(
+        self,
+        user_message: str,
+        *,
+        conversation_id: str | None = None,
+    ) -> str | None:
         normalized = user_message.strip()
         if not normalized or normalized.casefold() in {"hola", "buenas", "buenos dias"}:
             return None
 
+        conversation_key = conversation_id.strip() if conversation_id else None
+        pending = (
+            self._pending_selections.get(conversation_key) if conversation_key is not None else None
+        )
+        if pending is not None:
+            confirmed = _find_confirmed_candidate(normalized, pending.candidates)
+            if confirmed is None:
+                return self._format_confirmation_request(pending)
+
+            self._pending_selections.pop(conversation_key, None)
+            quantity = _extract_requested_quantity(normalized) or pending.requested_quantity
+            branch_id = _extract_requested_branch(
+                normalized,
+                default=pending.requested_branch_id,
+            )
+            return self._format_resolved_product(
+                confirmed,
+                status="confirmed_selection",
+                message=(
+                    f"El comprador confirmo explicitamente el SKU {confirmed.sku}; "
+                    "ya se permiten consultas comerciales para esa referencia."
+                ),
+                quantity=quantity,
+                branch_id=branch_id,
+            )
+
         outcome = self.search_products(normalized, limit=3)
-        if outcome.status in {"exact_match", "semantic_candidates"}:
-            lines = [f"[HERMES_TOOL:search_products status={outcome.status}]"]
-            for candidate in outcome.candidates:
-                specs_text = ", ".join(f"{k}={v}" for k, v in candidate.specs.items())
-                lines.append(
-                    f"- SKU={candidate.sku} | nombre={candidate.name} | unidad={candidate.unit} "
-                    f"| precio_bd={candidate.unit_price} {candidate.currency} "
-                    f"| specs={{{specs_text}}}"
-                )
-            lines.append(outcome.message)
+        if outcome.status == "semantic_candidates":
+            pending = PendingProductSelection(
+                query=normalized,
+                candidates=outcome.candidates,
+                requested_quantity=_extract_requested_quantity(normalized),
+                requested_branch_id=_extract_requested_branch(normalized),
+            )
+            if conversation_key is not None:
+                self._pending_selections[conversation_key] = pending
+                self._pending_selections.move_to_end(conversation_key)
+                while len(self._pending_selections) > _MAX_PENDING_SELECTIONS:
+                    self._pending_selections.popitem(last=False)
+            return self._format_confirmation_request(pending)
 
-            primary = outcome.candidates[0]
-            quantity = _extract_requested_quantity(normalized)
-            branch_id = _extract_requested_branch(normalized)
-
-            try:
-                stock = self.get_stock_by_branches(
-                    sku=primary.sku,
-                    requested_branch_id=branch_id,
-                    evaluated_at="2026-10-08T15:00:00+00:00",
-                    requested_quantity=quantity,
-                )
-                status_val = (
-                    stock.fulfillment_status.value
-                    if stock.fulfillment_status is not None
-                    else "unrequested"
-                )
-                lines.append(
-                    f"[HERMES_TOOL:get_stock_by_branches sku={stock.sku} "
-                    f"sede_solicitada={stock.requested_branch_id} "
-                    f"disponible_local={stock.local_available} "
-                    f"faltante={stock.shortfall} "
-                    f"estado={status_val}]"
-                )
-                for item in stock.items:
-                    lines.append(
-                        f"- sede={item.branch_id} ({item.origin_name}) | "
-                        f"cantidad={item.quantity} | tipo={item.kind.value} | "
-                        f"vigencia={item.freshness.value}"
-                    )
-            except Exception:
-                pass
-
-            if quantity is not None:
-                try:
-                    draft_res = self.create_quote_draft(
-                        tenant_id="whatsapp",
-                        request_id=f"wa-{uuid.uuid4().hex[:12]}",
-                        lines=(DraftLineRequest(query=primary.sku, quantity=quantity),),
-                    )
-                    if isinstance(draft_res, QuoteDraftReady):
-                        q = draft_res.quote
-                        lines.append(
-                            f"[HERMES_TOOL:create_quote_draft quote_id={q.id} "
-                            f"status={q.status.value} version=v{q.version} "
-                            f"sku={primary.sku} cantidad={quantity} "
-                            f"subtotal={q.subtotal.amount} {q.currency} "
-                            f"total={q.total.amount} {q.currency}]"
-                        )
-                except Exception:
-                    pass
-
-            return "\n".join(lines)
+        if outcome.status == "exact_match":
+            return self._format_resolved_product(
+                outcome.candidates[0],
+                status=outcome.status,
+                message=outcome.message,
+                quantity=_extract_requested_quantity(normalized),
+                branch_id=_extract_requested_branch(normalized),
+            )
 
         if outcome.status in {"clarification_required", "catalog_unavailable"}:
             return f"[HERMES_TOOL:search_products status={outcome.status}] {outcome.message}"
 
         return None
+
+    @staticmethod
+    def _format_confirmation_request(pending: PendingProductSelection) -> str:
+        lines = ["[HERMES_TOOL:search_products status=semantic_candidates]"]
+        for candidate in pending.candidates:
+            lines.append(_format_candidate(candidate))
+        lines.append(
+            "[HERMES_GUARD:confirmation_required] Los resultados son solo candidatos. "
+            "Pide al comprador que responda con uno de los SKU mostrados. Hasta entonces no "
+            "consultes stock ni crees un borrador."
+        )
+        return "\n".join(lines)
+
+    def _format_resolved_product(
+        self,
+        candidate: CandidateProductInfo,
+        *,
+        status: str,
+        message: str,
+        quantity: Decimal | None,
+        branch_id: str,
+    ) -> str:
+        lines = [f"[HERMES_TOOL:search_products status={status}]", _format_candidate(candidate)]
+        lines.append(message)
+
+        try:
+            stock = self.get_stock_by_branches(
+                sku=candidate.sku,
+                requested_branch_id=branch_id,
+                evaluated_at="2026-10-08T15:00:00+00:00",
+                requested_quantity=quantity,
+            )
+            status_val = (
+                stock.fulfillment_status.value
+                if stock.fulfillment_status is not None
+                else "unrequested"
+            )
+            lines.append(
+                f"[HERMES_TOOL:get_stock_by_branches sku={stock.sku} "
+                f"sede_solicitada={stock.requested_branch_id} "
+                f"disponible_local={stock.local_available} "
+                f"faltante={stock.shortfall} "
+                f"estado={status_val}]"
+            )
+            for item in stock.items:
+                lines.append(
+                    f"- sede={item.branch_id} ({item.origin_name}) | "
+                    f"cantidad={item.quantity} | tipo={item.kind.value} | "
+                    f"vigencia={item.freshness.value}"
+                )
+        except Exception:
+            pass
+
+        if quantity is not None:
+            try:
+                draft_res = self.create_quote_draft(
+                    tenant_id="whatsapp",
+                    request_id=f"wa-{uuid.uuid4().hex[:12]}",
+                    lines=(DraftLineRequest(query=candidate.sku, quantity=quantity),),
+                )
+                if isinstance(draft_res, QuoteDraftReady):
+                    quote = draft_res.quote
+                    lines.append(
+                        f"[HERMES_TOOL:create_quote_draft quote_id={quote.id} "
+                        f"status={quote.status.value} version=v{quote.version} "
+                        f"sku={candidate.sku} cantidad={quantity} "
+                        f"subtotal={quote.subtotal.amount} {quote.currency} "
+                        f"total={quote.total.amount} {quote.currency}]"
+                    )
+            except Exception:
+                pass
+
+        return "\n".join(lines)
 
 
 _QTY_RE = re.compile(
@@ -282,10 +358,31 @@ def _extract_requested_quantity(text: str) -> Decimal | None:
     return value if value > Decimal("0") else None
 
 
-def _extract_requested_branch(text: str) -> str:
+def _format_candidate(candidate: CandidateProductInfo) -> str:
+    specs_text = ", ".join(f"{key}={value}" for key, value in candidate.specs.items())
+    return (
+        f"- SKU={candidate.sku} | nombre={candidate.name} | unidad={candidate.unit} "
+        f"| precio_bd={candidate.unit_price} {candidate.currency} | specs={{{specs_text}}}"
+    )
+
+
+def _find_confirmed_candidate(
+    text: str,
+    candidates: tuple[CandidateProductInfo, ...],
+) -> CandidateProductInfo | None:
+    for candidate in candidates:
+        sku_pattern = rf"(?<![A-Z0-9]){re.escape(candidate.sku)}(?![A-Z0-9])"
+        if re.search(sku_pattern, text, re.IGNORECASE):
+            return candidate
+    return None
+
+
+def _extract_requested_branch(text: str, *, default: str = "sede-norte") -> str:
     lowered = text.casefold()
     if "sur" in lowered:
         return "sede-sur"
     if "centro" in lowered:
         return "sede-centro"
-    return "sede-norte"
+    if "norte" in lowered:
+        return "sede-norte"
+    return default

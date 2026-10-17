@@ -158,7 +158,10 @@ def create_app(
     @application.post("/v1/chat", response_model=ChatResponse)
     async def chat(request: ChatRequest) -> ChatResponse:
         try:
-            result = await runtime.agent.respond(request.message)
+            result = await runtime.agent.respond(
+                request.message,
+                conversation_id=str(request.conversation_id),
+            )
         except LLMProviderError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return ChatResponse(
@@ -195,7 +198,10 @@ def create_app(
             seen_webhook_messages.popitem(last=False)
 
         try:
-            result = await runtime.agent.respond(incoming.text)
+            result = await runtime.agent.respond(
+                incoming.text,
+                conversation_id=f"whatsapp:{incoming.instance}:{incoming.sender_jid}",
+            )
         except LLMProviderError as exc:
             seen_webhook_messages.pop(dedup_key, None)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
