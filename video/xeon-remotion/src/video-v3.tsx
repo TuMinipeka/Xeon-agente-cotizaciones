@@ -40,7 +40,7 @@ const Scene = ({chapter, number, note, children, human = false}: {
     <div className="film-noise" />
     <div className="film-beam" style={{transform: `translateX(${frame * 0.6}px)`}} />
     <div className="film-rule-grid" />
-    <header className="film-header"><div className="film-logo"><span>✦</span> XEON <small>/ DEMO</small></div><div className="film-chapter">{chapter}</div></header>
+    <header className="film-header"><div className="film-logo"><Img src={staticFile('images/xeon-logo-oficial.png')} /> XEON <small>/ DEMO</small></div><div className="film-chapter">{chapter}</div></header>
     {children}
     <footer className="film-footer"><span>{number} / 07</span><span>{note}</span></footer>
   </AbsoluteFill>;
@@ -78,7 +78,7 @@ const Opening = ({hookLead, hookEmphasis, hookResolve, exampleMessage, solutionL
       <div className="opening-orbit" style={pop(frame, 125)}>
         <div className="orbit-ring ring-one" style={{transform: `rotate(${orbit}deg)`}} />
         <div className="orbit-ring ring-two" style={{transform: `rotate(${-orbit * 0.65}deg)`}} />
-        <Img src={staticFile('images/xeon.png')} />
+        <Img src={staticFile('images/xeon-logo-oficial.png')} />
         <div className="orbit-tag orbit-tag-a">01 / CONSULTA</div>
         <div className="orbit-tag orbit-tag-b">02 / CÓDIGO SKU</div>
         <div className="orbit-tag orbit-tag-c">03 / ASESOR</div>
@@ -162,7 +162,7 @@ const Advisor = () => {
   return <Scene chapter="DIFERENCIAL / CONTACTO HUMANO" number="06" note="OBJETIVO DEL PRODUCTO · TRASPASO AUTOMÁTICO PENDIENTE" human>
     <div className="advisor-heading" style={reveal(frame, 5)}><span>05 / EL SIGUIENTE PASO</span><h2>DE LA IA<br /><em>AL ASESOR REAL.</em></h2><p>La información llega ordenada.<br />La decisión se conversa con una persona.</p></div>
     <div className="handoff-bundle" style={reveal(frame, 25)}><small>CONTEXTO PREPARADO</small><div><span>01</span><b>CÓDIGO / SKU</b><strong>CEM-50</strong></div><div><span>02</span><b>DISPONIBILIDAD</b><strong>POR SEDE</strong></div><div><span>03</span><b>COTIZACIÓN</b><strong>DRAFT V1</strong></div></div>
-    <svg className="handoff-line" viewBox="0 0 300 120" aria-hidden="true"><path d="M 8 60 C 110 60, 130 60, 278 60" stroke="#efbb89" strokeWidth="4" fill="none" strokeDasharray="320" strokeDashoffset={320 * (1 - progress)} /><circle cx={8 + 270 * progress} cy="60" r="10" fill="#efbb89" opacity={progress} /></svg>
+    <svg className="handoff-line" viewBox="0 0 300 120" aria-hidden="true"><path d="M 8 60 C 110 60, 130 60, 278 60" stroke="#6fffd3" strokeWidth="4" fill="none" strokeDasharray="320" strokeDashoffset={320 * (1 - progress)} /><circle cx={8 + 270 * progress} cy="60" r="10" fill="#6fffd3" opacity={progress} /></svg>
     <div className="advisor-profile" style={pop(frame, 72)}><div className="advisor-avatar">AR</div><small>CONTACTO HUMANO</small><strong>ASESOR<br />REAL</strong><span>CONTINÚA CON CONTEXTO</span></div>
     <div className="advisor-status" style={reveal(frame, 112)}>VISIÓN DEL PRODUCTO <b>· CONEXIÓN AUTOMÁTICA POR IMPLEMENTAR</b></div>
   </Scene>;

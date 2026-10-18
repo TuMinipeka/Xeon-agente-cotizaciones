@@ -17,7 +17,7 @@ const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/style.css", ["style.css", "text/css; charset=utf-8"]],
-  ["/xeon.png", ["../public/images/xeon.png", "image/png"]],
+  ["/xeon-logo.png", ["../public/images/xeon-logo-oficial.png", "image/png"]],
 ]);
 const routes = new Map([
   ["GET /health", true],
