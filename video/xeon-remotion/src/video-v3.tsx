@@ -183,7 +183,7 @@ export const XeonDemo = () => {
       const to = Math.round(scene.end * fps);
       return <Sequence key={scene.id} from={from} durationInFrames={to - from} name={`${index + 1} · ${scene.label}`}><Component /></Sequence>;
     })}
-    <Audio src={staticFile('voice-local/narration.wav')} volume={1} />
+    <Sequence from={14}><Audio src={staticFile('voice-elevenlabs/narration.mp3')} volume={1} /></Sequence>
     <Audio src={staticFile('sound/soundscape.mp3')} volume={0.72} />
     <TransitionWipes />
     <Captions />

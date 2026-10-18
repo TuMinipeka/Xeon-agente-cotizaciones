@@ -1,6 +1,6 @@
 # XEON · video y demo interactiva
 
-`XeonDemo` es el video principal del repositorio: una composición Remotion de **92 segundos, 1920 × 1080 y 30 fps**. Incluye siete escenas, narración local en español, subtítulos incrustados, `subtitles-v3.srt` y una base sonora estéreo generada para esta pieza. El MP4 listo para revisar es `xeon-demo.mp4`.
+`XeonDemo` es el video principal del repositorio: una composición Remotion de **82 segundos, 1920 × 1080 y 30 fps**. Incluye siete escenas, narración en español con **Bella de ElevenLabs** (modelo Multilingual v2), subtítulos incrustados, `subtitles-v3.srt` y una base sonora estéreo generada para esta pieza. El MP4 listo para revisar es `xeon-demo.mp4`.
 
 La propuesta visual sigue el recorrido **consulta → código de producto/SKU → inventario → borrador → asesor real**. El producto usa el código/SKU candidato `CEM-50`. El contacto con un asesor es el diferencial buscado, pero **el traspaso automático todavía no está implementado**. El video identifica como simulados el webhook, el catálogo y el stock. No afirma entrega a un teléfono real, aprobación, reserva, PDF ni persistencia comercial.
 
@@ -14,7 +14,15 @@ npm run studio
 npm run render
 ```
 
-La composición está en `src/video-v3.tsx`, el diseño en `src/v3.css` y los tiempos en `src/timing-v3.json`. El texto de voz se cambia en `narration-script.json`. Para regenerar la voz, los subtítulos y el sonido en Windows con la voz local instalada:
+La composición está en `src/video-v3.tsx`, el diseño en `src/v3.css` y los tiempos en `src/timing-v3.json`. El texto de voz se cambia en `narration-script.json`. La toma actual de ElevenLabs está congelada en `public/voice-elevenlabs/narration.mp3`. Sus límites por frase se registran en `scripts/sync-elevenlabs.py`; si se genera otra toma, deben volver a medirse antes de sincronizar. Para reconstruir los subtítulos y la base sonora con la toma actual:
+
+```powershell
+python scripts/sync-elevenlabs.py
+python scripts/build-soundscape.py
+npm run render
+```
+
+La voz local anterior se conserva como alternativa de edición. Para regenerarla en Windows:
 
 ```powershell
 ./scripts/generate-local-voice.ps1
@@ -22,7 +30,9 @@ python scripts/build-media.py
 npm run render
 ```
 
-El sonido se crea por código, sin muestras musicales ni llamadas externas. La síntesis local requiere `Microsoft Sabina Desktop` y `ffmpeg` para el MP3. No se hacen llamadas a Groq, Evolution API ni proveedores de voz al renderizar.
+El sonido se crea por código, sin muestras musicales ni llamadas externas. La síntesis local requiere `Microsoft Sabina Desktop` y `ffmpeg` para el MP3. El render usa el MP3 local de ElevenLabs y no llama a Groq, Evolution API ni proveedores de voz.
+
+La toma Bella se generó con el plan gratuito de ElevenLabs para revisar esta demo local. Ese plan no concede uso comercial. Si se publica una versión no comercial, el título debe atribuir `elevenlabs.io` o `11.ai`; para una campaña comercial se requiere generar una toma nueva durante una suscripción con licencia comercial. Consultar las [condiciones de publicación de ElevenLabs](https://help.elevenlabs.io/hc/en-us/articles/13313564601361-Can-I-publish-the-content-I-generate-on-the-platform).
 
 ## Demo interactiva del backend
 

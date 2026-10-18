@@ -1,83 +1,83 @@
 1
-00:00:00,480 --> 00:00:04,319
+00:00:00,480 --> 00:00:03,740
 Una consulta comercial no debería perderse entre mensajes.
 
 2
-00:00:04,499 --> 00:00:08,423
+00:00:04,224 --> 00:00:07,797
 XEON prepara datos verificables para que una persona continúe.
 
 3
-00:00:09,903 --> 00:00:13,617
+00:00:08,347 --> 00:00:11,669
 El cliente escribe: necesito dos bultos de cemento.
 
 4
-00:00:13,797 --> 00:00:16,822
+00:00:12,085 --> 00:00:14,540
 En esta demo simulamos el webhook de WhatsApp.
 
 5
-00:00:17,002 --> 00:00:19,825
+00:00:14,952 --> 00:00:17,023
 No enviamos mensajes a un teléfono real.
 
 6
-00:00:21,305 --> 00:00:25,350
+00:00:17,649 --> 00:00:21,576
 Cada candidato se muestra con su código de producto, el SKU.
 
 7
-00:00:25,530 --> 00:00:28,690
+00:00:22,082 --> 00:00:25,915
 El SKU candidato es CEM guion cincuenta.
 
 8
-00:00:28,870 --> 00:00:32,237
+00:00:26,466 --> 00:00:28,967
 Si la referencia es ambigua, primero se aclara.
 
 9
-00:00:33,717 --> 00:00:37,350
+00:00:29,511 --> 00:00:32,255
 En el escenario de prueba, Norte tiene veinte bultos.
 
 10
-00:00:37,530 --> 00:00:41,431
+00:00:32,585 --> 00:00:35,990
 Centro tiene ochenta para traslado; hay cuarenta por entrega.
 
 11
-00:00:41,611 --> 00:00:44,615
+00:00:36,539 --> 00:00:39,037
 Cada cantidad conserva su origen y su fecha.
 
 12
-00:00:46,095 --> 00:00:51,295
+00:00:39,518 --> 00:00:44,244
 Dos bultos a veintiocho mil novecientos suman cincuenta y siete mil ochocientos pesos.
 
 13
-00:00:51,475 --> 00:00:54,658
+00:00:44,735 --> 00:00:47,508
 El backend calcula con Decimal y guarda un borrador.
 
 14
-00:00:54,838 --> 00:00:57,764
+00:00:48,205 --> 00:00:50,620
 El borrador no aprueba ni reserva inventario.
 
 15
-00:00:59,244 --> 00:01:03,204
+00:00:51,138 --> 00:00:54,606
 Nuestro diferencial buscado es el contacto con un asesor real.
 
 16
-00:01:03,384 --> 00:01:07,147
+00:00:55,171 --> 00:00:59,140
 XEON le entrega el SKU, la disponibilidad y el borrador.
 
 17
-00:01:07,327 --> 00:01:11,062
+00:00:59,732 --> 00:01:02,785
 Así el asesor puede conversar contigo sin empezar de cero.
 
 18
-00:01:11,242 --> 00:01:14,649
+00:01:03,424 --> 00:01:06,255
 Este traspaso automático aún está por implementar.
 
 19
-00:01:16,129 --> 00:01:20,615
+00:01:06,796 --> 00:01:10,679
 La inteligencia artificial prepara; una persona te ayuda a decidir.
 
 20
-00:01:20,795 --> 00:01:26,656
+00:01:11,262 --> 00:01:17,114
 Esto usa datos sintéticos: base comercial, aprobación y PDF siguen pendientes.
 
 21
-00:01:26,836 --> 00:01:31,094
+00:01:17,542 --> 00:01:21,068
 XEON. De la consulta al asesor, con contexto.
