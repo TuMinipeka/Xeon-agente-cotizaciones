@@ -1,25 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
   <title id="title">XEON, agente comercial para ferreterías</title>
   <desc id="desc">Ejemplo sintético: dos bultos de cemento CEM-50 producen un borrador DRAFT de 57 800 pesos colombianos, calculado por el backend.</desc>
-  <rect width="1200" height="320" rx="24" fill="#0B1525"/>
-  <path d="M52 62h506" stroke="#274460" stroke-width="2"/>
-  <rect x="52" y="50" width="65" height="24" rx="12" fill="#163F67"/>
-  <text x="65" y="67" fill="#AEE3FF" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">XEON</text>
-  <text x="52" y="150" fill="#F6FAFF" font-size="82" font-family="Segoe UI, Arial, sans-serif" font-weight="800" letter-spacing="-3">XEON</text>
-  <text x="55" y="194" fill="#9FDDF9" font-size="28" font-family="Segoe UI, Arial, sans-serif" font-weight="600">Asistencia comercial</text>
-  <text x="55" y="232" fill="#D2E0EE" font-size="25" font-family="Segoe UI, Arial, sans-serif">y cotización determinista</text>
-  <text x="55" y="279" fill="#9DB1C6" font-size="17" font-family="Segoe UI, Arial, sans-serif">PROTOTIPO CON DATOS SINTÉTICOS</text>
+  <rect width="1200" height="320" rx="24" fill="#04110F"/>
+  <path d="M52 62h506" stroke="#326B5D" stroke-width="2"/>
+  <rect x="52" y="50" width="65" height="24" rx="12" fill="#0D2823"/>
+  <text x="65" y="67" fill="#6FFFD3" font-size="14" font-family="Segoe UI, Arial, sans-serif" font-weight="700">XEON</text>
+  <text x="52" y="150" fill="#EAFBF5" font-size="82" font-family="Segoe UI, Arial, sans-serif" font-weight="800" letter-spacing="-3">XEON</text>
+  <text x="55" y="194" fill="#6FFFD3" font-size="28" font-family="Segoe UI, Arial, sans-serif" font-weight="600">Asistencia comercial</text>
+  <text x="55" y="232" fill="#B6DCD1" font-size="25" font-family="Segoe UI, Arial, sans-serif">y cotización determinista</text>
+  <text x="55" y="279" fill="#83B1A3" font-size="17" font-family="Segoe UI, Arial, sans-serif">PROTOTIPO CON DATOS SINTÉTICOS</text>
 
-  <rect x="648" y="36" width="500" height="248" rx="18" fill="#F5F9FD"/>
-  <rect x="648" y="36" width="500" height="44" rx="18" fill="#DDECF7"/>
-  <rect x="648" y="61" width="500" height="19" fill="#DDECF7"/>
-  <circle cx="677" cy="58" r="6" fill="#3A9CD2"/>
-  <text x="696" y="65" fill="#12304D" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">BORRADOR · DRAFT</text>
-  <text x="683" y="119" fill="#49677F" font-size="18" font-family="Segoe UI, Arial, sans-serif">REFERENCIA</text>
-  <text x="1115" y="119" text-anchor="end" fill="#13334F" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">CEM-50</text>
-  <path d="M683 137h432" stroke="#CDDBE6" stroke-width="2"/>
-  <text x="683" y="173" fill="#49677F" font-size="18" font-family="Segoe UI, Arial, sans-serif">2 bultos × 28 900 COP</text>
-  <path d="M683 191h432" stroke="#CDDBE6" stroke-width="2"/>
-  <text x="683" y="239" fill="#12304D" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">TOTAL CALCULADO</text>
-  <text x="1115" y="239" text-anchor="end" fill="#006CA7" font-size="28" font-family="Segoe UI, Arial, sans-serif" font-weight="800">57 800 COP</text>
+  <rect x="648" y="36" width="500" height="248" rx="18" fill="#EAFBF5"/>
+  <rect x="648" y="36" width="500" height="44" rx="18" fill="#CFF4E8"/>
+  <rect x="648" y="61" width="500" height="19" fill="#CFF4E8"/>
+  <circle cx="677" cy="58" r="6" fill="#00D9A3"/>
+  <text x="696" y="65" fill="#0D2823" font-size="18" font-family="Segoe UI, Arial, sans-serif" font-weight="700">BORRADOR · DRAFT</text>
+  <text x="683" y="119" fill="#3B6256" font-size="18" font-family="Segoe UI, Arial, sans-serif">REFERENCIA</text>
+  <text x="1115" y="119" text-anchor="end" fill="#0D2823" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">CEM-50</text>
+  <path d="M683 137h432" stroke="#BDD8CE" stroke-width="2"/>
+  <text x="683" y="173" fill="#3B6256" font-size="18" font-family="Segoe UI, Arial, sans-serif">2 bultos × 28 900 COP</text>
+  <path d="M683 191h432" stroke="#BDD8CE" stroke-width="2"/>
+  <text x="683" y="239" fill="#0D2823" font-size="20" font-family="Segoe UI, Arial, sans-serif" font-weight="700">TOTAL CALCULADO</text>
+  <text x="1115" y="239" text-anchor="end" fill="#00694F" font-size="28" font-family="Segoe UI, Arial, sans-serif" font-weight="800">57 800 COP</text>
 </svg>

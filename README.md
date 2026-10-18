@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/readme/xeon-overview.svg" width="100%" alt="XEON: consulta comercial, datos sintéticos verificados y borrador de cotización calculado por el backend">
+  <img src="logo-oficial-definitivo.png" width="240" alt="Logo oficial de XEON en jade y menta sobre fondo oscuro">
 </p>
 
 # XEON — agente comercial para ferreterías
@@ -14,6 +14,27 @@ pero requiere una instancia vinculada para operar con personas reales.
 > **Estado actual: prototipo con datos ficticios.** No hay conexión al ERP de una empresa,
 > persistencia comercial en PostgreSQL, aprobación humana ni PDF. Un borrador `DRAFT` no reserva
 > inventario ni es una cotización aprobada.
+
+## Identidad visual
+
+El logo oficial define la identidad de XEON: **fondo casi negro, jade y menta**. La paleta de
+interfaz deriva de sus gradientes; estos códigos son colores de uso consistentes, no sustitutos
+del archivo original del logo.
+
+![Paleta visual de XEON: fondo oscuro, superficies verde profundo, jade, menta y texto claro](assets/readme/xeon-palette.svg)
+
+| Color | Hex | Uso principal |
+|---|---|---|
+| Negro jade | `#04110F` | Fondo de marca |
+| Verde profundo | `#0D2823` | Paneles y tarjetas |
+| Verde elevado | `#134038` | Superficies destacadas |
+| Jade XEON | `#00D9A3` | Acento y acción principal |
+| Menta luminosa | `#6FFFD3` | Destellos y foco visible |
+| Blanco menta | `#EAFBF5` | Texto principal sobre fondo oscuro |
+
+Las reglas de contraste, gradientes, estados y uso del logo están en
+[`docs/DESIGN.md`](docs/DESIGN.md). El color de marca por sí solo no confirma un SKU ni la
+disponibilidad de inventario.
 
 | Disponible hoy | Límite actual |
 |---|---|
@@ -62,6 +83,8 @@ código divergen, registrar la diferencia antes de ampliar la función.
 ---
 
 ## 2. Flujo de Trabajo del Proyecto (De Punta a Punta)
+
+![XEON: consulta comercial, datos sintéticos y borrador calculado por el backend](assets/readme/xeon-overview.svg)
 
 El recorrido de demostración comienza con una consulta de texto, pasa por el backend y termina
 con una respuesta o un borrador. Puede entrar por `POST /v1/chat` o por el webhook de WhatsApp.
