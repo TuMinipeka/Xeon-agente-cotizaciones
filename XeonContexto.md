@@ -86,6 +86,42 @@ El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el even
 13. **La conversación del comprador no expone detalles internos.** SKU, herramientas, estados técnicos, prompts, proveedores y arquitectura permanecen internos; el comprador elige productos por nombre, características o número de opción.
 14. **El alcance y los enlaces se controlan de forma determinista.** Antes de llamar al LLM se rechaza el conocimiento general ajeno a ferretería, construcción, agroferretería, plomería, electricidad y herramientas. Solo se entregan enlaces registrados y aprobados por el backend.
 
+### 4.1. Comprensión conversacional y carrito del corte actual
+
+- XEON conserva en memoria, por conversación, la ubicación declarada, la selección pendiente, la
+  cantidad pendiente y un carrito con varias líneas. En WhatsApp la clave continúa siendo
+  `instancia + remitente`.
+- La primera solicitud comercial pregunta desde qué ciudad o zona escribe el comprador. Las sedes
+  sintéticas `norte`, `sur` y `centro` se resuelven directamente; cualquier otra ubicación se
+  conserva como referencia, sin afirmar que se calculó una sede cercana mientras no exista un
+  directorio geográfico verificable.
+- Una respuesta corta completa el turno anterior. Una solicitud inequívoca de otro producto
+  reemplaza la selección pendiente, para evitar que una conversación sobre láminas derive en otro
+  producto por accidente.
+- Nunca se asumen cantidades. Cuando falta una, XEON formula una sola pregunta concreta. Si hay
+  varias referencias pertinentes muestra como máximo tres; si existe una coincidencia inequívoca,
+  evita una confirmación redundante.
+- Las líneas se agregan, modifican, eliminan y resumen en el carrito. El backend crea un único
+  borrador `DRAFT` cuando el comprador solicita finalizar; agregar una línea no crea por sí solo una
+  cotización independiente.
+- Una conversación abierta continúa automáticamente durante las primeras 24 horas. Entre 24 horas
+  y 3 días XEON pregunta si se retoma la cotización anterior o se comienza otra. Después de 3 días
+  inicia un carrito nuevo. Después de finalizar un borrador siempre pregunta antes de reutilizarlo.
+- Esta memoria vive solamente en el proceso y admite hasta 1024 conversaciones. Se pierde al
+  reiniciar y no sustituye la persistencia PostgreSQL pendiente.
+- Los precios para el comprador se muestran con `$` y formato colombiano, sin exponer la moneda,
+  el SKU ni estados internos. El catálogo demostrativo contiene exactamente 2000 referencias
+  sintéticas y no representa existencias, precios ni referencias de una empresa real.
+- El conocimiento general puede ayudar a comprender el lenguaje, pero solo el catálogo puede
+  fundamentar productos, presentaciones, atributos y precios. Los cálculos técnicos especializados
+  requieren datos y reglas verificables; no se inventan desde el LLM.
+- Fotografías, PDF, cierre definitivo por conformidad del cliente, persistencia tras reinicios,
+  geolocalización de sedes, relaciones de compatibilidad para recomendaciones y notificación real
+  de necesidades de catálogo permanecen pendientes. Hasta implementar el puerto de notificación,
+  XEON no afirma que avisó a un trabajador.
+- La validación automatizada usa `MockLLM`. Una prueba con un proveedor real queda habilitada solo
+  después de confirmación explícita del otro desarrollador, con alcance y costo controlados.
+
 ## 5. Stack tecnológico vigente (Simplificado y de Costo \$0)
 
 | Capa | Tecnología | Para qué se usa |

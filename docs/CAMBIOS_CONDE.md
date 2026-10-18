@@ -1,5 +1,61 @@
 # Cambios de Juan Pablo Conde
 
+## 2026-10-17 — Memoria conversacional y carrito comercial
+
+### Implementado
+
+- Sesiones en memoria limitadas a 1024 conversaciones, identificadas en WhatsApp por instancia y
+  remitente. Conservan ubicación, opciones, cantidad pendiente, carrito y borrador finalizado.
+- Pregunta inicial de ciudad o zona. Las sedes demo norte, sur y centro se resuelven de forma
+  determinista; otras ubicaciones no generan una falsa promesa de cercanía.
+- Cambio de intención: un producto nuevo y claro reemplaza una selección anterior sin forzar al
+  comprador a confirmarla.
+- Selección natural por nombre, ordinal o referencia pronominal; una cantidad aislada completa la
+  pregunta anterior y nunca se asume una cantidad ausente.
+- Carrito con agregar, acumular, cambiar cantidad, eliminar, mostrar resumen y finalizar. Solo al
+  finalizar se crea un borrador con todas las líneas.
+- Continuidad automática hasta 24 horas, pregunta entre 24 horas y 3 días y carrito nuevo después
+  de 3 días. Un borrador finalizado siempre pregunta si se reutiliza o se comienza otro.
+- Precios visibles con formato `$28.900`, sin `COP`, SKU ni marcadores internos.
+- Seed determinista de exactamente 2000 referencias ficticias, con inventario sintético para las
+  sedes de demostración. La búsqueda filtra unidades y prioriza opciones de la misma intención.
+
+### Decisiones y límites
+
+- No se construyó un manual operativo ni un motor de cálculo de obra. El LLM interpreta lenguaje;
+  catálogo y backend siguen siendo la única fuente de productos, unidades, precios y existencias.
+- La memoria se pierde al reiniciar. PostgreSQL continúa pendiente y está documentado como el paso
+  para continuidad durable.
+- No se implementaron fotografías, PDF, cierre por agradecimiento, geolocalización real de sedes,
+  recomendaciones por compatibilidad ni notificaciones a trabajadores.
+- Cuando no existe disponibilidad verificable, el chat se disculpa y ofrece alternativas observadas;
+  no afirma que un producto está agotado ni que avisó a un encargado.
+- Las pruebas se ejecutan con `MockLLM`. Una prueba real queda condicionada a la confirmación
+  explícita del otro desarrollador y no forma parte de la suite automática.
+
+### Cobertura añadida
+
+- Tamaño y procedencia del catálogo sintético.
+- Ubicación inicial y continuidad por conversación en API y WhatsApp.
+- Sustitución de una opción pendiente al cambiar claramente de producto.
+- Carrito multilínea, resumen, cambio de cantidad, eliminación y borrador único al finalizar.
+- Reanudación temporal entre 24 horas y 3 días, reinicio posterior y elección tras finalizar.
+- Defensa de salida sin códigos internos, enlaces no aprobados ni moneda redundante.
+
+### Verificación
+
+- `uv run ruff check .`: sin errores.
+- `uv run ruff format --check .`: 67 archivos formateados.
+- `uv run mypy src`: 42 archivos fuente sin errores.
+- `uv run pytest`: 99 pruebas aprobadas usando `MockLLM`.
+
+### Commits
+
+- `Feat: :sparkles: AddSyntheticHardwareSeed`
+- `Feat: :sparkles: AddInMemoryConversationCart`
+- `Test: :test_tube: CoverConversationCartFlow`
+- `Docs: :memo: DocumentConversationCart`
+
 ## 2026-10-17 — Arnés conversacional seguro para clientes
 
 ### Decisiones aplicadas

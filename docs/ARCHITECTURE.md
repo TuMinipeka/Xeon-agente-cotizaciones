@@ -69,6 +69,33 @@ GET /v1/stock  CLI stock show
   a `POST {EVOLUTION_API_URL}/message/sendText/{EVOLUTION_INSTANCE}` usando la cabecera `apikey`
   sanitizada.
 
+### 2.1. Sesión comercial y carrito en memoria
+
+- `HermesToolbelt` conserva hasta 1024 `ConversationState` mediante una clave de conversación. El
+  estado contiene ubicación, pregunta pendiente, candidatos, cantidad pendiente, carrito y marca
+  de borrador finalizado.
+- El primer mensaje comercial se aplaza hasta recibir ciudad o zona. Solo `norte`, `sur` y `centro`
+  se asocian a las sedes sintéticas configuradas; para otras ubicaciones no se inventa cercanía.
+- Una intención comercial nueva sustituye candidatos pendientes. Las respuestas ordinales o
+  pronominales se aplican exclusivamente a las últimas opciones mostradas.
+- Agregar un producto modifica el carrito, no el repositorio de cotizaciones. `create_quote_draft`
+  se ejecuta una vez al finalizar con todas las líneas acumuladas.
+- La continuidad es automática hasta 24 horas, requiere elección entre 24 horas y 3 días, y abre un
+  carrito nuevo después de 3 días. Un borrador finalizado siempre requiere elegir entre reutilizar
+  o comenzar de nuevo.
+- La implementación actual es volátil. Reiniciar el proceso elimina las sesiones y los carritos;
+  PostgreSQL sigue siendo el destino de persistencia definido para un corte posterior.
+
+### 2.2. Datos sintéticos ampliados
+
+- `synthetic_seed.py` genera determinísticamente 2000 productos ficticios en categorías comunes de
+  ferretería y agroferretería. Incluye unidad comercial, precio, alias, atributos y contexto, todos
+  marcados con procedencia sintética.
+- La búsqueda filtra por unidad comercial explícita, normaliza plurales y acentos, limita la salida
+  a tres candidatos y prioriza las referencias curadas sobre variaciones generadas.
+- Los snapshots sintéticos permiten ejercitar disponibilidad por las sedes de demostración. No son
+  datos de una empresa real y no deben migrarse como catálogo productivo.
+
 ### 3. Modelo de Datos Hibrido Empresarial (SQL + NoSQL `JSONB` + RAG `pgvector`)
 Para responder con agilidad al catalogo polimorfico de una ferreteria/agroferreteria sin perder
 exactitud financiera, la arquitectura separa tres responsabilidades dentro de PostgreSQL 17 (y su
@@ -114,4 +141,9 @@ equivalente en memoria para pruebas):
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
 - Registro auditable de productos ferreteros ausentes y notificacion a un trabajador. Hasta que se
   implemente el puerto correspondiente, el chat no promete que aviso a un encargado.
+- Persistencia durable de `ConversationState`, historial de carritos y continuidad tras reinicios.
+- Directorio geográfico de sedes para seleccionar realmente la más cercana a una ciudad o zona.
+- Relaciones verificadas entre productos para recomendaciones pertinentes sin inventar
+  compatibilidad.
+- Entrada por fotografías y reglas especializadas para calcular cantidades de obra.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
