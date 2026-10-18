@@ -27,8 +27,8 @@ chords = [
     (130.81, 164.81, 220.00),
     (110.00, 164.81, 220.00),
 ]
-chime_times = [SCENES[index]["start"] + 5.2 for index in (2, 4, 5)]
-transitions = [scene["start"] for scene in SCENES[1:]]
+chime_times = [3.85, *[SCENES[index]["start"] + 5.2 for index in (2, 4, 5)]]
+transitions = [3.55, *[scene["start"] for scene in SCENES[1:]]]
 rng = random.Random(50)
 wav_path = OUT_DIR / "soundscape.wav"
 

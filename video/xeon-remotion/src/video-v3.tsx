@@ -1,4 +1,4 @@
-import type {CSSProperties, ReactNode} from 'react';
+import type {ComponentType, CSSProperties, ReactNode} from 'react';
 import {AbsoluteFill, Audio, Easing, Img, Sequence, interpolate, spring, staticFile, useCurrentFrame} from 'remotion';
 import timing from './timing-v3.json';
 import './v3.css';
@@ -7,6 +7,16 @@ const fps = 30;
 const scenes = timing.scenes;
 const duration = Math.ceil(timing.duration * fps);
 export const durationV3 = duration;
+
+export type XeonDemoProps = {
+  hookLead: string;
+  hookEmphasis: string;
+  hookResolve: string;
+  exampleMessage: string;
+  solutionLead: string;
+  solutionEmphasis: string;
+  solutionResolve: string;
+};
 
 const ease = Easing.out(Easing.cubic);
 const reveal = (frame: number, at = 0, distance = 56): CSSProperties => {
@@ -41,22 +51,38 @@ const WordStack = ({lines, frame, start = 0}: {lines: Array<{text: string; accen
     <div key={line.text} className={line.accent ? 'accent' : ''} style={reveal(frame, start + index * 10, 100)}>{line.text}</div>
   )}</div>;
 
-const Opening = () => {
+const Opening = ({hookLead, hookEmphasis, hookResolve, exampleMessage, solutionLead, solutionEmphasis, solutionResolve}: XeonDemoProps) => {
   const frame = useCurrentFrame();
   const orbit = frame * 0.16;
+  const problemOpacity = interpolate(frame, [96, 112], [1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+  const solutionOpacity = interpolate(frame, [103, 119], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
   return <Scene chapter="ASISTENCIA COMERCIAL" number="01" note="ESCENARIO LOCAL · DATOS SINTÉTICOS">
-    <div className="opening-left">
-      <div className="section-kicker" style={reveal(frame, 5)}>DE LA CONSULTA AL CONTEXTO</div>
-      <WordStack frame={frame} start={10} lines={[{text: 'PREGUNTA.'}, {text: 'VERIFICA.', accent: true}, {text: 'CONECTA.'}]} />
-      <p style={reveal(frame, 46)}>Una cotización comienza con información clara.<br />La conversación la continúa una persona.</p>
+    <div className="opening-problem" style={{opacity: problemOpacity}}>
+      <div className="section-kicker" style={reveal(frame, 2)}>UN MENSAJE PUEDE SER UNA VENTA</div>
+      <div className="hook-title" style={reveal(frame, 3, 100)}>{hookLead}<br /><em>{hookEmphasis}</em><br />{hookResolve}</div>
+      <div className="hook-rule" style={{transform: `scaleX(${interpolate(frame, [12, 47], [0, 1], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'})})`}} />
+      <div className="hook-message" style={reveal(frame, 20, 100)}>
+        <small>CONSULTA DE EJEMPLO <span>●</span> ENTRANTE</small>
+        <strong>{exampleMessage}</strong>
+        <div><span>REFERENCIA</span><b>POR IDENTIFICAR</b></div>
+      </div>
+      <div className="hook-side-note" style={reveal(frame, 48)}>¿QUIÉN RETOMA LA CONVERSACIÓN?</div>
     </div>
-    <div className="opening-orbit" style={pop(frame, 17)}>
-      <div className="orbit-ring ring-one" style={{transform: `rotate(${orbit}deg)`}} />
-      <div className="orbit-ring ring-two" style={{transform: `rotate(${-orbit * 0.65}deg)`}} />
-      <Img src={staticFile('images/xeon.png')} />
-      <div className="orbit-tag orbit-tag-a">01 / CONSULTA</div>
-      <div className="orbit-tag orbit-tag-b">02 / CÓDIGO SKU</div>
-      <div className="orbit-tag orbit-tag-c">03 / ASESOR</div>
+    <div className="opening-solution" style={{opacity: solutionOpacity}}>
+      <div className="opening-left">
+        <div className="section-kicker" style={reveal(frame, 107)}>XEON / DE LA CONSULTA AL CONTEXTO</div>
+        <div className="solution-title" style={reveal(frame, 109, 85)}>{solutionLead}<br /><em>{solutionEmphasis}</em><br />{solutionResolve}</div>
+        <div className="solution-flow" style={reveal(frame, 143)}><span>SKU</span><i /> <span>DISPONIBILIDAD</span><i /> <span>BORRADOR</span><i /> <b>PERSONA</b></div>
+        <p style={reveal(frame, 169)}>XEON prepara la información verificable.<br />Una persona continúa la conversación.</p>
+      </div>
+      <div className="opening-orbit" style={pop(frame, 125)}>
+        <div className="orbit-ring ring-one" style={{transform: `rotate(${orbit}deg)`}} />
+        <div className="orbit-ring ring-two" style={{transform: `rotate(${-orbit * 0.65}deg)`}} />
+        <Img src={staticFile('images/xeon.png')} />
+        <div className="orbit-tag orbit-tag-a">01 / CONSULTA</div>
+        <div className="orbit-tag orbit-tag-b">02 / CÓDIGO SKU</div>
+        <div className="orbit-tag orbit-tag-c">03 / ASESOR</div>
+      </div>
     </div>
   </Scene>;
 };
@@ -155,7 +181,7 @@ const Closing = () => {
   </Scene>;
 };
 
-const components = [Opening, WhatsApp, Product, Inventory, Quote, Advisor, Closing];
+const components: ComponentType<XeonDemoProps>[] = [Opening, WhatsApp, Product, Inventory, Quote, Advisor, Closing];
 
 const Captions = () => {
   const frame = useCurrentFrame();
@@ -174,14 +200,14 @@ const TransitionWipes = () => {
   return <div className="film-wipe" style={{transform: `translateX(${travel}px) skewX(-18deg)`}} />;
 };
 
-export const XeonDemo = () => {
+export const XeonDemo = (props: XeonDemoProps) => {
   const frame = useCurrentFrame();
   return <AbsoluteFill className="film-root">
     {scenes.map((scene, index) => {
       const Component = components[index];
       const from = Math.round(scene.start * fps);
       const to = Math.round(scene.end * fps);
-      return <Sequence key={scene.id} from={from} durationInFrames={to - from} name={`${index + 1} · ${scene.label}`}><Component /></Sequence>;
+      return <Sequence key={scene.id} from={from} durationInFrames={to - from} name={`${index + 1} · ${scene.label}`}><Component {...props} /></Sequence>;
     })}
     <Sequence from={14}><Audio src={staticFile('voice-elevenlabs/narration.mp3')} volume={1} /></Sequence>
     <Audio src={staticFile('sound/soundscape.mp3')} volume={0.72} />

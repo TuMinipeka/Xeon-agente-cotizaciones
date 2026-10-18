@@ -14,6 +14,8 @@ npm run studio
 npm run render
 ```
 
+Con Studio abierto en `http://localhost:3000/XeonDemo`, selecciona la composición y abre **Inspector → Default Props**. Allí puedes cambiar los tres renglones del gancho, el mensaje de ejemplo y los tres renglones de la respuesta visual; Studio guarda esos textos en `src/root.tsx` y actualiza la vista al instante. Los tiempos, animaciones y demás escenas se editan en `src/video-v3.tsx` y `src/v3.css`. Si cambias el texto que se narra, también habrá que ajustar `narration-script.json`, voz y subtítulos.
+
 La composición está en `src/video-v3.tsx`, el diseño en `src/v3.css` y los tiempos en `src/timing-v3.json`. El texto de voz se cambia en `narration-script.json`. La toma actual de ElevenLabs está congelada en `public/voice-elevenlabs/narration.mp3`. Sus límites por frase se registran en `scripts/sync-elevenlabs.py`; si se genera otra toma, deben volver a medirse antes de sincronizar. Para reconstruir los subtítulos y la base sonora con la toma actual:
 
 ```powershell

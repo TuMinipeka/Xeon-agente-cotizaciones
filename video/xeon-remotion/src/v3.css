@@ -38,6 +38,25 @@ body { margin: 0; }
 .opening-left { position: absolute; left: 112px; top: 203px; z-index: 2; }
 .opening-left .word-stack { margin-top: 34px; }
 .opening-left p { margin-top: 39px; font-size: 29px; line-height: 1.37; color: #c2dce4; }
+.opening-problem, .opening-solution { position: absolute; inset: 0; }
+.opening-problem > .section-kicker { position: absolute; left: 112px; top: 203px; }
+.hook-title, .solution-title { color: #f3fcff; font: 400 120px/.91 Impact, 'Arial Narrow', sans-serif; letter-spacing: .012em; text-transform: uppercase; }
+.hook-title { position: absolute; left: 112px; top: 264px; }
+.hook-title em, .solution-title em { color: var(--cyan); font-style: normal; }
+.hook-rule { position: absolute; left: 112px; top: 695px; width: 820px; height: 5px; background: linear-gradient(90deg, var(--cyan), transparent); transform-origin: left; }
+.hook-message { position: absolute; right: 112px; top: 291px; width: 590px; padding: 33px 37px 26px; background: linear-gradient(140deg, #164557, #0a2d3c); border: 1px solid #8ce3e7; border-left: 7px solid var(--cyan); box-shadow: 0 40px 95px #0009, 0 0 65px #27c3d223; transform: rotate(1.5deg); }
+.hook-message small { display: flex; justify-content: space-between; color: var(--cyan-soft); font: 800 16px Consolas, monospace; letter-spacing: .12em; }
+.hook-message small span { color: #f5c590; text-shadow: 0 0 19px #f5c590; }
+.hook-message strong { display: block; margin: 34px 0 41px; color: #fff; font: 700 43px/1.14 'Segoe UI', Arial, sans-serif; white-space: pre-line; }
+.hook-message > div { display: flex; justify-content: space-between; padding-top: 21px; border-top: 1px solid #9ddbe452; font: 700 15px Consolas, monospace; letter-spacing: .07em; }
+.hook-message > div span { color: #a9c8d1; }.hook-message > div b { color: var(--warm); }
+.hook-side-note { position: absolute; right: 112px; top: 721px; color: var(--warm); font: 800 19px Consolas, monospace; letter-spacing: .12em; }
+.solution-title { margin-top: 29px; font-size: 112px; }
+.solution-flow { display: flex; align-items: center; gap: 10px; margin-top: 33px; font: 800 16px Consolas, monospace; letter-spacing: .07em; }
+.solution-flow span, .solution-flow b { padding: 12px 14px; border: 1px solid #73bcc9; background: #103a4b; white-space: nowrap; }
+.solution-flow i { width: 16px; height: 2px; background: var(--cyan); }
+.solution-flow b { border-color: var(--warm); color: var(--warm); background: #583d3040; }
+.opening-left .solution-flow + p { margin-top: 29px; font-size: 26px; }
 .opening-orbit { position: absolute; right: 95px; top: 175px; width: 730px; height: 730px; }
 .opening-orbit > img { position: absolute; inset: 52px; width: 625px; height: 625px; object-fit: contain; filter: drop-shadow(0 0 38px #4cd5ee99); }
 .orbit-ring { position: absolute; inset: 0; border: 1px solid #6de5e670; border-radius: 50%; box-shadow: inset 0 0 70px #37bdde15, 0 0 60px #2ebcdd24; }
