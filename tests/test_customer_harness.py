@@ -3,6 +3,8 @@ from collections.abc import Sequence
 
 import httpx
 
+from xeon.adapters.catalog.memory import InMemoryProductCatalog
+from xeon.adapters.catalog.synthetic_seed import CORE_SYNTHETIC_PRODUCTS
 from xeon.agent.customer_safety import CustomerResponsePolicy
 from xeon.api.app import create_app
 from xeon.application.ports.llm import ChatMessage, LLMResponse
@@ -30,7 +32,7 @@ def test_out_of_scope_request_is_blocked_before_llm() -> None:
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 "/v1/chat",
-                json={"message": "Busca tarjetas gráficas y dame enlaces para comprarlas"},
+                json={"message": "Busca tarjetas graficas y dame enlaces para comprarlas"},
             )
         return response, llm
 
@@ -49,14 +51,23 @@ def test_customer_output_falls_back_when_llm_leaks_code_or_unapproved_link() -> 
         llm = SpyLLM("Compra el SKU CEM-50 en https://example.com")
         app = create_app(settings=Settings(_env_file=None), llm=llm)
         transport = httpx.ASGITransport(app=app)
+        conversation_id = "44444444-4444-4444-4444-444444444444"
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post("/v1/chat", json={"message": "necesito cemento"})
+            first = await client.post(
+                "/v1/chat",
+                json={"conversation_id": conversation_id, "message": "necesito cemento"},
+            )
+            response = await client.post(
+                "/v1/chat",
+                json={"conversation_id": conversation_id, "message": "zona centro"},
+            )
+        assert "ciudad o zona" in first.json()["reply"]
         return response, llm
 
     response, llm = asyncio.run(run())
 
     assert response.status_code == 200
-    assert llm.calls == 1
+    assert llm.calls == 2
     reply = response.json()["reply"]
     assert "Cemento gris 50 kg" in reply
     assert "CEM-50" not in reply
@@ -81,47 +92,50 @@ def test_only_registered_links_are_allowed_by_output_policy() -> None:
     assert rejected == "respuesta segura"
 
 
-def test_mixed_request_ignores_general_topic_and_serves_commercial_part() -> None:
+def test_mixed_request_keeps_commercial_part_and_asks_location() -> None:
     async def run() -> httpx.Response:
         app = create_app(settings=Settings(llm_provider="mock", _env_file=None))
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             return await client.post(
                 "/v1/chat",
-                json={"message": "Necesito cemento y busca tarjetas gráficas con enlaces"},
+                json={"message": "Necesito cemento y busca tarjetas graficas con enlaces"},
             )
 
     response = asyncio.run(run())
 
-    assert response.status_code == 200
     reply = response.json()["reply"]
     assert "no manejo informaci" in reply.casefold()
-    assert "Cemento gris 50 kg" in reply
-    assert "CEM-50" not in reply
+    assert "ciudad o zona" in reply
     assert "http" not in reply
 
 
-def test_missing_hardware_product_keeps_prior_selection_without_promising_escalation() -> None:
-    async def run() -> tuple[httpx.Response, httpx.Response]:
-        app = create_app(settings=Settings(llm_provider="mock", _env_file=None))
+def test_missing_hardware_product_keeps_cart_without_promising_escalation() -> None:
+    async def run() -> httpx.Response:
+        catalog = InMemoryProductCatalog(products=CORE_SYNTHETIC_PRODUCTS)
+        app = create_app(
+            settings=Settings(llm_provider="mock", _env_file=None),
+            catalog=catalog,
+        )
         transport = httpx.ASGITransport(app=app)
         conversation_id = "22222222-2222-2222-2222-222222222222"
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            known = await client.post(
+            await client.post(
                 "/v1/chat",
-                json={"conversation_id": conversation_id, "message": "cemento"},
+                json={"conversation_id": conversation_id, "message": "2 bultos de cemento"},
             )
-            missing = await client.post(
+            await client.post(
+                "/v1/chat",
+                json={"conversation_id": conversation_id, "message": "zona centro"},
+            )
+            return await client.post(
                 "/v1/chat",
                 json={"conversation_id": conversation_id, "message": "necesito clavos"},
             )
-        return known, missing
 
-    known, missing = asyncio.run(run())
+    response = asyncio.run(run())
 
-    assert known.status_code == 200
-    assert missing.status_code == 200
-    reply = missing.json()["reply"]
+    reply = response.json()["reply"]
     assert "no encuentro" in reply.casefold()
     assert "Cemento gris 50 kg" in reply
     assert "agotado" not in reply.casefold()

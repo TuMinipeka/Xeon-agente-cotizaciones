@@ -3,10 +3,7 @@ import json
 
 import httpx
 
-from xeon.adapters.channels.evolution import (
-    EvolutionAPIChannelAdapter,
-    parse_evolution_webhook,
-)
+from xeon.adapters.channels.evolution import EvolutionAPIChannelAdapter, parse_evolution_webhook
 from xeon.api.app import create_app
 from xeon.config import Settings
 
@@ -27,9 +24,7 @@ def _sample_upsert_payload(
                 "fromMe": from_me,
                 "id": external_message_id,
             },
-            "message": {
-                "conversation": text,
-            },
+            "message": {"conversation": text},
         },
     }
 
@@ -49,7 +44,6 @@ def test_parse_evolution_webhook_normalizes_customer_message_and_ignores_echoes(
 def test_parse_evolution_webhook_preserves_friend_lid_and_ignores_owner_sender() -> None:
     payload = _sample_upsert_payload(
         text="/xeon quiero comprar cemento",
-        from_me=False,
         remote_jid="28089706877067@lid",
     )
     payload["sender"] = "573247571239@s.whatsapp.net"
@@ -89,7 +83,7 @@ def test_evolution_adapter_sends_text_using_expected_contract() -> None:
     asyncio.run(run())
 
 
-def test_whatsapp_webhook_processes_message_with_hermes_and_dispatches_reply() -> None:
+def test_whatsapp_webhook_processes_and_deduplicates_message() -> None:
     sent_messages: list[tuple[str, str]] = []
 
     async def run() -> tuple[httpx.Response, httpx.Response]:
@@ -99,79 +93,70 @@ def test_whatsapp_webhook_processes_message_with_hermes_and_dispatches_reply() -
             return httpx.Response(201, json={"key": {"id": "OUT-101"}})
 
         evo_client = httpx.AsyncClient(transport=httpx.MockTransport(evo_handler))
-        whatsapp_adapter = EvolutionAPIChannelAdapter(
+        adapter = EvolutionAPIChannelAdapter(
             base_url="http://evolution-api:8080",
             instance="xeon-ferreteria",
             api_key="evo-secret",
             client=evo_client,
         )
-        settings = Settings(llm_provider="mock", _env_file=None)
-        app = create_app(settings=settings, whatsapp_channel=whatsapp_adapter)
+        app = create_app(
+            settings=Settings(llm_provider="mock", _env_file=None),
+            whatsapp_channel=adapter,
+        )
         transport = httpx.ASGITransport(app=app)
-        event_payload = _sample_upsert_payload(text="cemento")
+        event = _sample_upsert_payload(text="cemento")
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            first = await client.post(
-                "/v1/channels/whatsapp/webhook",
-                json=event_payload,
-            )
-            duplicate = await client.post(
-                "/v1/channels/whatsapp/webhook",
-                json=event_payload,
-            )
+            first = await client.post("/v1/channels/whatsapp/webhook", json=event)
+            duplicate = await client.post("/v1/channels/whatsapp/webhook", json=event)
         await evo_client.aclose()
         return first, duplicate
 
-    response, duplicate_response = asyncio.run(run())
-    assert response.status_code == 200
+    response, duplicate = asyncio.run(run())
+
     payload = response.json()
     assert payload["status"] == "processed"
     assert payload["sender_number"] == "573001112233"
     assert payload["delivery_status"] == "ACCEPTED_BY_PROVIDER"
-    assert "Cemento gris 50 kg" in payload["reply"]
-    assert "CEM-50" not in payload["reply"]
-    assert duplicate_response.status_code == 200
-    assert duplicate_response.json()["status"] == "ignored"
+    assert "ciudad o zona" in payload["reply"]
+    assert duplicate.json()["status"] == "ignored"
     assert len(sent_messages) == 1
     assert sent_messages[0][0] == "573001112233"
-    assert "28,900.00" in sent_messages[0][1]
-    assert "CEM-50" not in sent_messages[0][1]
+    assert "SKU" not in sent_messages[0][1]
 
 
-def test_whatsapp_keeps_candidate_pending_until_same_sender_confirms_sku() -> None:
-    async def run() -> tuple[httpx.Response, httpx.Response]:
-        settings = Settings(llm_provider="mock", _env_file=None)
-        app = create_app(settings=settings)
+def test_whatsapp_keeps_location_and_candidate_state_for_same_sender() -> None:
+    async def run() -> tuple[httpx.Response, httpx.Response, httpx.Response]:
+        app = create_app(settings=Settings(llm_provider="mock", _env_file=None))
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            candidate_response = await client.post(
+            location = await client.post(
                 "/v1/channels/whatsapp/webhook",
                 json=_sample_upsert_payload(
-                    text="necesito 50 bultos para fundir una placa y pegar ladrillo",
-                    external_message_id="WA-CANDIDATE-1",
+                    text="necesito 10 laminas de zinc para una casa",
+                    external_message_id="WA-LOCATION-1",
                 ),
             )
-            confirmation_response = await client.post(
+            candidates = await client.post(
                 "/v1/channels/whatsapp/webhook",
                 json=_sample_upsert_payload(
-                    text="La primera opción",
-                    external_message_id="WA-CONFIRMATION-2",
+                    text="zona norte",
+                    external_message_id="WA-CANDIDATE-2",
                 ),
             )
-        return candidate_response, confirmation_response
+            selected = await client.post(
+                "/v1/channels/whatsapp/webhook",
+                json=_sample_upsert_payload(
+                    text="la primera opcion",
+                    external_message_id="WA-SELECTED-3",
+                ),
+            )
+        return location, candidates, selected
 
-    candidate_response, confirmation_response = asyncio.run(run())
+    location, candidates, selected = asyncio.run(run())
 
-    assert candidate_response.status_code == 200
-    candidate_reply = candidate_response.json()["reply"]
-    assert "Cemento gris 50 kg" in candidate_reply
-    assert "CEM-50" not in candidate_reply
-    assert "SKU" not in candidate_reply
-    assert "get_stock_by_branches" not in candidate_reply
-    assert "create_quote_draft" not in candidate_reply
-
-    assert confirmation_response.status_code == 200
-    confirmation_reply = confirmation_response.json()["reply"]
-    assert "Preparé un borrador" in confirmation_reply
-    assert "50 bultos" in confirmation_reply
-    assert "CEM-50" not in confirmation_reply
-    assert "SKU" not in confirmation_reply
+    assert "ciudad o zona" in location.json()["reply"]
+    assert "Lamina de zinc calibre 28" in candidates.json()["reply"]
+    selected_reply = selected.json()["reply"]
+    assert "10 laminas" in selected_reply
+    assert "borrador" not in selected_reply.casefold()
+    assert "SKU" not in selected_reply

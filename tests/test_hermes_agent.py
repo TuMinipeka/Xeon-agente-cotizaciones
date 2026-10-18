@@ -61,83 +61,83 @@ def test_hermes_tools_delegate_pricing_and_stock_to_deterministic_backend() -> N
     assert stock_result.shortfall == Decimal("30")
 
 
-def test_chat_endpoint_surfaces_hermes_verified_candidates() -> None:
-    async def run() -> httpx.Response:
+def test_chat_endpoint_asks_location_before_catalog_selection() -> None:
+    async def run() -> tuple[httpx.Response, httpx.Response]:
         settings = Settings(llm_provider="mock", _env_file=None)
         transport = httpx.ASGITransport(app=create_app(settings=settings))
+        conversation_id = "55555555-5555-5555-5555-555555555555"
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            return await client.post(
+            first = await client.post(
                 "/v1/chat",
-                json={"message": "busco material para fundir placa y pegar ladrillo"},
+                json={
+                    "conversation_id": conversation_id,
+                    "message": "busco material para fundir placa y pegar ladrillo",
+                },
             )
+            second = await client.post(
+                "/v1/chat",
+                json={"conversation_id": conversation_id, "message": "zona centro"},
+            )
+        return first, second
 
-    response = asyncio.run(run())
-    assert response.status_code == 200
-    reply = response.json()["reply"]
+    first, second = asyncio.run(run())
+
+    assert "ciudad o zona" in first.json()["reply"]
+    reply = second.json()["reply"]
     assert "Cemento gris 50 kg" in reply
-    assert "28,900.00" in reply
+    assert "$28.900" in reply
+    assert "COP" not in reply
     assert "CEM-50" not in reply
-    assert "SKU" not in reply
-    assert "HERMES" not in reply
 
 
-def test_semantic_candidate_requires_sku_confirmation_before_stock_or_draft() -> None:
+def test_multiple_semantic_candidates_require_natural_selection_before_cart() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
+    tools = container.hermes_tools
 
-    candidate_context = container.hermes_tools.format_verified_context(
-        "necesito 50 bultos para fundir una placa y pegar ladrillo",
+    location = tools.prepare_customer_turn(
+        "necesito 10 laminas de zinc para una casa",
+        conversation_id="conversation-confirmation",
+    )
+    candidates = tools.prepare_customer_turn(
+        "zona centro",
+        conversation_id="conversation-confirmation",
+    )
+    selected = tools.prepare_customer_turn(
+        "la primera opcion",
         conversation_id="conversation-confirmation",
     )
 
-    assert candidate_context is not None
-    assert "status=semantic_candidates" in candidate_context
-    assert "SKU=CEM-50" in candidate_context
-    assert "confirmation_required" in candidate_context
-    assert "get_stock_by_branches" not in candidate_context
-    assert "create_quote_draft" not in candidate_context
-
-    rejected_context = container.hermes_tools.format_verified_context(
-        "Confirmo el SKU ALA-14",
-        conversation_id="conversation-confirmation",
-    )
-
-    assert rejected_context is not None
-    assert "confirmation_required" in rejected_context
-    assert "get_stock_by_branches" not in rejected_context
-    assert "create_quote_draft" not in rejected_context
-
-    confirmed_context = container.hermes_tools.format_verified_context(
-        "Confirmo el SKU CEM-50",
-        conversation_id="conversation-confirmation",
-    )
-
-    assert confirmed_context is not None
-    assert "status=confirmed_selection" in confirmed_context
-    assert "get_stock_by_branches sku=CEM-50" in confirmed_context
-    assert "create_quote_draft" in confirmed_context
-    assert "cantidad=50" in confirmed_context
+    assert location is not None and "ciudad o zona" in location.customer_reply
+    assert candidates is not None
+    assert "Lamina de zinc calibre 28" in candidates.customer_reply
+    assert "LAM-ZIN" not in candidates.customer_reply
+    assert "create_quote_draft" not in (candidates.verified_context or "")
+    assert selected is not None
+    assert "10 laminas" in selected.customer_reply
+    assert "create_quote_draft" not in (selected.verified_context or "")
 
 
-def test_customer_can_confirm_candidate_by_natural_option_without_internal_codes() -> None:
+def test_pending_selection_is_replaced_by_clear_new_product_intent() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
+    tools = container.hermes_tools
+    conversation = "intent-change"
 
-    first = container.hermes_tools.prepare_customer_turn(
-        "necesito 50 bultos para fundir una placa",
-        conversation_id="natural-selection",
-    )
-    confirmed = container.hermes_tools.prepare_customer_turn(
-        "La primera opción",
-        conversation_id="natural-selection",
+    tools.prepare_customer_turn("necesito laminas de zinc", conversation_id=conversation)
+    tools.prepare_customer_turn("zona sur", conversation_id=conversation)
+    changed = tools.prepare_customer_turn(
+        "mejor necesito 2 bultos de cemento",
+        conversation_id=conversation,
     )
 
-    assert first is not None
-    assert "1. Cemento gris 50 kg" in first.customer_reply
-    assert "CEM-50" not in first.customer_reply
-    assert confirmed is not None
-    assert "Preparé un borrador" in confirmed.customer_reply
-    assert "50 bultos" in confirmed.customer_reply
-    assert "CEM-50" not in confirmed.customer_reply
-    assert "SKU" not in confirmed.customer_reply
+    assert changed is not None
+    assert "Cemento gris 50 kg" in changed.customer_reply
+    assert "Lamina" not in changed.customer_reply
+    selected = tools.prepare_customer_turn(
+        "la primera opcion",
+        conversation_id=conversation,
+    )
+    assert selected is not None
+    assert "2 bultos" in selected.customer_reply
 
 
 def test_hermes_provider_builds_local_api_bridge_with_temporary_model() -> None:

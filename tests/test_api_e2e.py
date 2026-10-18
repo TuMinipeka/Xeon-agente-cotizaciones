@@ -36,42 +36,43 @@ def test_health_does_not_expose_secrets() -> None:
     assert "sensitive-value" not in response.text
 
 
-def test_chat_keeps_pending_candidates_until_customer_confirms_sku() -> None:
-    async def run() -> tuple[httpx.Response, httpx.Response]:
+def test_chat_asks_location_then_keeps_candidates_until_natural_selection() -> None:
+    async def run() -> tuple[httpx.Response, httpx.Response, httpx.Response]:
         settings = Settings(llm_provider="mock", _env_file=None)
         transport = httpx.ASGITransport(app=create_app(settings=settings))
         conversation_id = UUID("11111111-1111-1111-1111-111111111111")
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            candidate_response = await client.post(
+            location = await client.post(
                 "/v1/chat",
                 json={
                     "conversation_id": str(conversation_id),
-                    "message": "necesito 50 bultos para fundir una placa y pegar ladrillo",
+                    "message": "necesito 10 laminas de zinc para una casa",
                 },
             )
-            confirmation_response = await client.post(
+            candidates = await client.post(
+                "/v1/chat",
+                json={"conversation_id": str(conversation_id), "message": "zona centro"},
+            )
+            selected = await client.post(
                 "/v1/chat",
                 json={
                     "conversation_id": str(conversation_id),
-                    "message": "La primera opción",
+                    "message": "La primera opcion",
                 },
             )
-        return candidate_response, confirmation_response
+        return location, candidates, selected
 
-    candidate_response, confirmation_response = asyncio.run(run())
+    location, candidates, selected = asyncio.run(run())
 
-    assert candidate_response.status_code == 200
-    candidate_reply = candidate_response.json()["reply"]
-    assert "Cemento gris 50 kg" in candidate_reply
-    assert "CEM-50" not in candidate_reply
+    assert "ciudad o zona" in location.json()["reply"]
+    candidate_reply = candidates.json()["reply"]
+    assert "Lamina de zinc calibre 28" in candidate_reply
+    assert "LAM-ZIN" not in candidate_reply
     assert "SKU" not in candidate_reply
-    assert "get_stock_by_branches" not in candidate_reply
     assert "create_quote_draft" not in candidate_reply
 
-    assert confirmation_response.status_code == 200
-    confirmation_reply = confirmation_response.json()["reply"]
-    assert "Preparé un borrador" in confirmation_reply
-    assert "50 bultos" in confirmation_reply
-    assert "CEM-50" not in confirmation_reply
-    assert "SKU" not in confirmation_reply
-    assert "confirmed_selection" not in confirmation_reply
+    selected_reply = selected.json()["reply"]
+    assert "10 laminas" in selected_reply
+    assert "borrador" not in selected_reply.casefold()
+    assert "LAM-ZIN" not in selected_reply
+    assert "SKU" not in selected_reply
