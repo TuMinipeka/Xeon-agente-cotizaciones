@@ -32,7 +32,12 @@ class AgentService:
         conversation_id: str | None = None,
     ) -> LLMResponse:
         scope = self._scope_policy.classify(user_message)
-        if scope.blocks_llm:
+        contextual_followup = (
+            self._tools is not None
+            and scope.kind == "out_of_scope"
+            and self._tools.expects_contextual_reply(conversation_id)
+        )
+        if scope.blocks_llm and not contextual_followup:
             return LLMResponse(
                 text=scope.customer_message or "¿Necesitas ayuda con algún producto de ferretería?",
                 provider="local-policy",

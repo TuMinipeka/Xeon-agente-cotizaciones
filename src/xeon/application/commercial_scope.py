@@ -37,6 +37,18 @@ _SELECTION_PHRASES = (
     "el tercero",
     "opcion 3",
     "confirmo",
+    "que llevo",
+    "ver carrito",
+    "ver cotizacion",
+    "finalizar",
+    "terminar",
+    "cotiza eso",
+    "cotizame eso",
+    "eso es todo",
+    "quita",
+    "elimina",
+    "cambia",
+    "no recomiendes",
 )
 _COMMERCIAL_TERMS = frozenset(
     {
