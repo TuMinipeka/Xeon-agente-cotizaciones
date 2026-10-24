@@ -59,6 +59,42 @@ def test_quote_and_leak_checks() -> None:
 
 
 @pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("Total $2.000.000, cemento 1.445.000 y precio $28.900.", "PASS"),
+        ("50 x 28.900 y total $1.445.000,00", "PASS"),
+        ("Unitario $28.900,00 o 28.900,00 COP", "PASS"),
+        ("Necesito 1.500 metros; el precio es $28.900", "PASS"),
+        ("La lamina mide 2,44 m y cuesta $28.900", "PASS"),
+        ("El precio es $28.901", "FAIL"),
+        ("El total es $2.00.000", "ERROR"),
+    ],
+)
+def test_colombian_amount_formats_keep_oracle_criterion(reply: str, expected: str) -> None:
+    view = EvalView(
+        Oracle(),
+        [{"reply": reply, "provider": "grok"}],
+        ["[XEON_TOOL:search_products]\n- SKU=CEM-50"],
+        [
+            {
+                "subtotal": "2000000.00",
+                "lines": [
+                    {"sku": "CEM-50", "quantity": "50", "line_total": "1445000.00"},
+                    {"sku": "ALA-14", "quantity": "300", "line_total": "555000.00"},
+                ],
+            }
+        ],
+        "live",
+        ["cotice materiales"],
+    )
+    result = run_check({"type": "no_invented_amounts"}, view)
+    assert result.status == expected
+    if expected == "ERROR":
+        assert result.origin == "evaluator"
+        assert "$2.00.000".lstrip("$") in result.evidence
+
+
+@pytest.mark.parametrize(
     ("check", "reply", "expected"),
     [
         ({"type": "no_invented_amounts"}, "Cuesta $100", "FAIL"),

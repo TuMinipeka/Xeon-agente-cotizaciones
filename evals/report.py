@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -10,14 +11,77 @@ from typing import Any
 
 def _safe(value: Any) -> Any:
     if isinstance(value, str):
-        value = re.sub(r"sk-[A-Za-z0-9_-]{12,}", "[REDACTED]", value)
+        value = re.sub(r"(?:sk-|xai-|pk_)[A-Za-z0-9_-]{8,}", "[REDACTED]", value)
         value = re.sub(r"(?i)(api[_ -]?key\s*[:=]\s*)\S+", r"\1[REDACTED]", value)
+        value = re.sub(r"(?i)(Bearer\s+)\S+", r"\1[REDACTED]", value)
         return value
     if isinstance(value, list):
         return [_safe(item) for item in value]
     if isinstance(value, dict):
         return {key: _safe(item) for key, item in value.items()}
     return value
+
+
+def write_manifest(path: Path, manifest: dict[str, Any]) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "manifest.json").write_text(
+        json.dumps(_safe(manifest), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def append_case(path: Path, case: dict[str, Any], calls: int) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    record = {"case": _safe(case), "calls": calls}
+    with (path / "cases.jsonl").open("a", encoding="utf-8") as journal:
+        journal.write(json.dumps(record, ensure_ascii=False) + "\n")
+        journal.flush()
+        os.fsync(journal.fileno())
+
+
+def resume_report(path: Path) -> dict[str, Any]:
+    manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
+    journal = path / "cases.jsonl"
+    records: list[dict[str, Any]] = []
+    if journal.exists():
+        for line in journal.read_text(encoding="utf-8").splitlines(keepends=True):
+            if not line.endswith("\n"):
+                break  # An interrupted write may leave only the final line incomplete.
+            records.append(json.loads(line))
+    finished = {(item["case"]["id"], item["case"]["rep"]): item["case"] for item in records}
+    if len(finished) != len(records):
+        raise ValueError("El journal contiene casos duplicados.")
+    planned = {(item["id"], item["rep"]): item for item in manifest["jobs"]}
+    if not finished.keys() <= planned.keys():
+        raise ValueError("El journal contiene casos ajenos a la corrida.")
+    cases = [
+        finished.get(
+            key,
+            {
+                "id": key[0],
+                "rep": key[1],
+                "status": "ERROR",
+                "origin": "infra",
+                "severity": job["severity"],
+                "evidence": "Corrida interrumpida antes de terminar este caso.",
+                "checks": [],
+                "transcript": [],
+            },
+        )
+        for key, job in sorted(planned.items())
+    ]
+    report = {
+        "fingerprint": manifest["fingerprint"],
+        "provenance": manifest["provenance"],
+        "mode": manifest["mode"],
+        "calls": max((int(item["calls"]) for item in records), default=0),
+        "max_calls": manifest["max_calls"],
+        "cases": cases,
+        "metrics": metrics(cases),
+        "recovered_from_journal": True,
+    }
+    write_report(path, report)
+    return report
 
 
 def metrics(cases: list[dict[str, Any]]) -> dict[str, float | None]:

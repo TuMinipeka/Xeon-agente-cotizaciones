@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 import httpx
 import pytest
 
-from evals.runner import CallBudget, _network_guard, run
+from evals.report import append_case, resume_report, write_manifest
+from evals.runner import CallBudget, _network_guard, main, run
 from evals.sut import XEONSUT
 from xeon.adapters.llm.mock import MockLLM
 from xeon.application.ports.llm import ChatMessage, LLMResponse
@@ -157,11 +160,96 @@ def test_offline_runner_isolated_and_reported(tmp_path: Path) -> None:
     assert all(case["id"] == "S01" for case in report["cases"])
     assert report["calls"] >= 2
     assert path.joinpath("report.json").exists()
+    journal = path.joinpath("cases.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(journal) == 2
+    assert [json.loads(line)["case"]["rep"] for line in journal] == [1, 2]
     stored = json.loads(path.joinpath("report.json").read_text(encoding="utf-8"))
     assert stored["provenance"]["seed"]
     assert stored["cases"][0]["evidence"]["drafts"]
     assert "Eres XEON, un asistente comercial" not in path.joinpath("report.json").read_text(
         encoding="utf-8"
+    )
+    path.joinpath("report.json").unlink()
+    path.joinpath("report.md").unlink()
+    recovered = resume_report(path)
+    assert recovered["recovered_from_journal"] is True
+    assert [case["status"] for case in recovered["cases"]] == ["PASS", "PASS"]
+    assert path.joinpath("report.json").exists()
+
+
+def test_interrupted_journal_recovers_finished_case_and_marks_missing_infra(tmp_path: Path) -> None:
+    write_manifest(
+        tmp_path,
+        {
+            "fingerprint": "interrupted",
+            "provenance": {"seed": "test", "scenarios": ["S01"]},
+            "mode": "offline",
+            "max_calls": 10,
+            "jobs": [
+                {"id": "S01", "rep": 1, "severity": "high"},
+                {"id": "S01", "rep": 2, "severity": "high"},
+            ],
+        },
+    )
+    append_case(
+        tmp_path,
+        {
+            "id": "S01",
+            "rep": 1,
+            "status": "PASS",
+            "origin": "agent",
+            "severity": "high",
+            "checks": [],
+            "transcript": [],
+        },
+        2,
+    )
+    with tmp_path.joinpath("cases.jsonl").open("a", encoding="utf-8") as journal:
+        journal.write('{"case":')
+    report = resume_report(tmp_path)
+    assert report["calls"] == 2
+    assert [case["status"] for case in report["cases"]] == ["PASS", "ERROR"]
+    assert report["cases"][1]["origin"] == "infra"
+    assert tmp_path.joinpath("report.md").exists()
+
+
+def test_resume_report_cli_never_starts_cases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_manifest(
+        tmp_path,
+        {
+            "fingerprint": "resume-cli",
+            "provenance": {"seed": "test", "scenarios": ["S01"]},
+            "mode": "offline",
+            "max_calls": 10,
+            "jobs": [{"id": "S01", "rep": 1, "severity": "high"}],
+        },
+    )
+    monkeypatch.setattr(sys, "argv", ["evals.runner", "--resume-report", str(tmp_path)])
+    assert main() == 2
+    assert inspect.signature(run).parameters["concurrency"].default == 3
+
+
+def test_unparseable_amount_is_evaluator_error_without_stalling_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class MalformedAmountSUT(XEONSUT):
+        async def respond(self, message: str) -> dict[str, object]:
+            response = await super().respond(message)
+            response["reply"] = "Total $2.00.000"
+            return response
+
+    monkeypatch.setattr("evals.runner.XEONSUT", MalformedAmountSUT)
+    report, _ = asyncio.run(
+        run(ids=["S01"], reps=1, max_calls=10, mode="offline", output_root=tmp_path)
+    )
+    case = report["cases"][0]
+    assert case["status"] == "ERROR"
+    assert case["origin"] == "evaluator"
+    assert any(
+        check["name"] == "no_invented_amounts" and "2.00.000" in check["evidence"]
+        for check in case["checks"]
     )
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from evals.reference.oracle import Oracle
@@ -43,10 +43,38 @@ def _result(
 
 
 def _money(text: str) -> Decimal:
-    normalized = text.replace(".", "").replace(",", ".") if "," in text else text
-    if "," not in text and text.count(".") == 1 and len(text.rsplit(".", 1)[1]) == 3:
-        normalized = text.replace(".", "")
-    return Decimal(normalized)
+    raw = text.strip().rstrip(".,")
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?", raw):
+        normalized = raw.replace(".", "").replace(",", ".")
+    elif re.fullmatch(r"\d+(?:,\d{1,2}|\.\d{1,2})?", raw):
+        normalized = raw.replace(",", ".")
+    else:
+        raise ValueError(f"Formato monetario no interpretable: {raw}")
+    try:
+        return Decimal(normalized)
+    except InvalidOperation as exc:
+        raise ValueError(f"Formato monetario no interpretable: {raw}") from exc
+
+
+_AMOUNT_TOKEN = re.compile(r"\$\s*\d[\d.,]*|(?<![\w/$])\d[\d.,]*\d(?![\w/])")
+_QUANTITY_UNIT = re.compile(
+    r"^\s*(?:bultos?|metros?|unidades?|tubos?|rollos?|laminas?|m|cm|mm|kg|pulgadas?)\b",
+    re.I,
+)
+
+
+def _money_mentions(reply: str) -> list[tuple[str, Decimal]]:
+    mentions: list[tuple[str, Decimal]] = []
+    for match in _AMOUNT_TOKEN.finditer(reply):
+        raw = match.group().strip()
+        number = raw.lstrip("$").strip()
+        if not raw.startswith("$"):
+            if "." not in number and "," not in number:
+                continue
+            if _QUANTITY_UNIT.match(reply[match.end() :]):
+                continue
+        mentions.append((raw, _money(number)))
+    return mentions
 
 
 def _fold(text: str) -> str:
@@ -87,7 +115,11 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
                 str(actual),
             )
         if name == "no_invented_amounts":
-            quoted = [_money(value) for value in re.findall(r"\$\s*([\d.,]+)", view.reply)]
+            try:
+                mentions = _money_mentions(view.reply)
+            except ValueError as exc:
+                return CheckResult(name, "ERROR", str(exc), origin="evaluator")
+            quoted = [value for _, value in mentions]
             allowed: set[Decimal] = set()
             for sku in _referenced_skus(view):
                 allowed.add(view.oracle.unit_price(sku))
@@ -99,7 +131,7 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
             return _result(
                 name,
                 not unknown,
-                f"Montos fuera del oraculo: {unknown}",
+                f"Montos fuera del oraculo: {unknown}; leidos: {mentions}",
                 str(sorted(allowed)),
                 str(quoted),
             )

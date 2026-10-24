@@ -25,7 +25,7 @@ import yaml
 from evals.checks import EvalView, run_check
 from evals.judge import build_judge, semantic_verdict
 from evals.reference.oracle import FIXTURES, FixtureMismatch, Oracle
-from evals.report import metrics, write_report
+from evals.report import append_case, metrics, resume_report, write_manifest, write_report
 from evals.sut import XEONSUT
 from scripts.export_eval_fixtures import export
 from xeon.config import Settings
@@ -318,7 +318,7 @@ async def run(
     reps: int,
     max_calls: int,
     mode: str,
-    concurrency: int = 1,
+    concurrency: int = 3,
     output_root: Path = ROOT / "reports" / "evals",
 ) -> tuple[dict[str, Any], Path]:
     if reps < 1 or not 1 <= max_calls <= 600 or concurrency < 1:
@@ -354,6 +354,21 @@ async def run(
             "provenance": {"seed": "unverified", "scenarios": ids},
         }
         path = output_root / fingerprint
+        write_manifest(
+            path,
+            {
+                "fingerprint": fingerprint,
+                "provenance": report["provenance"],
+                "mode": mode,
+                "max_calls": max_calls,
+                "jobs": [
+                    {"id": case["id"], "rep": case["rep"], "severity": case["severity"]}
+                    for case in fixture_cases
+                ],
+            },
+        )
+        for case in fixture_cases:
+            append_case(path, case, 0)
         write_report(path, report)
         return report, path
     fingerprint, provenance = _fingerprint(ids, oracle, mode)
@@ -370,6 +385,21 @@ async def run(
             raise ValueError(f"IDs de persona y checks no coinciden: {scenario_id}")
         for rep in range(1, reps + 1):
             jobs.append((scenario_id, rep, persona, checks))
+
+    path = output_root / fingerprint
+    write_manifest(
+        path,
+        {
+            "fingerprint": fingerprint,
+            "provenance": provenance,
+            "mode": mode,
+            "max_calls": max_calls,
+            "jobs": [
+                {"id": scenario_id, "rep": rep, "severity": checks["severity"]}
+                for scenario_id, rep, _, checks in jobs
+            ],
+        },
+    )
 
     semaphore = asyncio.Semaphore(concurrency)
 
@@ -465,6 +495,7 @@ async def run(
                 finally:
                     if sut is not None:
                         await sut.aclose()
+            append_case(path, case, budget.used)
             print(f"{scenario_id} rep={rep} {case['status']} calls={budget.used}", flush=True)
             return case
 
@@ -480,7 +511,6 @@ async def run(
         "cases": cases,
         "metrics": metrics(cases),
     }
-    path = output_root / fingerprint
     write_report(path, report)
     return report, path
 
@@ -490,24 +520,29 @@ def main() -> int:
     parser.add_argument("--scenarios", default="all")
     parser.add_argument("--reps", type=int, default=3)
     parser.add_argument("--max-calls", type=int, default=600)
-    parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument("--concurrency", type=int, default=3)
     parser.add_argument("--mode", choices=("live", "offline"), default="offline")
+    parser.add_argument("--resume-report", type=Path)
     args = parser.parse_args()
     if args.mode == "offline":
         os.environ["LLM_PROVIDER"] = "mock"
     os.environ["WHATSAPP_SEND_ENABLED"] = "false"
     os.environ.pop("LANGWATCH_API_KEY", None)
     try:
-        report, path = asyncio.run(
-            run(
-                ids=_select(args.scenarios),
-                reps=args.reps,
-                max_calls=args.max_calls,
-                mode=args.mode,
-                concurrency=args.concurrency,
+        if args.resume_report is not None:
+            path = args.resume_report
+            report = resume_report(path)
+        else:
+            report, path = asyncio.run(
+                run(
+                    ids=_select(args.scenarios),
+                    reps=args.reps,
+                    max_calls=args.max_calls,
+                    mode=args.mode,
+                    concurrency=args.concurrency,
+                )
             )
-        )
-    except (ValueError, FixtureMismatch, OSError) as exc:
+    except (ValueError, FixtureMismatch, OSError, KeyError, json.JSONDecodeError) as exc:
         parser.exit(2, f"Evaluacion no iniciada: {type(exc).__name__}.\n")
     counts = {
         status: sum(case["status"] == status for case in report["cases"])
