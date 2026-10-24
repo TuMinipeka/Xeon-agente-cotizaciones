@@ -52,7 +52,7 @@ Líneas 170-185.
 
 ## Contrato de corrección QA1–QA3 (definido por el orquestador, 2026-10-24)
 
-El usuario decidió corregir los tres defectos antes de la demo, con historial corto enviado a Grok para QA2. Estado: **`implementado`** (2026-10-24): Codex lo implementó, el orquestador lo auditó y agy lo validó con mock y con Grok real. Ubicación: puerto `application/ports/conversation_memory.py`, adaptador `adapters/conversation/memory.py` y `HermesToolbelt.prepare_verified_context`.
+El usuario decidió corregir los tres defectos antes de la demo, con historial corto enviado a Grok para QA2. Estado: **`implementado`** (2026-10-24): Codex lo implementó, el orquestador lo auditó y agy lo validó con mock y con Grok real. Ubicación: puerto `application/ports/conversation_memory.py`, adaptador `adapters/conversation/memory.py` y `CommercialToolbelt.prepare_verified_context`.
 
 - **QA1, idempotencia:**
   - `AgentService.respond(message, *, conversation_key=None, request_id=None)`.

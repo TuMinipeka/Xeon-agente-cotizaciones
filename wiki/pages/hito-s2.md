@@ -9,7 +9,7 @@ Revisado: 2026-10-24.
 | Hito | Objetivo | Estado | Evidencia |
 |---|---|---|---|
 | S1 | Agente funcionando de punta a punta | `implementado` (entregado) | commit `90ecbfe DeliverDocHito1`; [estado del corte](estado-del-corte.md) |
-| S2 | 3 herramientas funcionales y flujo de demo de 2 min | Herramientas `implementado`; guion de demo listo, pendiente de ensayo en vivo | `src/xeon/agent/hermes.py:60,153,170`; `tests/test_multiturn_context.py` |
+| S2 | 3 herramientas funcionales y flujo de demo de 2 min | Herramientas `implementado`; demo verificada en vivo por WhatsApp (Kapso) y en el shell `xeon` | `src/xeon/agent/hermes.py:60,153,170`; `tests/test_multiturn_context.py` |
 | S3 | Datos reales, autoevaluación y telemetría de costo por tarea | `planificado` | [fuente](../raw/orquestacion-original-2026-10-24.md) |
 | S4 | Carga de 1.000 unidades en 12 h | `planificado` | [fuente](../raw/orquestacion-original-2026-10-24.md) |
 
@@ -70,11 +70,11 @@ Fuente: reporte QA de agy. Los comandos y opciones de la CLI se verificaron con 
    - `uv run xeon quotes create --tenant-id ferreteria-demo --request-id demo-desc-01 --line CEM-50:10 --discount-requested` (422, T08).
    - `uv run xeon quotes create --tenant-id ferreteria-demo --request-id demo-cot-01 --line CEM-50:10 --line TUB-PVC-20:5` (310000.00 COP).
    - El mismo comando otra vez (`replayed: true`).
-6. **Webhook:** un `POST /v1/channels/whatsapp/webhook` con `messages.upsert`, `fromMe=false` y el texto "Necesito 10 bultos de cemento en sede norte". La respuesta muestra la traza de las tres herramientas.
+6. **Webhook de Kapso:** `uv run python scripts/simulate_whatsapp_webhook.py --phone-number-id <ID_SANDBOX> --message "Necesito 10 bultos de cemento en sede norte"` firma un payload v2 y lo envía a `/v1/channels/whatsapp/kapso/webhook` (responde `processed`; la traza `[XEON_TOOL:...]` de las tres herramientas aparece en la respuesta enviada). El ensayo real se hace escribiendo al número del sandbox.
 
 ## Hallazgos que afectan la demo
 
-Vienen de una inspección estática de `format_verified_context` en `src/xeon/agent/hermes.py:187-260`; ver D6 en [decisiones pendientes](decisiones-pendientes.md).
+Vienen de una inspección estática de `format_verified_context` en `src/xeon/agent/hermes.py:187-260`; ver D6 en [decisiones pendientes](decisiones-pendientes.md). Desde la limpieza D9 ese código vive en `src/xeon/agent/toolbelt.py` (`CommercialToolbelt.prepare_verified_context`) y los marcadores se llaman `XEON_TOOL`; las rutas y líneas citadas abajo son históricas.
 
 - **No hay tool-calling del LLM.** Las tres herramientas se ejecutan antes de llamar al modelo y su resultado se inyecta como contexto verificado. El LLM no elige herramientas. Estado: `implementado`, distinto de lo que describe el prompt original.
 - **Fecha fija.** `evaluated_at` está escrita a mano como `2026-10-08T15:00:00+00:00` (línea 212), así que la vigencia `fresh`/`stale` no depende de la hora real.

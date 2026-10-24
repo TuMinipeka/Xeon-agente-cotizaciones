@@ -14,14 +14,13 @@ Revisado: 2026-10-24. Estado: **`implementado`** y **verificado en vivo**. El us
 ## Avance del paso a paso de la guía
 
 1. **Cuenta en app.kapso.ai** (manual): el usuario confirma que la tiene.
-2. **Skills `integrate-whatsapp`, `automate-whatsapp`, `observe-whatsapp` e `integrate-whatsapp-calling`:** instaladas en `.agents/skills/` con autorización expresa del usuario, revisadas por el orquestador y con dependencias de scripts instaladas.
+2. **Skills `integrate-whatsapp`, `automate-whatsapp`, `observe-whatsapp` (más `integrate-whatsapp-calling`, retirada en D9 por no usarse):** instaladas en `.agents/skills/` con autorización expresa del usuario, revisadas por el orquestador y con dependencias de scripts instaladas.
    - `.env` tiene `KAPSO_API_BASE_URL=https://api.kapso.ai` y `KAPSO_API_KEY=`, que el usuario pega a mano; está pendiente.
 3. **Webhook:** se registra con la skill cuando exista la URL del túnel y el `phone_number_id` del sandbox.
 
 ## Contrato técnico (fuente: referencias de la skill `integrate-whatsapp`)
 
 - **Configuración** (`Settings`):
-  - `whatsapp_channel` (`kapso` por defecto).
   - `kapso_api_base_url` (`https://api.kapso.ai`).
   - `kapso_api_key` / `kapso_api_key_file`.
   - `kapso_phone_number_id`.

@@ -104,3 +104,17 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
   - Se actualizaron arquitectura, estado, contratos, canal Kapso y propuestas.
   - Se integraron y retiraron las notas `codex-kapso-channel`, `claude-kapso-live` y `codex-stack-cleanup`.
 - **Pendiente:** Codex está actualizando la documentación del repositorio y después viene la QA final de agy.
+
+## [2026-10-24] QA | Limpieza D9 verificada
+
+- **Documentación del repositorio:** Codex actualizó README, `ARCHITECTURE.md`, `XeonContexto.md`, `AGENTS.md`, `DESIGN.md` y `.gitignore` (commit `b37bf02`); las reglas de `AGENTS.md` se conservaron.
+- **API:** el orquestador reinició la API con el código limpio en el puerto 8000. `/health` devuelve `grok`; a través del túnel, una petición sin firma recibe 401.
+- **QA de agy** (sin llamadas pagadas):
+  - ruff, mypy y pytest en verde (146).
+  - Cero restos de Evolution, Hermes o Remotion en código y documentación.
+  - El simulador firmado en un puerto aislado devolvió `processed`; el duplicado, `ignored`; sin firma, 401.
+  - El shell muestra `mock / mock-xeon-v1` sin rastros del stack anterior.
+- **Hallazgos (todos de severidad baja):**
+  - El de un argumento del README no se reprodujo: la versión vigente usa los argumentos correctos.
+  - Los restos en `hito-s2.md`, `contratos-herramientas.md` y `canal-kapso.md` fueron corregidos por el orquestador.
+- **Inbox:** se integraron y retiraron las notas `codex-docs-cleanup` y `agy-cleanup-qa`.
