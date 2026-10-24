@@ -67,7 +67,15 @@ class Settings(BaseSettings):
     grok_model: str = "grok-4.20-0309-non-reasoning"
 
     whatsapp_send_enabled: bool = False
+    whatsapp_channel: Literal["kapso", "evolution"] = "kapso"
     whatsapp_require_prefix: bool = False
+    kapso_api_base_url: str = "https://api.kapso.ai"
+    kapso_api_key: SecretStr | None = None
+    kapso_api_key_file: Path | None = None
+    kapso_phone_number_id: str = ""
+    kapso_webhook_secret: SecretStr | None = None
+    kapso_webhook_secret_file: Path | None = Path("secrets/kapso_webhook_secret.txt")
+    meta_graph_version: str = "v24.0"
     evolution_api_url: str = "http://evolution-api:8080"
     evolution_instance: str = "xeon-ferreteria"
     evolution_api_key: SecretStr | None = None
@@ -118,6 +126,24 @@ class Settings(BaseSettings):
             file_error="No se pudo leer EVOLUTION_API_KEY_FILE.",
             missing_error=(
                 "WHATSAPP_SEND_ENABLED=true requiere EVOLUTION_API_KEY o EVOLUTION_API_KEY_FILE."
+            ),
+        )
+
+    def require_kapso_api_key(self) -> SecretStr:
+        return _require_api_key(
+            self.kapso_api_key,
+            self.kapso_api_key_file,
+            file_error="No se pudo leer KAPSO_API_KEY_FILE.",
+            missing_error="WHATSAPP_CHANNEL=kapso requiere KAPSO_API_KEY o KAPSO_API_KEY_FILE.",
+        )
+
+    def require_kapso_webhook_secret(self) -> SecretStr:
+        return _require_api_key(
+            self.kapso_webhook_secret,
+            self.kapso_webhook_secret_file,
+            file_error="No se pudo leer KAPSO_WEBHOOK_SECRET_FILE.",
+            missing_error=(
+                "El webhook Kapso requiere KAPSO_WEBHOOK_SECRET o KAPSO_WEBHOOK_SECRET_FILE."
             ),
         )
 

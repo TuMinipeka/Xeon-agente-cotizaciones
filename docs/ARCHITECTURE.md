@@ -93,7 +93,18 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
 - Es una interfaz de entrada como FastAPI y Typer: delega en `build_container`/`AgentService` y no
   contiene reglas comerciales. Degrada a texto plano con `NO_COLOR`, sin TTY o sin UTF-8.
 
-### 2. Canal WhatsApp sin costo con Evolution API
+### 2. Canal WhatsApp con Kapso y Evolution API
+- `WHATSAPP_CHANNEL=kapso` selecciona por defecto el adaptador de envio de Kapso cuando
+  `WHATSAPP_SEND_ENABLED=true`; requiere ID del numero y clave explicita. Evolution API sigue
+  disponible con `WHATSAPP_CHANNEL=evolution`.
+- `POST /v1/channels/whatsapp/kapso/webhook` comprueba HMAC-SHA256 del cuerpo crudo antes de
+  interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto, incluidos lotes;
+  deduplica IDs en memoria y programa el turno comercial y el envio en segundo plano.
+  El acuse `processed` significa que se programo el trabajo, no que WhatsApp entrego el mensaje.
+- `KapsoChannelAdapter` envia texto a la API Meta proxy con `X-API-Key`. El webhook requiere
+  secreto configurado; no se admiten mensajes proactivos ni plantillas fuera de la ventana de 24 h.
+- La deduplicacion y el trabajo de fondo son locales al proceso. Persistencia, cola durable,
+  observabilidad de entregas y ensayo real en el sandbox quedan pendientes.
 - `POST /v1/channels/whatsapp/webhook` recibe eventos `messages.upsert` desde una instancia local de
   **Evolution API**, ignorando mensajes propios (`fromMe=True`), estados y grupos.
 - Cuando `WHATSAPP_SEND_ENABLED=true`, `EvolutionAPIChannelAdapter` despacha la respuesta verificada

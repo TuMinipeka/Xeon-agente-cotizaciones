@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from xeon.adapters.catalog.memory import InMemoryProductCatalog
 from xeon.adapters.channels.evolution import EvolutionAPIChannelAdapter
+from xeon.adapters.channels.kapso import KapsoChannelAdapter
 from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.llm import build_llm
@@ -72,11 +73,19 @@ def build_container(
 
     resolved_whatsapp = whatsapp_channel
     if resolved_whatsapp is None and settings.whatsapp_send_enabled:
-        resolved_whatsapp = EvolutionAPIChannelAdapter(
-            base_url=settings.evolution_api_url,
-            instance=settings.evolution_instance,
-            api_key=settings.require_evolution_api_key().get_secret_value(),
-        )
+        if settings.whatsapp_channel == "kapso":
+            resolved_whatsapp = KapsoChannelAdapter(
+                base_url=settings.kapso_api_base_url,
+                phone_number_id=settings.kapso_phone_number_id,
+                graph_version=settings.meta_graph_version,
+                api_key=settings.require_kapso_api_key().get_secret_value(),
+            )
+        else:
+            resolved_whatsapp = EvolutionAPIChannelAdapter(
+                base_url=settings.evolution_api_url,
+                instance=settings.evolution_instance,
+                api_key=settings.require_evolution_api_key().get_secret_value(),
+            )
 
     return AppContainer(
         settings=settings,

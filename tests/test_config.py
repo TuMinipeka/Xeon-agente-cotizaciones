@@ -129,3 +129,33 @@ def test_evolution_secret_error_message_is_preserved() -> None:
 
     with pytest.raises(SettingsError, match="requiere EVOLUTION_API_KEY"):
         settings.require_evolution_api_key()
+
+
+def test_kapso_channel_defaults_and_missing_secret(tmp_path: Path) -> None:
+    settings = Settings(
+        llm_provider="mock",
+        kapso_webhook_secret=None,
+        kapso_webhook_secret_file=tmp_path / "absent",
+        _env_file=None,
+    )
+    assert settings.whatsapp_channel == "kapso"
+    assert settings.kapso_api_base_url == "https://api.kapso.ai"
+    assert settings.meta_graph_version == "v24.0"
+    with pytest.raises(SettingsError, match="KAPSO_WEBHOOK_SECRET_FILE") as error:
+        settings.require_kapso_webhook_secret()
+    assert str(tmp_path) not in str(error.value)
+
+
+def test_kapso_secrets_can_be_loaded_from_files(tmp_path: Path) -> None:
+    api_file = tmp_path / "api"
+    webhook_file = tmp_path / "webhook"
+    api_file.write_text("test-api-key", encoding="utf-8")
+    webhook_file.write_text("test-webhook-secret", encoding="utf-8")
+    settings = Settings(
+        llm_provider="mock",
+        kapso_api_key_file=api_file,
+        kapso_webhook_secret_file=webhook_file,
+        _env_file=None,
+    )
+    assert settings.require_kapso_api_key().get_secret_value() == "test-api-key"
+    assert settings.require_kapso_webhook_secret().get_secret_value() == "test-webhook-secret"
