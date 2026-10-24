@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from decimal import Decimal
 
-from xeon.application.ports.conversation_memory import PendingCandidates
+from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
 from xeon.application.ports.llm import ChatMessage
 
 
@@ -13,6 +14,8 @@ class _Conversation:
     sku: str | None = None
     pending: PendingCandidates | None = None
     commercial_active: bool = False
+    lines: dict[str, Decimal] = field(default_factory=dict)
+    unresolved_quantity: Decimal | None = None
 
 
 class InMemoryConversationMemory:
@@ -64,6 +67,35 @@ class InMemoryConversationMemory:
         conversation = self._conversations.setdefault(key, _Conversation())
         self._conversations.move_to_end(key)
         conversation.commercial_active = True
+        while len(self._conversations) > self._max_conversations:
+            self._conversations.popitem(last=False)
+
+    def resolved_lines(self, key: str) -> tuple[ResolvedLine, ...]:
+        conversation = self._conversations.get(key)
+        if conversation is None:
+            return ()
+        self._conversations.move_to_end(key)
+        return tuple(ResolvedLine(sku, qty) for sku, qty in conversation.lines.items())
+
+    def remember_lines(self, key: str, lines: tuple[ResolvedLine, ...]) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        self._conversations.move_to_end(key)
+        for line in lines:
+            conversation.lines[line.sku] = line.quantity
+        while len(self._conversations) > self._max_conversations:
+            self._conversations.popitem(last=False)
+
+    def unresolved_quantity(self, key: str) -> Decimal | None:
+        conversation = self._conversations.get(key)
+        if conversation is None:
+            return None
+        self._conversations.move_to_end(key)
+        return conversation.unresolved_quantity
+
+    def remember_unresolved_quantity(self, key: str, quantity: Decimal) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        self._conversations.move_to_end(key)
+        conversation.unresolved_quantity = quantity
         while len(self._conversations) > self._max_conversations:
             self._conversations.popitem(last=False)
 

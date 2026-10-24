@@ -15,6 +15,12 @@ class PendingCandidates:
     branch: str
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedLine:
+    sku: str
+    quantity: Decimal
+
+
 class ConversationMemory(Protocol):
     def history(self, key: str) -> tuple[ChatMessage, ...]: ...
 
@@ -27,5 +33,13 @@ class ConversationMemory(Protocol):
     def commercial_active(self, key: str) -> bool: ...
 
     def mark_commercial(self, key: str) -> None: ...
+
+    def resolved_lines(self, key: str) -> tuple[ResolvedLine, ...]: ...
+
+    def remember_lines(self, key: str, lines: tuple[ResolvedLine, ...]) -> None: ...
+
+    def unresolved_quantity(self, key: str) -> Decimal | None: ...
+
+    def remember_unresolved_quantity(self, key: str, quantity: Decimal) -> None: ...
 
     def record(self, key: str, user: str, assistant: str, sku: str | None) -> None: ...

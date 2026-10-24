@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from xeon.application.ports.catalog import CatalogUnavailableError, ProductCatalog
-from xeon.application.ports.conversation_memory import PendingCandidates
+from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
 from xeon.application.quote_draft import (
     CreateQuoteDraft,
     CreateQuoteDraftCommand,
@@ -21,6 +21,7 @@ from xeon.application.quote_draft import (
 )
 from xeon.application.quote_request import classify_line_query
 from xeon.application.stock import GetStockByBranches, GetStockByBranchesQuery, StockByBranches
+from xeon.domain.quote import Quote
 
 _LOG = logging.getLogger(__name__)
 
@@ -210,16 +211,48 @@ class CommercialToolbelt:
         request_id: str | None = None,
         last_sku: str | None = None,
         pending: PendingCandidates | None = None,
-    ) -> tuple[str | None, str | None, PendingCandidates | None]:
+        known_lines: tuple[ResolvedLine, ...] = (),
+        fallback_quantity: Decimal | None = None,
+    ) -> tuple[str | None, str | None, PendingCandidates | None, tuple[ResolvedLine, ...]]:
         normalized = user_message.strip()
         if not normalized or normalized.casefold() in {"hola", "buenas", "buenos dias"}:
-            return None, None, None
+            return None, None, None, ()
+
+        if (
+            _requests_quote_summary(normalized)
+            and known_lines
+            and not _requests_discount(normalized)
+        ):
+            try:
+                summary = self.create_quote_draft(
+                    tenant_id="whatsapp",
+                    request_id=request_id or f"wa-{uuid.uuid4().hex[:12]}",
+                    lines=tuple(DraftLineRequest(line.sku, line.quantity) for line in known_lines),
+                )
+                if isinstance(summary, QuoteDraftReady):
+                    return _format_draft(summary.quote), last_sku, None, ()
+            except Exception as exc:
+                _LOG.error("Quote draft source unavailable: %s", type(exc).__name__)
+                return (
+                    "[XEON_TOOL:create_quote_draft status=quote_unavailable] "
+                    "No fue posible crear el borrador; intenta mas tarde.",
+                    last_sku,
+                    None,
+                    (),
+                )
 
         branch = _extract_requested_branch(normalized)
         selection = _pending_selection(normalized, pending)
         clauses: tuple[tuple[str, Decimal | None], ...]
         if selection is not None and pending is not None:
-            clauses = ((selection, _extract_requested_quantity(normalized) or pending.quantity),)
+            clauses = (
+                (
+                    selection,
+                    _extract_requested_quantity(normalized)
+                    or pending.quantity
+                    or fallback_quantity,
+                ),
+            )
             branch = pending.branch if not _has_branch(normalized) else branch
         else:
             clauses = tuple(
@@ -233,6 +266,7 @@ class CommercialToolbelt:
 
         contexts: list[str] = []
         draft_lines: list[DraftLineRequest] = []
+        resolved: list[ResolvedLine] = []
         selected_sku: str | None = None
         for clause, quantity in clauses:
             exact_query = _explicit_product_query(clause)
@@ -246,6 +280,7 @@ class CommercialToolbelt:
                     f"[XEON_TOOL:search_products status={outcome.status}] {outcome.message}",
                     None,
                     None,
+                    (),
                 )
             if outcome.status == "semantic_candidates" and len(outcome.candidates) > 1:
                 options = "\n".join(
@@ -263,12 +298,21 @@ class CommercialToolbelt:
                     PendingCandidates(
                         tuple(item.sku for item in outcome.candidates),
                         tuple(item.name for item in outcome.candidates),
-                        quantity,
+                        quantity or fallback_quantity,
                         branch,
                     ),
+                    (),
                 )
             primary = outcome.candidates[0]
             selected_sku = primary.sku
+            if quantity is None:
+                quantity = next(
+                    (line.quantity for line in known_lines if line.sku == primary.sku), None
+                )
+            if quantity is None and pending is not None and primary.sku in pending.skus:
+                quantity = pending.quantity or fallback_quantity
+            if quantity is None and _requests_quote(normalized) and outcome.status == "exact_match":
+                quantity = fallback_quantity
             contexts.append(f"[XEON_TOOL:search_products status={outcome.status}]")
             contexts.append(
                 f"- SKU={primary.sku} | nombre={primary.name} | unidad={primary.unit} "
@@ -305,6 +349,7 @@ class CommercialToolbelt:
                 )
             if quantity is not None:
                 draft_lines.append(DraftLineRequest(query=primary.sku, quantity=quantity))
+                resolved.append(ResolvedLine(primary.sku, quantity))
 
         if draft_lines and len(draft_lines) == len(clauses):
             try:
@@ -315,15 +360,7 @@ class CommercialToolbelt:
                     discount_requested=_requests_discount(normalized),
                 )
                 if isinstance(result, QuoteDraftReady):
-                    quote = result.quote
-                    contexts.append(
-                        f"[XEON_TOOL:create_quote_draft quote_id={quote.id} "
-                        f"status={quote.status.value} version=v{quote.version} "
-                        f"sku={quote.lines[0].sku} cantidad={quote.lines[0].quantity} "
-                        f"subtotal={quote.subtotal.amount} {quote.currency} "
-                        f"total={quote.total.amount} {quote.currency} "
-                        f"lines={len(quote.lines)}]"
-                    )
+                    contexts.append(_format_draft(result.quote))
                 elif isinstance(result, DiscountPolicyUnavailable):
                     contexts.append(
                         "[XEON_TOOL:create_quote_draft status=discount_policy_unavailable] "
@@ -340,7 +377,7 @@ class CommercialToolbelt:
                     "[XEON_TOOL:create_quote_draft status=quote_unavailable] "
                     "No fue posible crear el borrador; intenta mas tarde."
                 )
-        return "\n".join(contexts), selected_sku, None
+        return "\n".join(contexts), selected_sku, None, tuple(resolved)
 
 
 _QTY_RE = re.compile(
@@ -352,9 +389,37 @@ _LEADING_QTY_RE = re.compile(
     re.IGNORECASE,
 )
 _DISCOUNT_RE = re.compile(
-    r"\b(?:descuentos?|rebajas?|precio\s+especial)\b|\b\d+(?:[.,]\d+)?\s*%",
+    r"\b(?:descuentos?|rebajas?|rebajame|barato|precio\s+especial)\b|"
+    r"\b\d+(?:[.,]\d+)?\s*(?:%|por\s+ciento)(?!\w)",
     re.IGNORECASE,
 )
+_QUOTE_SUMMARY_RE = re.compile(r"\b(?:precio\s+de\s+lista|a\s+lista|total|borrador)\b", re.I)
+_QUOTE_REQUEST_RE = re.compile(r"\b(?:cotiza|cotizame|cotizacion|borrador|pedido)\b", re.I)
+
+
+def _format_draft(quote: Quote) -> str:
+    header = (
+        f"[XEON_TOOL:create_quote_draft quote_id={quote.id} "
+        f"status={quote.status.value} version=v{quote.version} "
+        f"sku={quote.lines[0].sku} cantidad={quote.lines[0].quantity} "
+        f"subtotal={quote.subtotal.amount} {quote.currency} "
+        f"total={quote.total.amount} {quote.currency} lines={len(quote.lines)}]"
+    )
+    details = [
+        f"- SKU={line.sku} nombre={line.description} cantidad={line.quantity} "
+        f"unidad={line.unit} precio_bd={line.unit_price.amount} {quote.currency} "
+        f"subtotal_linea={line.line_total.amount} {quote.currency}"
+        for line in quote.lines
+    ]
+    return "\n".join((header, *details))
+
+
+def _requests_quote_summary(text: str) -> bool:
+    return _QUOTE_SUMMARY_RE.search(text) is not None
+
+
+def _requests_quote(text: str) -> bool:
+    return _QUOTE_REQUEST_RE.search(text) is not None
 
 
 def _has_branch(text: str) -> bool:
@@ -393,6 +458,8 @@ def _explicit_product_query(clause: str) -> str | None:
         return sku.group()
     if re.search(r"\btubos?\b", clause, re.I) and "1/2" in clause:
         return "tubo 1/2"
+    if re.search(r"\bcemento\b", clause, re.I) and re.search(r"\b50\s*kg\b", clause, re.I):
+        return "cemento 50kg"
     without_logistics = re.split(
         r"\s+y\s+(?:entrega|recogida|retiro|lo recojo|lo retiro)\b",
         clause,

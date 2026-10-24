@@ -79,16 +79,39 @@ class AgentService:
         ]
         selected_sku: str | None = None
         if self._tools is not None:
-            verified_context, selected_sku, new_pending = self._tools.prepare_verified_context(
-                commercial_message,
-                request_id=request_id,
-                last_sku=previous_sku,
-                pending=pending,
+            known_lines = (
+                self._memory.resolved_lines(conversation_key)
+                if self._memory is not None and conversation_key is not None
+                else ()
+            )
+            fallback_quantity = (
+                self._memory.unresolved_quantity(conversation_key)
+                if self._memory is not None and conversation_key is not None
+                else None
+            )
+            verified_context, selected_sku, new_pending, resolved_lines = (
+                self._tools.prepare_verified_context(
+                    commercial_message,
+                    request_id=request_id,
+                    last_sku=previous_sku,
+                    pending=pending,
+                    known_lines=known_lines,
+                    fallback_quantity=fallback_quantity,
+                )
             )
             if verified_context is not None:
                 message_list.append(ChatMessage(role="system", content=verified_context))
             if self._memory is not None and conversation_key is not None:
-                self._memory.set_pending_candidates(conversation_key, new_pending)
+                if new_pending is not None:
+                    self._memory.set_pending_candidates(conversation_key, new_pending)
+                    if new_pending.quantity is not None:
+                        self._memory.remember_unresolved_quantity(
+                            conversation_key, new_pending.quantity
+                        )
+                elif selected_sku is not None:
+                    self._memory.set_pending_candidates(conversation_key, None)
+                if resolved_lines:
+                    self._memory.remember_lines(conversation_key, resolved_lines)
         if self._memory is not None and conversation_key is not None:
             message_list.extend(self._memory.history(conversation_key))
         message_list.append(ChatMessage(role="user", content=commercial_message))

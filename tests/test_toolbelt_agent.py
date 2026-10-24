@@ -25,8 +25,8 @@ def test_injected_clock_controls_stock_freshness() -> None:
     settings = Settings(llm_provider="mock", _env_file=None)
     fresh = build_container(settings, clock=lambda: datetime(2026, 10, 8, 15, 0, tzinfo=UTC))
     stale = build_container(settings, clock=lambda: datetime(2026, 10, 24, 15, 0, tzinfo=UTC))
-    fresh_context, _, _ = fresh.commercial_tools.prepare_verified_context("10 bultos de cemento")
-    stale_context, _, _ = stale.commercial_tools.prepare_verified_context("10 bultos de cemento")
+    fresh_context, _, _, _ = fresh.commercial_tools.prepare_verified_context("10 bultos de cemento")
+    stale_context, _, _, _ = stale.commercial_tools.prepare_verified_context("10 bultos de cemento")
     assert fresh_context is not None and "vigencia=fresh" in fresh_context
     assert stale_context is not None and "vigencia=stale" in stale_context
 
@@ -40,7 +40,7 @@ def test_quote_failure_is_visible_without_exception_details(
         raise RuntimeError("private detail")
 
     monkeypatch.setattr(container.create_quote_draft, "execute", fail)
-    context, _, _ = container.commercial_tools.prepare_verified_context("10 bultos de cemento")
+    context, _, _, _ = container.commercial_tools.prepare_verified_context("10 bultos de cemento")
     assert context is not None and "status=quote_unavailable" in context
     assert "private detail" not in context
 
