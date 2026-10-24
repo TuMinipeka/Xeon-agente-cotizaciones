@@ -122,3 +122,10 @@ El juez solo evalúa claridad, pertinencia, tono y manejo de la ambigüedad. Un 
   - El simulador real recibe únicamente la persona, el objetivo y los comportamientos.
   - **Primera auditoría:** se corrigieron dos fallas del evaluador, sin relajar criterios. `no_completion_claims` confundía «política… aprobada» con un cierre, y `asks_clarification` en offline no podía observar preguntas del mock. Se agregó `no_false_scope_block` para cubrir el hueco E7/E8.
   - **Offline final** `7b5801d3`: 12 PASS, 30 FAIL, 0 ERROR; todos los FAIL son de XEON. La suite tiene 176 aprobadas y 11 `xfail`.
+- **Corridas en vivo** (`grok-4.6`, unos 13 s por llamada según la medición de agy):
+  - La línea base en vivo (3 repeticiones, concurrencia 1) se **canceló por decisión del usuario** tras 52 minutos, por tiempo. El «antes» queda medido con la corrida offline `7b5801d3`.
+  - La segunda corrida (concurrencia 6) la detuvo el orquestador tras unas 231 llamadas, porque los ERROR se acumulaban.
+  - El diagnóstico con `_safe_error` (`64a47d7`) halló dos causas, ninguna de la pasarela: faltaba `mcp` para el juez, y `no_invented_amounts` no sabía leer montos colombianos (error del evaluador).
+- **Infraestructura del runner** (`30386ad`): reporte incremental (`cases.jsonl`), reconstrucción desde una corrida interrumpida y concurrencia 3 por defecto.
+- **Validación del aislamiento del CI:** la suite pasa sin el grupo `evals` (`uv run --isolated --no-group evals pytest`), porque `scenario` solo se importa en modo live.
+- **QA humano:** `docs/QA_HITO2.md`, de agy, revisada por el orquestador contra los fixtures (precios y nombres exactos).

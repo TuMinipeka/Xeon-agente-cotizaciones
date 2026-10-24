@@ -184,3 +184,14 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Orquestador:** llamada real de verificación de `grok-4.6` y revisión de la ceguera de las personas.
 - **Inbox:** se integraron y retiraron las notas `codex-model-and-spike` y `agy-personas`.
 - **Siguiente:** el harness `evals/`, de Codex.
+
+## [2026-10-24] integración | E11, evaluador, CI y guía del QA humano (HITO #2)
+
+- **Definición del HITO #2**, tomada de la única fuente documentada (`raw/orquestacion-original`, línea 12): 3 herramientas conectadas a Grok y un flujo de demo de 2 minutos. Criterios H1–H4 en el plan del orquestador.
+- **Codex:** E11 (`4def4fa`) y el evaluador con reporte incremental (`30386ad`); 216 pruebas en verde y offline 42/42.
+- **agy:** `docs/QA_HITO2.md` y la sección de la línea base cancelada en `docs/evals/RESULTADOS.md`.
+- **Orquestador:**
+  - CI con `develop` como disparador (`6972dc7`).
+  - Guía revisada; «Listo para QA humano» queda pendiente hasta la corrida final (`1059538`).
+  - Canal de Gmail verificado con un borrador de prueba, ya eliminado. **Discrepancia:** la cuenta conectada (`danielsantiagomayorga03`) difiere del correo del perfil (`danielsantiagomayorgatellez03`); falta que el usuario confirme el destinatario.
+- **Inbox:** se integraron y retiraron las notas `agy-baseline-live`, `codex-defect-fixes`, `codex-e11-evaluator` y `agy-qa-guide`.

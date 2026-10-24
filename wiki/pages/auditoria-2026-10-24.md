@@ -49,6 +49,15 @@ Pasan a ser escenarios y regresiones.
 | E9 | Varios productos en un mensaje no generan un borrador con varias líneas | S02 offline: `quote_matches_oracle` sin borrador | Alta (funcional) |
 | E10 | Un pedido ambiguo con varios candidatos semánticos crea el borrador con el primero, sin preguntar | S10 offline: `asks_clarification` con 1 borrador | Alta (principio «ambigüedad exige aclaración») |
 
+| E11 | Con Grok, los seguimientos libres («el 1 el normal», «recojo sede norte, mándame el total») se bloquean como fuera de alcance aunque haya una elección o un pedido pendiente | Corrida en vivo de S01 (`acaa9704`) y de S02 (`f92718ed`) | Alta |
+
+**Estado de las correcciones (2026-10-24):**
+
+- **E1–E10** se corrigieron en `fix/eval-defects` (commits `7a14fc8`, `3ca80c0`, `c84aacd`, `2695fa0`) y se integraron con el merge `fe1b317`.
+- **E11** se corrigió en `4def4fa`: `AgentService` consulta la memoria antes de clasificar el alcance.
+- Todas tienen una regresión que antes fallaba y ahora pasa.
+- Defecto del **evaluador**, ya corregido en `30386ad`: `no_invented_amounts` lanzaba `InvalidOperation` con montos como «$2.000.000». El criterio se volvió más estricto, no más laxo: el conjunto de montos permitidos no cambió.
+
 E7–E10 los detectó el harness (corrida offline `7b5801d3`), no la auditoría estática. Las regresiones están en `tests/evals/test_regressions.py` como `xfail` estricto. E9 y E10 rozan una decisión de producto (D7 mantuvo la cotización directa): se corrigen solo si el usuario lo aprueba.
 
 ## Incompleto (documentado pero no implementado)
