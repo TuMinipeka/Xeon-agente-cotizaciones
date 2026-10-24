@@ -132,3 +132,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Finales de línea:** los cambios que mostraba `CONTRIBUTING.md` (y antes `GLOSSARY.md`) eran solo de final de línea. La causa era la falta de `.gitattributes` con `core.autocrlf=true`. Se añadió `.gitattributes` (`* text=auto eol=lf`, CRLF para `.ps1/.bat/.cmd` y binarios marcados) y se renormalizó; el índice ya estaba en LF, así que solo se agregó el archivo (`1fcbac0`).
 - **Ramas:** `developer/daniel` avanzó por fast-forward hasta `feature/kapso-channel` y se subió.
 - **PR #1** (`developer/daniel` → `develop`): 42 commits, sin conflictos, `MERGEABLE`. Título y descripción actualizados a todo el alcance (CLI, Grok, Kapso, QA, D7, D9, D10), sin firmas de agentes.
+
+## [2026-10-24] CI | Snapshots del shell independientes de plataforma
+
+- **Fallo:** el CI del PR #1 (ubuntu-latest) falló en `test_banner_text_snapshot`. Codex lo reprodujo en WSL Ubuntu: Rich usa `legacy_windows=True` en Windows (esquinas `┌┐└┘`) y `False` en Linux (`╭╮╰╯`). El contenido era idéntico y no había defecto de producción.
+- **Corrección:** consola de prueba determinista y snapshots de texto en `tests/snapshots/` en lugar de hashes. Pasa en Windows y en Linux; 146 aprobadas.
+- **Nota:** Codex instaló `python3.14-venv` en WSL Ubuntu para reproducir el fallo.

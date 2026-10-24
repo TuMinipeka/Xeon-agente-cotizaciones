@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from hashlib import sha256
 from io import StringIO
 from pathlib import Path
 from uuid import UUID
@@ -29,7 +28,19 @@ from xeon.shell.session import HTTPEngine, InProcessEngine, Session, key_status
 
 def _console(width: int = 80) -> tuple[Console, StringIO]:
     output = StringIO()
-    return Console(file=output, record=True, width=width, force_terminal=False), output
+    return (
+        Console(
+            file=output,
+            record=True,
+            width=width,
+            force_terminal=False,
+            force_interactive=False,
+            color_system=None,
+            no_color=True,
+            legacy_windows=False,
+        ),
+        output,
+    )
 
 
 def _mock_session() -> Session:
@@ -84,13 +95,13 @@ def test_banner_renders_by_width(width: int) -> None:
 
 
 @pytest.mark.parametrize(
-    ("width", "height", "digest"),
+    ("width", "height"),
     [
-        (120, 25, "2d3408a8f01b81fc9ae62418cc64d17aa2028430eff060021069f972eb0d01e8"),
-        (80, 24, "131e10070137ac79246b295f9cc2cee94b2a6536a3f53172ec97cb8c16488839"),
+        (120, 25),
+        (80, 24),
     ],
 )
-def test_banner_text_snapshot(width: int, height: int, digest: str) -> None:
+def test_banner_text_snapshot(width: int, height: int) -> None:
     console, output = _console(width)
     console.print(render_banner(_mock_session(), width))
     console.print(render_footer(width))
@@ -101,7 +112,8 @@ def test_banner_text_snapshot(width: int, height: int, digest: str) -> None:
     assert all(len(line) == width for line in lines[: height - 2])
     assert len(lines[-2]) == 49
     assert lines[-1] == "xeon > "
-    assert sha256(text.encode("utf-8")).hexdigest() == digest
+    snapshot = Path(__file__).parent / "snapshots" / f"banner_{width}x{height}.txt"
+    assert text == snapshot.read_text(encoding="utf-8")
 
 
 def test_cp1252_legacy_console_uses_plain_ascii() -> None:

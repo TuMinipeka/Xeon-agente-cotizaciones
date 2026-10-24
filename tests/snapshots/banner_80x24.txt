@@ -1,0 +1,24 @@
+┌────────────────────────────────────────────────────────────────── //// ┐      
+██  ██ ██████  ████  ██  ██      █████ ██     ██████                            
+ ████  ██     ██  ██ ███ ██     ██     ██       ██                              
+  ██   █████  ██  ██ ██████     ██     ██       ██                              
+ ████  ██     ██  ██ ██ ███     ██     ██       ██                              
+██  ██ ██████  ████  ██  ██      █████ ██████ ██████                            
+T a c t i c a l   A g e n t   S h e l l                                         
+╭──────────────────────────────────────────────────────────────────────╮        
+│ ● system ready                                                       │        
+│ version  │ 0.1.0               mode  │ interactive                   │        
+│ profile  │ mock / mock-xeon-v1                                       │        
+╰──────────────────────────────────────────────────────────────────────╯        
+╭─ // AVAILABLE COMMANDS ──────────────────────────────────────────────╮        
+│ run      / r        Execute agent workflow                           │        
+│ status   / s        View agent status                                │        
+│ config   / c        View safe configuration                          │        
+│ logs     / l        View session logs                                │        
+│ new      / n        Start new conversation                           │        
+│ help     / h, ?     Show available commands                          │        
+│ quit     / q, exit  Exit shell                                       │        
+╰──────────────────────────────────────────────────────────────────────╯        
+└────────────────────────────────────────────────────────────────────────┘      
+r run  s status  c config  l logs  h help  q quit
+xeon > 
