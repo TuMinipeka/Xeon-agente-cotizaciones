@@ -1,31 +1,283 @@
 <p align="center">
-  <img src="logo-oficial-definitivo.png" width="240" alt="Logo oficial de XEON en jade y menta sobre fondo oscuro">
+  <img src="logo-oficial-definitivo.png" width="220" alt="Logo oficial de XEON en jade y menta sobre fondo oscuro">
 </p>
 
-# XEON — agente comercial para ferreterías
+<h1 align="center">XEON — agente comercial para ferreterías</h1>
 
-XEON recibe consultas sobre productos de ferretería y prepara **borradores de cotización**. Su
-prototipo actual usa un catálogo y un inventario sintéticos en memoria: identifica referencias,
-explica disponibilidad por sede y calcula importes con `Decimal`. La IA redacta la respuesta;
-el backend conserva las reglas comerciales. El canal WhatsApp se integra mediante Evolution API,
-pero requiere una instancia vinculada para operar con personas reales.
+<p align="center">
+  Conversa por WhatsApp o terminal, identifica productos ferreteros y prepara
+  <strong>borradores de cotización</strong> calculados por el backend.
+</p>
+
+<p align="center">
+  <code>Python 3.14</code> · <code>FastAPI</code> · <code>Grok (pasarela del reto)</code> ·
+  <code>Evolution API</code> · <code>Rich CLI</code> · <code>Arquitectura hexagonal</code>
+</p>
 
 > [!IMPORTANT]
-> **Estado actual: prototipo con datos ficticios.** No hay conexión al ERP de una empresa,
-> persistencia comercial en PostgreSQL, aprobación humana ni PDF. Un borrador `DRAFT` no reserva
-> inventario ni es una cotización aprobada.
+> **Prototipo con datos ficticios.** El catálogo (2000 productos) y el inventario son sintéticos
+> y viven en memoria. No hay ERP, PostgreSQL comercial, aprobación humana ni PDF todavía. Un
+> borrador `DRAFT` no reserva inventario ni es una cotización aprobada.
 
-El motor LLM predeterminado es **Grok** mediante la pasarela del reto
-`https://api.reto.pltk.mx/v1`, con modelo `grok-4.20-0309-non-reasoning`. La API requiere la
-clave en `secrets/grok_api_key.txt` al iniciar; `mock` se selecciona expresamente para pruebas
-sin red y Groq/Hermes quedan como alternativas. La integración real queda pendiente del smoke test
-autorizado por el equipo.
+**Principio rector:** la IA interpreta y redacta; el backend decide. Precios (`Decimal`),
+descuentos, stock y estados salen siempre de los casos de uso, nunca del modelo.
 
-## Identidad visual
+---
 
-El logo oficial define la identidad de XEON: **fondo casi negro, jade y menta**. La paleta de
-interfaz deriva de sus gradientes; estos códigos son colores de uso consistentes, no sustitutos
-del archivo original del logo.
+## Contenido
+
+1. [Inicio rápido: XEON CLI](#1-inicio-rápido-xeon-cli)
+2. [Qué funciona hoy](#2-qué-funciona-hoy)
+3. [Cómo funciona](#3-cómo-funciona)
+4. [Estructura del repositorio](#4-estructura-del-repositorio)
+5. [Perfiles de IA y configuración](#5-perfiles-de-ia-y-configuración)
+6. [API, subcomandos y WhatsApp](#6-api-subcomandos-y-whatsapp)
+7. [Pruebas](#7-pruebas)
+8. [Trabajo con agentes y wiki](#8-trabajo-con-agentes-y-wiki)
+9. [Hoja de ruta](#9-hoja-de-ruta)
+10. [Identidad visual](#10-identidad-visual)
+11. [Contribuir](#11-contribuir)
+
+---
+
+## 1. Inicio rápido: XEON CLI
+
+<p align="center">
+  <img src="XeonCli.png" width="760" alt="Diseño de XEON CLI: logo de tortuga con X, título neón, panel system ready y comandos disponibles">
+</p>
+
+`xeon` abre el **Tactical Agent Shell**, un shell interactivo para probar el agente desde la
+terminal. Funciona **en proceso**: no hace falta levantar la API.
+
+```powershell
+uv python install 3.14.8
+uv sync --locked
+# Clave de la pasarela Grok del reto (archivo ignorado por Git; nunca en commits ni prompts)
+#   secrets/grok_api_key.txt
+uv run xeon
+```
+
+| Comando | Alias | Qué hace |
+|---|---|---|
+| `run <mensaje>` | `r` | Envía un turno al agente. **Escribir texto libre equivale a `run`.** |
+| `status` | `s` | Proveedor, modelo, base URL, clave `configured`/`missing`, conversación y turnos. |
+| `config` | `c` | Configuración efectiva sin secretos. |
+| `logs [N]` | `l` | Bitácora de la sesión: hora, comando, proveedor, latencia y resultado. |
+| `new` | `n` | Empieza una conversación nueva (memoria vacía). |
+| `help` | `h`, `?` | Lista de comandos. |
+| `quit` | `q`, `exit` | Sale (código 0). Ctrl-C sale con 130; Ctrl-D/EOF con 0. |
+
+Ejemplo de sesión:
+
+```text
+xeon > Tienen tubo pvc de 1/2 pulgada?
+xeon > Cotizame 5 unidades de ese mismo          # la memoria recuerda TUB-PVC-20
+xeon > dame el descuento de siempre en 10 bultos de cemento   # sin política: no inventa %
+xeon > s
+xeon > q
+```
+
+**Opciones útiles**
+
+- `uv run xeon --api http://127.0.0.1:8000`: usa una API XEON en marcha en lugar del motor en proceso.
+- `$env:LLM_PROVIDER = "mock"; uv run xeon`: ensayo sin red ni costo de inferencia.
+- `$env:NO_COLOR = "1"`, salida redirigida, `TERM=dumb` o consola sin UTF-8: modo texto plano.
+- `"help" | uv run xeon`: con stdin sin TTY, lee comandos línea por línea (útil en scripts).
+
+El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80×24) y mínimo
+(<60). El diseño y los criterios están en [`wiki/pages/xeon-cli.md`](wiki/pages/xeon-cli.md).
+
+---
+
+## 2. Qué funciona hoy
+
+| Disponible y probado | Límite actual |
+|---|---|
+| Shell `xeon` (Rich) y subcomandos Typer `health`, `chat`, `quotes`, `stock` | Sin autenticación ni perfiles de usuario |
+| **Grok** por defecto (`grok-4.20-0309-non-reasoning`), verificado con llamadas reales; `mock` en pruebas; Groq y Hermes como alternativas | Costos de inferencia según la pasarela del reto |
+| Búsqueda por SKU, alias y puntuación de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial |
+| Stock sintético por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante | Sin lectura ni reserva de inventario real |
+| Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
+| Memoria por conversación (últimos turnos a Grok y último SKU), acotada con LRU | Local al proceso; no se comparte entre workers |
+| Descuentos: sin política aprobada se rechazan, también cuando se piden por chat | Sin políticas versionadas |
+| `CommercialScopePolicy` (bloquea temas ajenos antes del LLM) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
+| Webhook de Evolution API con filtros, prefijo opcional y deduplicación | Sin firma del webhook; entrega real requiere QR y prueba manual |
+
+---
+
+## 3. Cómo funciona
+
+![XEON: consulta comercial, datos sintéticos y borrador calculado por el backend](assets/readme/xeon-overview.svg)
+
+```mermaid
+flowchart LR
+    U[Shell xeon] --> S
+    C[POST /v1/chat] --> S
+    W[Webhook Evolution API] --> F[Filtro y deduplicación] --> S
+    S[AgentService] --> P[CommercialScopePolicy]
+    S --> M[ConversationMemory]
+    S --> T[HermesToolbelt]
+    T --> K[Catálogo sintético]
+    T --> I[Inventario sintético]
+    T --> Q[Borrador DRAFT]
+    S --> L[LLMPort: Grok / mock / Groq / Hermes]
+    L --> R[CustomerResponsePolicy]
+    R --> O[Respuesta / envío por WhatsApp]
+```
+
+1. **Alcance.** `CommercialScopePolicy` responde localmente a lo que no es ferretería y separa
+   la parte comercial de las solicitudes mixtas.
+2. **Contexto verificado.** `HermesToolbelt.prepare_verified_context` busca el producto (o usa el
+   último SKU de la conversación ante «ese mismo»), consulta stock y, si hay cantidad, crea un
+   `DRAFT`. Si detecta un pedido de descuento sin política, informa y no crea borrador.
+3. **Modelo.** `AgentService` envía a Grok el prompt de sistema, el contexto verificado, el
+   historial corto de la conversación y el turno actual. El LLM **no** ejecuta herramientas ni
+   calcula precios: redacta a partir de datos ya verificados.
+4. **Salida.** `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados de las
+   respuestas de proveedores reales.
+
+> [!WARNING]
+> En el chat, una búsqueda descriptiva toma el primer candidato para consultar stock y cotizar.
+> No lo interpretes como referencia confirmada por el comprador; para cotizar de forma explícita
+> usa `xeon quotes create` o `POST /v1/quotes` con SKU o alias exacto.
+
+Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no** significan
+«agotado».
+
+---
+
+## 4. Estructura del repositorio
+
+```text
+src/xeon/
+├── domain/                 Money, Product, Quote, StockSnapshot e invariantes
+├── application/            Casos de uso, puertos (Protocol) y commercial_scope
+│   └── container.py        AppContainer: composición de adaptadores
+├── agent/                  AgentService, prompts, HermesToolbelt, customer_safety
+├── adapters/
+│   ├── catalog/            Catálogo sintético (2000 productos con procedencia)
+│   ├── inventory/          Snapshots de stock en memoria
+│   ├── persistence/        Borradores e idempotencia en memoria
+│   ├── conversation/       Memoria de conversación acotada (LRU)
+│   ├── llm/                Mock y cliente OpenAI compatible (Grok, Groq, Hermes)
+│   └── channels/           Parser y envío mediante Evolution API
+├── api/                    Endpoints FastAPI y esquemas Pydantic
+├── shell/                  XEON CLI: theme, commands, session, render, app
+├── cli.py                  Entrada Typer: `xeon` (shell) y subcomandos
+└── config.py               Configuración tipada
+scripts/                    Evolution API, simulación de webhook y configurador de .env
+tests/                      Dominio, API, shell, memoria, alcance y adaptadores (mock)
+wiki/                       Memoria compartida del proyecto entre agentes y conversaciones
+docs/                       ARCHITECTURE.md, DESIGN.md, CAMBIOS_CONDE.md
+```
+
+El dominio no importa FastAPI, HTTPX ni SDKs de modelos. Cada proveedor externo (Grok, Groq,
+Evolution API) entra por un puerto; el shell, la API y Typer son interfaces de entrada que
+delegan en los mismos casos de uso. Detalle: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+**Dependencias reales:** Python 3.14.8, `uv`, FastAPI, Pydantic Settings, Typer, Rich, HTTPX,
+Uvicorn; en desarrollo Ruff, mypy y Pytest. SQLAlchemy, Alembic, pgvector y WeasyPrint son
+diseño futuro.
+
+---
+
+## 5. Perfiles de IA y configuración
+
+| Perfil | Configuración | Uso |
+|---|---|---|
+| `grok` (predeterminado) | `secrets/grok_api_key.txt`; URL `https://api.reto.pltk.mx/v1`; modelo `grok-4.20-0309-non-reasoning` | Ejecución normal. Consume inferencia. |
+| `mock` | `$env:LLM_PROVIDER = "mock"` | Pruebas y ensayos sin red. La suite lo fuerza siempre. |
+| `groq` | `LLM_PROVIDER=groq` y `GROQ_API_KEY_FILE` | Alternativa. |
+| `hermes` | `LLM_PROVIDER=hermes` y servidor en `HERMES_BASE_URL` | Puente local opcional. |
+
+- Una variable `LLM_PROVIDER` en `.env` o en el entorno prevalece sobre el valor por defecto.
+  `uv run python scripts/configure_grok_env.py` ajusta `.env` a Grok sin imprimir secretos.
+- `uv run xeon` y luego `s` (o `uv run xeon health` con la API activa) muestran el proveedor y el
+  modelo efectivos.
+- **Seguridad:** las claves solo viven en `secrets/` (ignorado por Git). Nunca en el README,
+  prompts, capturas, fixtures ni commits.
+
+---
+
+## 6. API, subcomandos y WhatsApp
+
+```powershell
+uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
+```
+
+| Subcomando (requiere la API) | Función |
+|---|---|
+| `uv run xeon health` | Estado, proveedor y modelo activos. |
+| `uv run xeon chat "cemento"` | Un turno por `POST /v1/chat`. |
+| `uv run xeon quotes create --tenant-id demo --request-id demo-001 --line CEM-50:2` | Crear o recuperar un `DRAFT` (`replayed: true` al repetir). |
+| `uv run xeon quotes show <UUID> --tenant-id demo` | Consultar un borrador. |
+| `uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00 --requested-quantity 50` | Origen, tipo, vigencia y faltante. |
+
+**Endpoints:** `GET /health`, `POST /v1/chat`, `POST /v1/quotes`, `GET /v1/quotes/{id}`,
+`GET /v1/stock`, `POST /v1/channels/whatsapp/webhook`. Contrato interactivo en
+`http://127.0.0.1:8000/docs`.
+
+**WhatsApp (opcional):** revisa [`compose.evolution.yaml`](compose.evolution.yaml), crea
+`secrets/grok_api_key.txt` y luego:
+
+```powershell
+docker compose -f compose.yaml -f compose.evolution.yaml --profile core up -d --build
+uv run python scripts/setup_evolution_whatsapp.py   # guarda qr_whatsapp.png para vincular
+uv run python scripts/simulate_whatsapp_webhook.py --provider mock --message "/xeon necesito 2 bultos de cemento"
+```
+
+`LOCAL_ONLY` indica que el envío está deshabilitado; `ACCEPTED_BY_PROVIDER` indica aceptación por
+Evolution API, no entrega comprobada al teléfono. La API y el webhook no tienen autenticación:
+úsalos solo en local.
+
+---
+
+## 7. Pruebas
+
+```powershell
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src
+uv run pytest
+```
+
+La suite fuerza `mock` y bloquea cualquier transporte HTTP real (`tests/conftest.py`). Cubre
+dominio, cotización, stock, API, webhook, shell (alias, anchos 120/80/50, `NO_COLOR`, sin TTY,
+códigos de salida), memoria de conversación, alcance comercial y los casos QA1–QA3. Una prueba
+con Grok real es deliberada y acotada: `uv run xeon` y un `run`.
+
+---
+
+## 8. Trabajo con agentes y wiki
+
+- **Fuente de verdad:** [`XeonContexto.md`](XeonContexto.md) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+  → [`CONTRIBUTING.md`](CONTRIBUTING.md). Reglas para agentes en [`AGENTS.md`](AGENTS.md).
+- **Wiki compartida** ([`wiki/index.md`](wiki/index.md)): decisiones, contratos, estado de hitos
+  y bitácora. Cada agente escribe primero en `wiki/inbox/` y las páginas compartidas se editan con
+  el bloqueo `wiki/.write-lock/` ([`wiki/SCHEMA.md`](wiki/SCHEMA.md)).
+- **Orquestación en herdr** ([`wiki/pages/orquestacion.md`](wiki/pages/orquestacion.md)): Claude
+  Opus orquesta y audita, Codex implementa, Antigravity (agy) hace QA.
+- **Skills de diseño de terminal:** fijadas en `skills-lock.json` (`tui-design`,
+  `tui-fundamentals`). Para reinstalarlas:
+  `npx skills add https://github.com/diegomarino/tui-design --skill tui-design` y
+  `npx skills add https://github.com/josiahsiegel/claude-plugin-marketplace --skill tui-fundamentals`.
+
+---
+
+## 9. Hoja de ruta
+
+Trabajo **planeado**, todavía sin implementar:
+
+1. PostgreSQL 17 con esquema relacional, `JSONB`, `pgvector` y Alembic.
+2. Confirmación conversacional de candidatos ambiguos (el carrito de `developer/conde` queda como
+   referencia en [`docs/CAMBIOS_CONDE.md`](docs/CAMBIOS_CONDE.md)).
+3. Políticas de descuento versionadas, aprobación humana por versión y PDF.
+4. Copiloto del trabajador por Gmail con hoja de alistamiento multi-sede.
+5. Telemetría de costo por tarea (S3) y prueba de carga (S4).
+
+---
+
+## 10. Identidad visual
 
 ![Paleta visual de XEON: fondo oscuro, superficies verde profundo, jade, menta y texto claro](assets/readme/xeon-palette.svg)
 
@@ -38,328 +290,15 @@ del archivo original del logo.
 | Menta luminosa | `#6FFFD3` | Destellos y foco visible |
 | Blanco menta | `#EAFBF5` | Texto principal sobre fondo oscuro |
 
-Las reglas de contraste, gradientes, estados y uso del logo están en
-[`docs/DESIGN.md`](docs/DESIGN.md). El color de marca por sí solo no confirma un SKU ni la
-disponibilidad de inventario.
-
-| Disponible hoy | Límite actual |
-|---|---|
-| API FastAPI y CLI Typer | Sin autenticación ni aislamiento persistente entre empresas |
-| Catálogo por SKU, alias y coincidencia de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial operativo |
-| Stock sintético por sede con origen, vigencia y faltante local | Sin lectura ni reserva de inventario real |
-| Borradores `DRAFT` con `Decimal` e idempotencia en memoria | Se pierden al reiniciar el proceso; sin aprobación ni PDF |
-| Grok predeterminado; `mock` para pruebas y conexión OpenAI compatible a Groq/Hermes | La llamada real a la pasarela sigue pendiente de verificación; `HermesToolbelt` es código propio |
-| Webhook y adaptador de envío de Evolution API | La conexión real de WhatsApp depende de Docker, QR y configuración local |
-
-**Ir directo a:** [primer uso](#4-guía-para-el-siguiente-desarrollador-instalación-desde-cero) ·
-[comandos CLI](#6-herramienta-cli-actual-uv-run-xeon) ·
-[estado y pendientes](#8-estado-del-corte-actual) ·
-[video y demo interactiva](video/xeon-remotion/README.md).
-
-## Tabla de Contenidos
-
-1. [Orden de Lectura Obligatorio (Fuente de Verdad)](#1-orden-de-lectura-obligatorio-fuente-de-verdad)
-2. [Flujo de Trabajo del Proyecto (De Punta a Punta)](#2-flujo-de-trabajo-del-proyecto-de-punta-a-punta)
-3. [Estructura del Repositorio y Fronteras Hexagonales](#3-estructura-del-repositorio-y-fronteras-hexagonales)
-4. [Guía para el Siguiente Desarrollador (Instalación desde Cero)](#4-guía-para-el-siguiente-desarrollador-instalación-desde-cero)
-5. [Cómo Testear Todas las Funcionalidades (4 Niveles de Prueba)](#5-cómo-testear-todas-las-funcionalidades-4-niveles-de-prueba)
-6. [Herramienta CLI Actual (`uv run xeon`)](#6-herramienta-cli-actual-uv-run-xeon)
-7. [Ideas de Evolución: Futura CLI y Flujo Copiloto con Gmail (Post-MVP)](#7-ideas-de-evolución-futura-cli-y-flujo-copiloto-con-gmail-post-mvp)
-8. [Estado del Corte Actual](#8-estado-del-corte-actual)
+El shell usa tokens semánticos propios en `src/xeon/shell/theme.py`. Reglas de marca en
+[`docs/DESIGN.md`](docs/DESIGN.md).
 
 ---
 
-## 1. Orden de Lectura Obligatorio (Fuente de Verdad)
-
-Para cambiar código o reglas comerciales, leer en este orden:
-
-| Orden | Documento | Función |
-|---|---|---|
-| 1 | [`XeonContexto.md`](XeonContexto.md) | Problema, historias de usuario, principios y alcance objetivo. Incluye funciones planeadas. |
-| 2 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Fronteras de los módulos y trabajo pendiente. |
-| 3 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Ramas, verificaciones y formato de commits. |
-
-También están [`AGENTS.md`](AGENTS.md), con límites para agentes de código, y
-[`GLOSSARY.md`](GLOSSARY.md), con términos del dominio.
-
-**Criterio documental:** `XeonContexto.md` describe la visión del producto. En este README,
-«implementado» significa que hay código y pruebas que lo respaldan. Si una especificación y el
-código divergen, registrar la diferencia antes de ampliar la función.
-
----
-
-## 2. Flujo de Trabajo del Proyecto (De Punta a Punta)
-
-![XEON: consulta comercial, datos sintéticos y borrador calculado por el backend](assets/readme/xeon-overview.svg)
-
-El recorrido de demostración comienza con una consulta de texto, pasa por el backend y termina
-con una respuesta o un borrador. Puede entrar por `POST /v1/chat` o por el webhook de WhatsApp.
-
-```mermaid
-flowchart LR
-    C[Consulta de texto] --> A[FastAPI]
-    W[Webhook Evolution API] --> F[Filtro y deduplicación] --> A
-    A --> S[AgentService]
-    S --> T[HermesToolbelt local]
-    T --> P[Catálogo sintético]
-    T --> I[Inventario sintético]
-    T --> Q[Borrador DRAFT en memoria]
-    S --> L[LLMPort: Grok por defecto / mock / Groq / Hermes]
-    L --> R[Respuesta]
-    R --> E[Envío opcional por Evolution API]
-```
-
-1. **Entrada.** La API recibe texto. En WhatsApp, el adaptador acepta eventos
-   `messages.upsert`, ignora grupos, estados y ecos del propio bot, y deduplica hasta 1024 IDs
-   por instancia **en memoria del proceso**. Con `WHATSAPP_REQUIRE_PREFIX=true`, exige `/xeon`
-   o `#xeon`. El endpoint no verifica una firma del proveedor ni autentica al comprador.
-2. **Contexto comercial.** `HermesToolbelt` busca SKU o alias exactos; para consultas descriptivas
-   puntúa palabras de nombre, alias, atributos `Product.specs` y `description_context`. Es una
-   búsqueda local por tokens, no una consulta a JSONB ni un RAG vectorial. También consulta
-   snapshots sintéticos de stock y, si detecta cantidad, intenta crear un borrador de una línea.
-3. **Reglas del backend.** `CreateQuoteDraft` solo acepta SKU o alias exactos, calcula con
-   `Decimal`, rechaza descuentos sin política y guarda un `DRAFT` versión 1. La clave
-   `(tenant_id, request_id)` evita duplicar ese borrador mientras viva el mismo proceso. Un
-   producto ambiguo o medidas sin unidad deben aclararse antes de confirmar una referencia.
-4. **Respuesta.** `AgentService` incorpora el contexto al prompt y llama al `LLMPort`. `mock`
-   responde localmente en pruebas; `grok`, `hermes` y `groq` usan el adaptador HTTP OpenAI compatible. La clase
-   `HermesToolbelt` no ejecuta por sí misma el ciclo de herramientas de Hermes: prepara contexto
-   antes de la llamada al modelo. El envío por WhatsApp solo se intenta cuando
-   `WHATSAPP_SEND_ENABLED=true`.
-
-> [!WARNING]
-> En el chat, el código actual toma el primer candidato de una búsqueda descriptiva para
-> consultar stock y podría crear un borrador si encuentra una cantidad. **No interpretes ese
-> candidato como referencia confirmada por el comprador.** Para el flujo de cotización
-> explícito usa `POST /v1/quotes` con SKU o alias exacto. La confirmación conversacional de
-> candidatos múltiples sigue pendiente.
-
-La vigencia `fresh`, `stale` o `unknown` se calcula sobre snapshots sintéticos y un instante
-inyectado. Una fuente caída o un SKU desconocido no equivalen a «agotado». El webhook devuelve
-`LOCAL_ONLY` cuando no está habilitado el envío; una respuesta `ACCEPTED_BY_PROVIDER` indica
-aceptación por Evolution API, no entrega comprobada al teléfono.
-
-El catálogo de demostración incorpora 2000 productos sintéticos con procedencia explícita y
-snapshots de inventario ficticios. `CommercialScopePolicy` bloquea preguntas ajenas al comercio
-antes de llamar al modelo y separa la parte comercial de solicitudes mixtas.
-`CustomerResponsePolicy` filtra códigos internos, marcadores técnicos y enlaces no registrados
-en las respuestas de proveedores reales. El perfil `mock` conserva marcadores de diagnóstico
-para las pruebas. La memoria conversacional guarda un historial corto y el último SKU, con
-límite de turnos y de conversaciones; no implementa un carrito ni la confirmación de selección
-conversacional.
-
----
-
-## 3. Estructura del Repositorio y Fronteras Hexagonales
-
-```text
-src/xeon/
-├── domain/                 Money, Product, Quote, StockSnapshot e invariantes
-├── application/            Casos de uso y puertos (Protocol)
-│   └── container.py        AppContainer: composición de adaptadores
-├── agent/                  AgentService, prompt y HermesToolbelt local
-├── adapters/
-│   ├── catalog/            Catálogo sintético en memoria
-│   ├── inventory/          Snapshots de stock en memoria
-│   ├── persistence/        Borradores e idempotencia en memoria
-│   ├── llm/                Mock y cliente HTTP OpenAI compatible
-│   └── channels/           Parser y envío mediante Evolution API
-├── api/                    Endpoints FastAPI y esquemas Pydantic
-├── cli.py                  Cliente Typer de la API
-└── config.py               Configuración tipada
-scripts/                    Simulación y aprovisionamiento de Evolution API
-tests/                      Pruebas de dominio, API, CLI y adaptadores
-video/xeon-remotion/        Video Remotion y demo interactiva en perfil mock
-```
-
-La arquitectura es **hexagonal, organizada por cortes verticales comerciales**: catálogo,
-inventario, cotización y conversación tienen dominio o casos de uso, puertos y adaptadores. El
-dominio no importa FastAPI ni HTTPX. `AppContainer` selecciona las implementaciones en memoria
-y el proveedor LLM; FastAPI y Typer son interfaces de entrada.
-
-**Tecnologías realmente instaladas en XEON:** Python 3.14.8, `uv`, FastAPI, Pydantic Settings,
-Typer, HTTPX, Uvicorn, Ruff, mypy y Pytest. Docker empaqueta la API. El Compose opcional agrega
-Evolution API, PostgreSQL y Redis para **la sesión de WhatsApp**; ese PostgreSQL no almacena aún
-el catálogo, inventario ni las cotizaciones de XEON. SQLAlchemy, Alembic, pgvector y WeasyPrint
-pertenecen al diseño futuro, no a las dependencias actuales de `pyproject.toml`.
-
----
-
-## 4. Guía para el Siguiente Desarrollador (Instalación desde Cero)
-
-### 4.1. Requisitos previos
-
-- `uv` y acceso para instalar Python 3.14.8.
-- PowerShell en Windows para los ejemplos siguientes; los comandos `uv` también funcionan en
-  otras plataformas.
-- Docker Compose solo para el canal WhatsApp; Hermes CLI solo para probar su puente local.
-
-### 4.2. Primer uso: API y CLI en modo `mock`
-
-Esta es una prueba local sin red que fuerza `mock`; el perfil normal es `grok` y requiere el
-archivo de clave indicado arriba. Desde la raíz del repositorio, en la rama `developer/daniel`
-o una rama corta derivada:
-
-```powershell
-git branch --show-current
-uv python install 3.14.8
-uv sync --locked
-$env:LLM_PROVIDER = "mock"
-uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
-```
-
-En otra terminal, desde la misma carpeta:
-
-```powershell
-uv run xeon health
-uv run xeon chat "cemento"
-uv run xeon quotes create --tenant-id demo --request-id demo-001 --line CEM-50:2
-```
-
-La última orden devuelve JSON con `outcome: draft_ready`, estado `DRAFT`, una línea y totales
-calculados por el backend. Con el catálogo sintético actual, `CEM-50` cuesta `28900.00` COP por
-bulto; dos bultos producen `57800.00` COP antes de descuentos. Ejecutar otra vez la orden con
-el mismo `tenant_id` y `request_id` devuelve el mismo borrador con `replayed: true`, siempre
-que la API no se haya reiniciado.
-
-Para simular el webhook sin Docker ni teléfono:
-
-```powershell
-uv run python scripts/simulate_whatsapp_webhook.py --provider mock --message "/xeon necesito 2 bultos de cemento"
-```
-
-En modo `mock` no hay solicitudes al proveedor LLM. Es una demostración funcional local,
-no una prueba de conexión con Grok, Groq, Hermes o WhatsApp real.
-
-### 4.3. Perfiles de IA y canal opcional
-
-| Perfil | Configuración | Efecto |
-|---|---|---|
-| `grok` (predeterminado) | `secrets/grok_api_key.txt`; URL `https://api.reto.pltk.mx/v1` y modelo `grok-4.20-0309-non-reasoning` | Usa la pasarela del reto; requiere prueba real deliberada. |
-| `mock` | `$env:LLM_PROVIDER = "mock"` | Pruebas locales sin red ni créditos de inferencia. |
-| `hermes` | `$env:LLM_PROVIDER = "hermes"` y servidor compatible en `HERMES_BASE_URL` | Envía chat al servicio HTTP local de Hermes; el modelo se selecciona con `HERMES_MODEL`. |
-| `groq` | `$env:LLM_PROVIDER = "groq"` y `GROQ_API_KEY_FILE` | Alternativa por Groq; pueden aplicar límites o costos. |
-
-`hermes` requiere que el servidor HTTP de Hermes esté realmente disponible en la URL configurada.
-El comando y las opciones para iniciarlo dependen de la versión instalada de Hermes; comprobar
-su ayuda local antes de usarlo. El puente no instala Hermes dentro del repositorio.
-
-Para la prueba con Evolution API, revisar primero [`compose.evolution.yaml`](compose.evolution.yaml)
-y configurar credenciales propias fuera de Git. El Compose principal usa Grok por defecto y
-monta `secrets/grok_api_key.txt` como `/run/secrets/grok_api_key`; ese archivo debe existir antes
-de iniciar el servicio `api`. Después:
-
-```powershell
-docker compose -f compose.yaml -f compose.evolution.yaml --profile core up -d --build
-uv run python scripts/setup_evolution_whatsapp.py
-```
-
-El segundo comando configura una instancia de prueba y, si Evolution API devuelve un QR, lo
-guarda como `qr_whatsapp.png` para vincular un teléfono. Por defecto, este perfil activa el
-envío y exige el prefijo `/xeon` o `#xeon`. La recepción y entrega con un número real requieren
-una prueba manual; la suite automatizada usa transportes simulados. Los servicios de terceros
-pueden cambiar sus condiciones y límites de uso.
-
-**Seguridad local:** no copiar claves en el README, prompts, capturas ni commits. Consulta
-[`AGENTS.md`](AGENTS.md) y [`CONTRIBUTING.md`](CONTRIBUTING.md) para el manejo de secretos y
-la revisión de cambios. Los valores de demostración del Compose no son credenciales de
-producción. La API y el webhook carecen hoy de autenticación; limita su exposición a un
-entorno local de pruebas.
-
----
-
-## 5. Cómo Testear Todas las Funcionalidades (4 Niveles de Prueba)
-
-### Nivel 1. Calidad y suite automatizada
-
-```powershell
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy src
-uv run pytest
-```
-
-Las pruebas cubren dominio monetario, ambigüedad de producto, cotización, stock, API, CLI,
-adaptadores LLM y contrato del webhook. Usan `mock` o dobles HTTP; su aprobación no demuestra
-una conexión real a Grok, Groq, Hermes ni WhatsApp. El número de pruebas puede cambiar en cada corte.
-
-### Nivel 2. Demostración local sintética
-
-Ejecuta los comandos de [4.2](#42-primer-uso-api-y-cli-en-modo-mock). Comprueba además
-`uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --requested-quantity 50 --evaluated-at 2026-10-08T15:00:00+00:00`.
-La fecha es parte de los fixtures sintéticos para demostrar la clasificación de vigencia;
-no representa el inventario del día actual.
-
-### Nivel 3. Integración opcional con LLM externo
-
-El orquestador puede probar `grok` o seleccionar `hermes`/`groq` según
-[4.3](#43-perfiles-de-ia-y-canal-opcional) y ejecutar
-`uv run xeon chat "cemento"` con la API iniciada bajo ese perfil. Revisa la respuesta y los
-errores HTTP del proveedor. Esta prueba puede consumir cuota de API.
-
-### Nivel 4. Integración opcional con WhatsApp
-
-Levanta el Compose, vincula el QR y envía desde un teléfono de prueba un mensaje que comience
-por `/xeon`. Confirma en el chat real la respuesta y comprueba que un mensaje sin prefijo se
-ignore. Esta verificación no está cubierta por el resultado de Pytest.
-
----
-
-## 6. Herramienta CLI Actual (`uv run xeon`)
-
-La CLI habla con la API HTTP. La API debe estar en `http://127.0.0.1:8000`, o debes pasar
-`--base-url` al comando. No consulta los repositorios en memoria directamente.
-
-| Comando | Función |
-|---|---|
-| `uv run xeon health` | Estado de la API y proveedor LLM activo, sin mostrar claves. |
-| `uv run xeon chat "cemento"` | Un turno de conversación por `POST /v1/chat`. |
-| `uv run xeon quotes create --tenant-id demo --request-id demo-001 --line CEM-50:2` | Crear o recuperar un `DRAFT`; repetir `--line` para varias referencias exactas. |
-| `uv run xeon quotes show <UUID> --tenant-id demo` | Consultar el borrador existente en el mismo proceso. |
-| `uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00 --requested-quantity 50` | Ver origen, tipo, vigencia y faltante del stock sintético. |
-
-**Endpoints:** `GET /health`, `POST /v1/chat`, `POST /v1/quotes`,
-`GET /v1/quotes/{quote_id}`, `GET /v1/stock` y
-`POST /v1/channels/whatsapp/webhook`. FastAPI publica el contrato interactivo en
-`http://127.0.0.1:8000/docs` cuando el servidor está activo. El detalle de entrada y salida
-se define en [`src/xeon/api/schemas.py`](src/xeon/api/schemas.py).
-
-Las cotizaciones explícitas no ejecutan el LLM. Si `--discount-requested` está presente,
-la API devuelve `discount_policy_unavailable`, porque no existe una política aprobada. Una
-consulta que no sea SKU o alias exacto no crea un borrador; puede devolver
-`clarification_required` o `product_not_found`.
-
----
-
-## 7. Ideas de Evolución: Futura CLI y Flujo Copiloto con Gmail (Post-MVP)
-
-Esta sección describe **trabajo planeado**, sin comandos operativos todavía:
-
-1. Persistir catálogo, stock y borradores de XEON en PostgreSQL 17 con esquema relacional,
-   atributos `JSONB`, búsqueda vectorial `pgvector` y migraciones Alembic.
-2. Confirmar con el comprador un SKU ambiguo antes de usarlo en stock o borrador; conservar
-   esa elección a lo largo de la conversación.
-3. Aplicar políticas de descuento versionadas, aprobación humana por versión y generación
-   de PDF de la cotización autorizada.
-4. Enviar al trabajador una hoja de alistamiento multi-sede y una solicitud de confirmación
-   por correo; solo tras aprobar la versión vigente, avisar al comprador por WhatsApp.
-5. Extender la CLI con bandeja de borradores, diagnóstico de integraciones y acciones de
-   aprobación sujetas a permisos.
-
-Ninguna función de esta lista debe anunciarse como disponible en una demostración actual.
-
----
-
-## 8. Estado del Corte Actual
-
-| Área | Estado verificable | Falta para uso empresarial |
-|---|---|---|
-| Dominio y cotizador | `Money`, `Product`, `StockSnapshot`, `Quote` y casos de uso con pruebas. | Persistencia, concurrencia, precios y stock reales. |
-| Búsqueda | Exacta y puntuación léxica sobre datos sintéticos. | Índices JSONB, embeddings, pgvector y confirmación conversacional del SKU. |
-| Alcance y respuesta | Política de alcance comercial antes del LLM y filtro de salida en proveedores reales. | Pruebas con proveedor real y reglas empresariales configurables. |
-| IA | `AgentService`, `HermesToolbelt`, `LLMPort`, Grok predeterminado, Mock y adaptador OpenAI compatible. | Validar el flujo real de Grok mediante la pasarela y una orquestación de herramientas más controlada. |
-| WhatsApp | Parser, webhook, filtro por prefijo, deduplicación local y adaptador de envío. | Autenticación del webhook, deduplicación persistente y prueba de entrega real. |
-| Operación | CLI, API y Docker para entorno local. | Autenticación/autorización, auditoría, despliegue y monitoreo. |
-
-Para contribuir, sigue el formato de commits `Type: :emoji: ActionInCamelCase` indicado en
-[`CONTRIBUTING.md`](CONTRIBUTING.md) y ejecuta los cuatro controles del [nivel 1](#nivel-1-calidad-y-suite-automatizada).
+## 11. Contribuir
+
+- Trabaja en `developer/<nombre>` o una rama corta derivada; los PR van hacia `develop`.
+- Commits: `Type: :gitmoji: ActionInUpperCamelCase`, con la acción en inglés y sin punto final
+  (`Feat: :sparkles: AddXeonTacticalAgentShell`). Los agentes no figuran como autores ni coautores.
+- Ejecuta los cuatro controles de la [sección 7](#7-pruebas) antes de abrir un PR.
+- Detalle en [`CONTRIBUTING.md`](CONTRIBUTING.md).

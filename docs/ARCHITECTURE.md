@@ -75,6 +75,24 @@ GET /v1/stock  CLI stock show
 en memoria los indexa por SKU, alias y atributos; el inventario en memoria crea snapshots
 sinteticos correspondientes. Son datos de demostracion, no precios ni existencias empresariales.
 
+### 1.2. Memoria de conversacion e idempotencia
+- `ConversationMemory` (puerto en `application/ports/conversation_memory.py`) guarda por
+  conversacion los ultimos `conversation_max_turns` turnos y el ultimo SKU identificado;
+  `adapters/conversation/memory.py` la implementa en proceso con expulsion LRU.
+- `AgentService.respond(message, *, conversation_key, request_id)` envia ese historial al LLM y,
+  ante referencias como «ese mismo», usa el ultimo SKU de forma determinista.
+- El webhook deriva `request_id=wa-{instance}-{external_message_id}`: un mensaje repetido reutiliza
+  el mismo borrador gracias a la idempotencia `(tenant_id, request_id)`.
+- Un pedido de descuento detectado en el chat se propaga como `discount_requested=True`; sin
+  politica no se crea borrador.
+
+### 1.3. XEON CLI (Tactical Agent Shell)
+- `xeon` sin subcomando abre el shell (`src/xeon/shell/`): `theme` (tokens), `commands` (alias
+  puros), `session` (estado y motor en proceso o HTTP con `--api`), `render` (vistas Rich por
+  ancho) y `app` (bucle y ciclo de vida de la terminal).
+- Es una interfaz de entrada como FastAPI y Typer: delega en `build_container`/`AgentService` y no
+  contiene reglas comerciales. Degrada a texto plano con `NO_COLOR`, sin TTY o sin UTF-8.
+
 ### 2. Canal WhatsApp sin costo con Evolution API
 - `POST /v1/channels/whatsapp/webhook` recibe eventos `messages.upsert` desde una instancia local de
   **Evolution API**, ignorando mensajes propios (`fromMe=True`), estados y grupos.
