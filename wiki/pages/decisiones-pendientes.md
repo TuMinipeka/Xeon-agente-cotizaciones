@@ -2,7 +2,7 @@
 
 ## D1 — Cómo expresar el alcance técnico vigente
 
-El [documento funcional](../../XeonContexto.md) presenta PostgreSQL 17, JSONB, pgvector, búsqueda RAG y aprobación con PDF dentro del recorrido/MVP; su introducción habla de un núcleo implementado. La [arquitectura](../../docs/ARCHITECTURE.md), líneas 101-105, y el [README](../../README.md), líneas 12-16 y 42-46, dicen que persistencia empresarial, búsqueda vectorial, aprobación y PDF siguen pendientes. El [contenedor](../../src/xeon/application/container.py) usa adaptadores en memoria y el [catálogo](../../src/xeon/adapters/catalog/memory.py) puntúa coincidencias de palabras.
+El [documento funcional](../../docs/XeonContexto.md) presenta PostgreSQL 17, JSONB, pgvector, búsqueda RAG y aprobación con PDF dentro del recorrido/MVP; su introducción habla de un núcleo implementado. La [arquitectura](../../docs/ARCHITECTURE.md), líneas 101-105, y el [README](../../README.md), líneas 12-16 y 42-46, dicen que persistencia empresarial, búsqueda vectorial, aprobación y PDF siguen pendientes. El [contenedor](../../src/xeon/application/container.py) usa adaptadores en memoria y el [catálogo](../../src/xeon/adapters/catalog/memory.py) puntúa coincidencias de palabras.
 
 **Impacto:** un lector podría interpretar una arquitectura objetivo como una capacidad lista para operar. **Estado:** discrepancia confirmada; no se resolvió alterando documentos o código.
 
@@ -129,3 +129,17 @@ El usuario confirmó el 2026-10-24 que la prueba por WhatsApp con Kapso respondi
     - se confirma en un commit el borrado de `Xeon.png`, `video/.../xeon.png` y `.interface-design/system.md`.
 - **Reparto:** Codex se encarga del código; el orquestador, de la documentación, la wiki y los restos locales; agy, de la QA final.
 - **Efectos en la wiki:** se retira `metodo-arquitectura.md` (dependía de `references/`) y D2 queda cerrada al eliminarse esa referencia.
+
+## D10: Organización de la raíz del repositorio
+
+El usuario pidió el 2026-10-24 ordenar los archivos sueltos aplicando buenas prácticas.
+
+- **Resolución (usuario):**
+  - **Se quedan en la raíz** los archivos que exigen las herramientas o las convenciones: `README.md`, `CONTRIBUTING.md`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` (las CLI los cargan desde la raíz), `pyproject.toml`, `uv.lock`, `.python-version`, `Dockerfile`, `.dockerignore`, `compose.yaml`, `compose.groq.yaml`, `.env.example`, `.gitignore` y `skills-lock.json`.
+  - **Se mueven con `git mv`:**
+    - `XeonContexto.md` → `docs/XeonContexto.md`;
+    - `GLOSSARY.md` → `docs/GLOSSARY.md`;
+    - `logo-oficial-definitivo.png` → `assets/brand/xeon-logo.png`;
+    - `XeonCli.png` → `assets/readme/xeon-cli.png`.
+  - **Nuevo:** `docs/README.md` como índice de la documentación.
+- **Efecto:** la fuente de verdad pasa a `docs/XeonContexto.md`. El orden de lectura no cambia: `docs/XeonContexto.md` → `docs/ARCHITECTURE.md` → `CONTRIBUTING.md`.

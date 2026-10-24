@@ -5,7 +5,7 @@ Equivale al `tools_spec` del protocolo original. Define las entradas, salidas y 
 Revisado: 2026-10-24. Fuentes:
 
 - Código: `src/xeon/agent/toolbelt.py` (antes `hermes.py`; los números de línea citados abajo corresponden a la versión anterior). Los marcadores de contexto pasaron de `HERMES_TOOL` a `XEON_TOOL`.
-- Documento funcional: [XeonContexto §7](../../XeonContexto.md), líneas 133-139.
+- Documento funcional: [XeonContexto §7](../../docs/XeonContexto.md), líneas 133-139.
 
 Estado de las tres herramientas: `implementado` (inspección estática).
 

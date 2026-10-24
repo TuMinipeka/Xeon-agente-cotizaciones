@@ -6,7 +6,7 @@
 - **Wiki:** `pages/` contiene las síntesis; `index.md` orienta la navegación; `log.md` registra operaciones. El agente puede editar esta capa.
 - **Esquema:** este archivo define las reglas. Una modificación de reglas se registra en el log y se revisa con el usuario si cambia el significado de las fuentes.
 
-Orden de lectura obligatorio para XEON: `XeonContexto.md`, `docs/ARCHITECTURE.md`, `CONTRIBUTING.md`; después contrastar `README.md`, código y pruebas. Ante diferencias, documentar ambas posiciones y dejar una decisión explícita pendiente. No completar vacíos con suposiciones.
+Orden de lectura obligatorio para XEON: `docs/XeonContexto.md`, `docs/ARCHITECTURE.md`, `CONTRIBUTING.md`; después contrastar `README.md`, código y pruebas. Ante diferencias, documentar ambas posiciones y dejar una decisión explícita pendiente. No completar vacíos con suposiciones.
 
 ## Formato de página
 

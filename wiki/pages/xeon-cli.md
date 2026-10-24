@@ -6,7 +6,7 @@ Revisado: 2026-10-24. Estado: **`implementado`**. Commits `5286b02` (shell) y `d
 
 ## Fuentes de diseño
 
-- **Diseño visual del usuario:** [`XeonCli.png`](../../XeonCli.png). Contiene el logo de tortuga con X, el título `XEON CLI`, el subtítulo `Tactical Agent Shell`, un panel `system ready` (versión, modo, perfil), un panel `// AVAILABLE COMMANDS` y el prompt `xeon >`, en verde neón sobre fondo negro.
+- **Diseño visual del usuario:** [`assets/readme/xeon-cli.png`](../../assets/readme/xeon-cli.png). Contiene el logo de tortuga con X, el título `XEON CLI`, el subtítulo `Tactical Agent Shell`, un panel `system ready` (versión, modo, perfil), un panel `// AVAILABLE COMMANDS` y el prompt `xeon >`, en verde neón sobre fondo negro.
 - **Skills instaladas el 2026-10-24** en `.agents/skills/` (con enlace en `.claude/skills/`):
   - `tui-design` (diegomarino): estructura visual, tokens de color, glifos de ancho simple, estados × tamaños y pistas en el pie.
   - `tui-fundamentals` (josiahsiegel): separar modelo, actualización y vista; tratar el tamaño como entrada; degradación con `NO_COLOR`, sin TTY y `TERM=dumb`; equivalentes no interactivos.

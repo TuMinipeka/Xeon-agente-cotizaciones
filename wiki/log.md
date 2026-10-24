@@ -118,3 +118,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
   - El de un argumento del README no se reprodujo: la versión vigente usa los argumentos correctos.
   - Los restos en `hito-s2.md`, `contratos-herramientas.md` y `canal-kapso.md` fueron corregidos por el orquestador.
 - **Inbox:** se integraron y retiraron las notas `codex-docs-cleanup` y `agy-cleanup-qa`.
+
+## [2026-10-24] organización | Raíz del repositorio (D10)
+
+- **Movidos con `git mv`** (Codex): `XeonContexto.md` y `GLOSSARY.md` a `docs/`, el logo a `assets/brand/xeon-logo.png` y el diseño del CLI a `assets/readme/xeon-cli.png`.
+- **Nuevos:** `docs/README.md` (índice) y `scripts/check_doc_links.py` (25 enlaces del repositorio, 0 rotos).
+- **Wiki:** el orquestador reescribió los enlaces en 9 páginas; 132 enlaces revisados, 0 rotos.
+- **Raíz final:** solo los archivos que exigen las herramientas o las convenciones.
+- **Verificación:** 146 pruebas en verde.
