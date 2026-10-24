@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from xeon.agent.customer_safety import CustomerResponsePolicy
-from xeon.agent.hermes import HermesToolbelt
 from xeon.agent.prompts import SYSTEM_PROMPT
+from xeon.agent.toolbelt import CommercialToolbelt
 from xeon.application.commercial_scope import CommercialScopePolicy
 from xeon.application.ports.conversation_memory import ConversationMemory
 from xeon.application.ports.llm import ChatMessage, LLMPort, LLMResponse
@@ -17,7 +17,7 @@ class AgentService:
     def __init__(
         self,
         llm: LLMPort,
-        tools: HermesToolbelt | None = None,
+        tools: CommercialToolbelt | None = None,
         memory: ConversationMemory | None = None,
         *,
         scope_policy: CommercialScopePolicy | None = None,
@@ -30,7 +30,7 @@ class AgentService:
         self._response_policy = response_policy or CustomerResponsePolicy()
 
     @property
-    def tools(self) -> HermesToolbelt | None:
+    def tools(self) -> CommercialToolbelt | None:
         return self._tools
 
     async def respond(

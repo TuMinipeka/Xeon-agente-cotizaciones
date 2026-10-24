@@ -6,7 +6,7 @@ import httpx
 
 from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.llm.openai_compatible import OpenAICompatibleLLM
-from xeon.agent.hermes import _requests_discount
+from xeon.agent.toolbelt import _requests_discount
 from xeon.api.app import create_app
 from xeon.config import Settings
 

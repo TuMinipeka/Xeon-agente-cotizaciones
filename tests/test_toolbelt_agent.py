@@ -9,10 +9,10 @@ from xeon.application.quote_draft import DraftLineRequest, QuoteDraftReady
 from xeon.config import Settings
 
 
-def test_hermes_search_resolves_semantic_and_specs_queries_with_db_prices() -> None:
+def test_commercial_search_resolves_semantic_and_specs_queries_with_db_prices() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
 
-    fencing = container.hermes_tools.search_products(
+    fencing = container.commercial_tools.search_products(
         "necesito algo para cercar ganado en un potrero"
     )
     assert fencing.status == "semantic_candidates"
@@ -20,37 +20,37 @@ def test_hermes_search_resolves_semantic_and_specs_queries_with_db_prices() -> N
     assert fencing.candidates[0].unit_price == "1850.00"
     assert fencing.candidates[0].specs["calibre"] == "14"
 
-    pipe = container.hermes_tools.search_products("tuberia para agua fria de 200 psi")
+    pipe = container.commercial_tools.search_products("tuberia para agua fria de 200 psi")
     assert pipe.status == "semantic_candidates"
     assert pipe.candidates[0].sku == "TUB-PVC-20"
     assert pipe.candidates[0].unit_price == "4200.00"
     assert pipe.candidates[0].specs["presion_psi"] == "200"
 
 
-def test_hermes_search_requires_clarification_on_ambiguous_or_unitless_input() -> None:
+def test_commercial_search_requires_clarification_on_ambiguous_or_unitless_input() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
 
-    ambiguous = container.hermes_tools.search_products("el coso del aire")
+    ambiguous = container.commercial_tools.search_products("el coso del aire")
     assert ambiguous.status == "clarification_required"
     assert ambiguous.clarification_reason == "ambiguous_reference"
 
-    unitless = container.hermes_tools.search_products("la pieza mide 20 x 30 x 10")
+    unitless = container.commercial_tools.search_products("la pieza mide 20 x 30 x 10")
     assert unitless.status == "clarification_required"
     assert unitless.clarification_reason == "missing_units"
 
 
-def test_hermes_tools_delegate_pricing_and_stock_to_deterministic_backend() -> None:
+def test_commercial_tools_delegate_pricing_and_stock_to_deterministic_backend() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
 
-    draft_result = container.hermes_tools.create_quote_draft(
+    draft_result = container.commercial_tools.create_quote_draft(
         tenant_id="demo",
-        request_id="hermes-req-1",
+        request_id="xeon-req-1",
         lines=(DraftLineRequest(query="CEM-50", quantity=Decimal("10")),),
     )
     assert isinstance(draft_result, QuoteDraftReady)
     assert str(draft_result.quote.total.amount) == "289000.00"
 
-    stock_result = container.hermes_tools.get_stock_by_branches(
+    stock_result = container.commercial_tools.get_stock_by_branches(
         sku="CEM-50",
         requested_branch_id="sede-norte",
         evaluated_at="2026-10-08T15:00:00+00:00",
@@ -61,7 +61,7 @@ def test_hermes_tools_delegate_pricing_and_stock_to_deterministic_backend() -> N
     assert stock_result.shortfall == Decimal("30")
 
 
-def test_chat_endpoint_surfaces_hermes_verified_candidates() -> None:
+def test_chat_endpoint_surfaces_verified_candidates() -> None:
     async def run() -> httpx.Response:
         settings = Settings(llm_provider="mock", _env_file=None)
         transport = httpx.ASGITransport(app=create_app(settings=settings))
@@ -76,20 +76,3 @@ def test_chat_endpoint_surfaces_hermes_verified_candidates() -> None:
     reply = response.json()["reply"]
     assert "CEM-50" in reply
     assert "28900.00" in reply
-
-
-def test_hermes_provider_builds_local_api_bridge_with_temporary_model() -> None:
-    settings = Settings(
-        llm_provider="hermes",
-        hermes_base_url="http://127.0.0.1:8642/v1",
-        hermes_model="gpt-5.6-luna",
-        _env_file=None,
-    )
-    container = build_container(settings)
-    try:
-        assert (
-            settings.resolve_hermes_api_key().get_secret_value() == "xeon-hermes-local-bridge-2026"
-        )
-        assert container.settings.hermes_model == "gpt-5.6-luna"
-    finally:
-        asyncio.run(container.aclose())

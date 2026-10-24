@@ -5,12 +5,11 @@ from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import BackgroundTasks, Body, FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 
-from xeon.adapters.channels.evolution import parse_evolution_webhook
 from xeon.adapters.channels.kapso import parse_kapso_webhook, verify_kapso_signature
 from xeon.adapters.llm.openai_compatible import LLMProviderError
 from xeon.api.schemas import (
@@ -23,7 +22,6 @@ from xeon.api.schemas import (
     QuoteLineOut,
     QuoteOutcomeResponse,
     StockByBranchesOut,
-    WhatsAppWebhookResponse,
 )
 from xeon.application.container import AppContainer, build_container
 from xeon.application.ports.catalog import ProductCatalog
@@ -134,7 +132,6 @@ def create_app(
         llm=llm,
         whatsapp_channel=whatsapp_channel,
     )
-    seen_webhook_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
     seen_kapso_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
 
     @asynccontextmanager
@@ -146,7 +143,7 @@ def create_app(
         title="XEON API",
         version="0.1.0",
         description=(
-            "API local de XEON orquestada con Hermes y canal WhatsApp (Kapso o Evolution API). "
+            "API local de XEON con canal WhatsApp por Kapso. "
             "El chat interpreta; el cotizador calcula borradores DRAFT. "
             "No emite ni aprueba cotizaciones."
         ),
@@ -173,66 +170,6 @@ def create_app(
         return ChatResponse(
             conversation_id=request.conversation_id,
             reply=result.text,
-            provider=result.provider,
-            model=result.model,
-        )
-
-    @application.post(
-        "/v1/channels/whatsapp/webhook",
-        response_model=WhatsAppWebhookResponse,
-    )
-    async def whatsapp_webhook(
-        payload: Annotated[dict[str, Any], Body()],
-    ) -> WhatsAppWebhookResponse:
-        incoming = parse_evolution_webhook(
-            payload,
-            require_prefix=runtime.settings.whatsapp_require_prefix,
-        )
-        if incoming is None:
-            return WhatsAppWebhookResponse(status="ignored")
-
-        dedup_key = (incoming.instance, incoming.external_message_id)
-        if dedup_key in seen_webhook_messages:
-            return WhatsAppWebhookResponse(
-                status="ignored",
-                instance=incoming.instance,
-                external_message_id=incoming.external_message_id,
-                sender_number=incoming.sender_number,
-            )
-        seen_webhook_messages[dedup_key] = None
-        while len(seen_webhook_messages) > _MAX_SEEN_WEBHOOK_IDS:
-            seen_webhook_messages.popitem(last=False)
-
-        try:
-            result = await runtime.agent.respond(
-                incoming.text,
-                conversation_key=f"wa-{incoming.instance}-{incoming.sender_number}",
-                request_id=f"wa-{incoming.instance}-{incoming.external_message_id}",
-            )
-        except LLMProviderError as exc:
-            seen_webhook_messages.pop(dedup_key, None)
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-        delivery_status = "LOCAL_ONLY"
-        if runtime.whatsapp_channel is not None:
-            try:
-                outbound_text = f"🛠️ *XEON Cotizador*\n{result.text}"
-                receipt = await runtime.whatsapp_channel.send_text(
-                    recipient_number=incoming.sender_number,
-                    text=outbound_text,
-                )
-                delivery_status = receipt.status
-            except ChannelDeliveryError as exc:
-                seen_webhook_messages.pop(dedup_key, None)
-                raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-        return WhatsAppWebhookResponse(
-            status="processed",
-            instance=incoming.instance,
-            external_message_id=incoming.external_message_id,
-            sender_number=incoming.sender_number,
-            reply=result.text,
-            delivery_status=delivery_status,
             provider=result.provider,
             model=result.model,
         )

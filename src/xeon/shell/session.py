@@ -51,8 +51,6 @@ class InProcessEngine:
             return settings.grok_base_url
         if self.provider == "groq":
             return settings.llm_base_url
-        if self.provider == "hermes":
-            return settings.hermes_base_url
         return "local"
 
     async def run(self, message: str, conversation_id: UUID) -> str:
@@ -160,7 +158,7 @@ def key_status(settings: Settings) -> str:
         return _key_configured(settings.grok_api_key, settings.grok_api_key_file)
     if settings.llm_provider == "groq":
         return _key_configured(settings.groq_api_key, settings.groq_api_key_file)
-    return _key_configured(settings.hermes_api_key, settings.hermes_api_key_file)
+    return "not required"
 
 
 def _key_configured(value: SecretStr | None, path: Path | None) -> str:

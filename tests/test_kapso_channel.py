@@ -9,7 +9,6 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from xeon.adapters.channels.evolution import EvolutionAPIChannelAdapter
 from xeon.adapters.channels.kapso import KapsoChannelAdapter
 from xeon.agent.service import AgentService
 from xeon.api.app import create_app
@@ -39,7 +38,6 @@ def _headers(raw: bytes, *, event: str = "whatsapp.message.received") -> dict[st
 def _settings() -> Settings:
     return Settings(
         llm_provider="mock",
-        whatsapp_channel="kapso",
         kapso_webhook_secret=SecretStr(SECRET),
         kapso_webhook_secret_file=None,
         _env_file=None,
@@ -182,7 +180,7 @@ def test_signed_batch_processes_each_text_message_once() -> None:
     assert len(sent) == 2
 
 
-def test_container_selects_kapso_by_default_and_evolution_as_override() -> None:
+def test_container_selects_kapso_when_sending_is_enabled() -> None:
     async def run() -> None:
         kapso = build_container(
             Settings(
@@ -195,17 +193,6 @@ def test_container_selects_kapso_by_default_and_evolution_as_override() -> None:
         )
         assert isinstance(kapso.whatsapp_channel, KapsoChannelAdapter)
         await kapso.aclose()
-        evolution = build_container(
-            Settings(
-                llm_provider="mock",
-                whatsapp_send_enabled=True,
-                whatsapp_channel="evolution",
-                evolution_api_key=SecretStr("test-evolution-key"),
-                _env_file=None,
-            )
-        )
-        assert isinstance(evolution.whatsapp_channel, EvolutionAPIChannelAdapter)
-        await evolution.aclose()
 
     asyncio.run(run())
 

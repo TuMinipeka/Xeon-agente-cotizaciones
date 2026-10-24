@@ -19,16 +19,16 @@ services:
       LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-2048}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
       AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-6}
-      HERMES_BASE_URL: ${HERMES_BASE_URL:-http://host.docker.internal:8642/v1}
-      HERMES_MODEL: ${HERMES_MODEL:-gpt-5.6-luna}
-      HERMES_API_KEY: ${HERMES_API_KEY:-xeon-hermes-local-bridge-2026}
       WHATSAPP_SEND_ENABLED: ${WHATSAPP_SEND_ENABLED:-false}
-      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-http://evolution-api:8080}
-      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-xeon-ferreteria}
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-xeon-evolution-local-key}
+      KAPSO_API_BASE_URL: ${KAPSO_API_BASE_URL:-https://api.kapso.ai}
+      KAPSO_API_KEY: ${KAPSO_API_KEY:-}
+      KAPSO_PHONE_NUMBER_ID: ${KAPSO_PHONE_NUMBER_ID:-}
+      KAPSO_WEBHOOK_SECRET_FILE: /run/secrets/kapso_webhook_secret
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v24.0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     secrets:
       - grok_api_key
+      - kapso_webhook_secret
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -48,4 +48,6 @@ services:
 secrets:
   grok_api_key:
     file: ./secrets/grok_api_key.txt
+  kapso_webhook_secret:
+    file: ./secrets/kapso_webhook_secret.txt
 

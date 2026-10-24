@@ -24,11 +24,11 @@ class MockLLM:
             (message.content for message in reversed(messages) if message.role == "user"),
             "",
         )
-        hermes_context = next(
+        tool_context = next(
             (
                 message.content
                 for message in reversed(messages)
-                if message.role == "system" and message.content.startswith("[HERMES_TOOL:")
+                if message.role == "system" and message.content.startswith("[XEON_TOOL:")
             ),
             None,
         )
@@ -45,12 +45,12 @@ class MockLLM:
             text = customer_draft
         elif "hola" in user_text.casefold():
             text = (
-                "Hola, soy XEON. Esta base usa datos sinteticos y herramientas de Hermes "
+                "Hola, soy XEON. Esta base usa datos sinteticos y herramientas comerciales "
                 "para identificar productos por busqueda hibrida (RAG + base de datos) "
                 "sin inventar precios ni disponibilidad."
             )
-        elif hermes_context is not None:
-            text = f"Entendi tu solicitud. Resultado verificado por Hermes:\n{hermes_context}"
+        elif tool_context is not None:
+            text = f"Entendi tu solicitud. Resultado verificado por XEON:\n{tool_context}"
         else:
             text = (
                 "Entendi tu solicitud. No se identifico una referencia en el catalogo; "

@@ -13,12 +13,6 @@
       "skillPath": "skills/integrate-whatsapp/SKILL.md",
       "computedHash": "9a2aba4a28d371a48cf5a2525df3da21d914f0c05df97ab0817fb879d3656eeb"
     },
-    "integrate-whatsapp-calling": {
-      "source": "gokapso/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/integrate-whatsapp-calling/SKILL.md",
-      "computedHash": "60336538757b6cecc9614566f0af531826d0be9f436c2920fe9ac4bf602fdf9e"
-    },
     "observe-whatsapp": {
       "source": "gokapso/agent-skills",
       "sourceType": "github",

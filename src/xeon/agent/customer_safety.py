@@ -6,7 +6,7 @@ from collections.abc import Iterable
 _URL_RE = re.compile(r"(?:https?://|www\.)[^\s<>()]+", re.IGNORECASE)
 _SKU_RE = re.compile(r"\b[A-Z]{2,}(?:-[A-Z0-9]+)+\b")
 _INTERNAL_MARKERS = (
-    "[hermes_",
+    "[xeon_",
     "confirmation_required",
     "create_quote_draft",
     "get_stock_by_branches",

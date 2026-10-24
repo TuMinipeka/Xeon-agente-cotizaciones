@@ -124,13 +124,6 @@ def test_grok_factory_reuses_openai_compatible_adapter(monkeypatch: pytest.Monke
     assert captured["model"] == "test-model"
 
 
-def test_evolution_secret_error_message_is_preserved() -> None:
-    settings = Settings(evolution_api_key=None, evolution_api_key_file=None, _env_file=None)
-
-    with pytest.raises(SettingsError, match="requiere EVOLUTION_API_KEY"):
-        settings.require_evolution_api_key()
-
-
 def test_kapso_channel_defaults_and_missing_secret(tmp_path: Path) -> None:
     settings = Settings(
         llm_provider="mock",
@@ -138,7 +131,6 @@ def test_kapso_channel_defaults_and_missing_secret(tmp_path: Path) -> None:
         kapso_webhook_secret_file=tmp_path / "absent",
         _env_file=None,
     )
-    assert settings.whatsapp_channel == "kapso"
     assert settings.kapso_api_base_url == "https://api.kapso.ai"
     assert settings.meta_graph_version == "v24.0"
     with pytest.raises(SettingsError, match="KAPSO_WEBHOOK_SECRET_FILE") as error:
