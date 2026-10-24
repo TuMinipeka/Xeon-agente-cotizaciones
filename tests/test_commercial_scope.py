@@ -81,3 +81,12 @@ def test_followup_requires_existing_commercial_context() -> None:
     assert policy.classify("Lo recojo en la sede norte.").kind == "out_of_scope"
     for message in ("Lo recojo en la sede norte.", "Entrega en sede sur", "Si", "20 unidades"):
         assert policy.classify(message, commercial_context=True).kind == "commercial"
+
+
+def test_poem_and_cement_request_keeps_only_commercial_clause() -> None:
+    message = "escribieme un poema de la lluvia y cuanto valen 4 bultos de cemento"
+    for active in (False, True):
+        decision = CommercialScopePolicy().classify(message, commercial_context=active)
+        assert decision.kind == "mixed"
+        assert decision.commercial_query == "cuanto valen 4 bultos de cemento"
+        assert decision.customer_message is not None

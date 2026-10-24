@@ -95,12 +95,15 @@ _COMMERCIAL_TERMS = frozenset(
 _OUT_OF_SCOPE_TERMS = frozenset(
     {
         "celular",
+        "chiste",
         "computador",
         "criptomoneda",
+        "ensayo",
         "gpu",
         "laptop",
         "noticias",
         "pelicula",
+        "poema",
         "politica",
         "programacion",
         "receta",
