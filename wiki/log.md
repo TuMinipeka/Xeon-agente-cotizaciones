@@ -156,3 +156,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Configuración aplicada por el orquestador:** leyó el host actual desde `cloudflared` (`/quicktunnel` en el puerto 20241), comprobó `/health` (Grok) y actualizó el webhook `86b37b90…`. Una petición sin firma dio 401.
 - **Codex:** añadió `kapso_webhook.py sync-tunnel`, que detecta el túnel y el webhook y actualiza o crea el webhook. Validado en real (HTTP 200); suite en verde.
 - **Guía:** el paso 3 se reescribió con un solo comando (`sync-tunnel`) y su salida esperada.
+
+## [2026-10-24] mantenimiento | Clasificación por colores en el grafo de Obsidian
+
+- **Pedido del usuario:** clasificar la wiki por colores para que el grafo muestre más información.
+- **Etiquetas:** 15 páginas recibieron encabezado YAML con una etiqueta de tipo (`xeon/decision`, `xeon/estado`, `xeon/arquitectura`, `xeon/interfaz`, `xeon/producto`, `xeon/operacion`, `xeon/fuente`, `xeon/hub`). `raw/` y `log.md` se clasifican por ruta, sin modificarlos.
+- **Colores:** 8 grupos en `wiki/.obsidian/graph.json` y 10 en `.obsidian/graph.json`; la bóveda de la raíz añade `docs/` y los archivos de instrucciones. Ambos archivos son locales e ignorados por Git.
+- **Documentación:** la convención quedó en [SCHEMA](SCHEMA.md) y la leyenda en [index](index.md).

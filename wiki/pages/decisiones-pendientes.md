@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/decision
+---
+
 # Decisiones pendientes
 
 ## D1 — Cómo expresar el alcance técnico vigente

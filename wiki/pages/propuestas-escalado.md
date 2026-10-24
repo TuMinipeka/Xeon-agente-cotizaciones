@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/producto
+---
+
 # Propuestas para escalar XEON
 
 Lluvia de ideas generada por Claude en la conversación del 2026-10-24, a pedido del usuario, a partir de `XeonContexto.md`, `docs/ARCHITECTURE.md` y `CONTRIBUTING.md`. **Todas las ideas tienen estado `propuesta`.** Ninguna está aprobada ni implementada. Relacionado: [estado del corte](estado-del-corte.md), [hito S2](hito-s2.md), [decisiones pendientes](decisiones-pendientes.md).

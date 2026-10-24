@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/interfaz
+---
+
 # Canal WhatsApp con Kapso
 
 Integración de WhatsApp a través de Kapso (API oficial de WhatsApp Cloud) como canal predeterminado de XEON, siguiendo `whatsapp.pdf` (guía NodeStudio) y las skills `gokapso/agent-skills`. Relacionado: [orquestación](orquestacion.md), [decisiones pendientes](decisiones-pendientes.md) (D8), [estado del corte](estado-del-corte.md).

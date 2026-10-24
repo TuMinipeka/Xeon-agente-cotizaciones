@@ -1,6 +1,26 @@
+---
+tags:
+  - xeon/hub
+---
+
 # Índice de la wiki XEON
 
 Revisión: 2026-10-24. Comienza por el [estado del corte](pages/estado-del-corte.md) si buscas saber qué funciona hoy.
+
+## Leyenda del grafo (Obsidian)
+
+| Color | Tipo | Etiqueta o consulta | Páginas |
+|---|---|---|---|
+| Naranja `#FF8A65` | Decisiones | `#xeon/decision` | decisiones pendientes |
+| Amarillo `#FFD54F` | Estado e hitos | `#xeon/estado` | estado del corte, hito S2 |
+| Azul `#4FC3F7` | Arquitectura y contratos | `#xeon/arquitectura` | arquitectura actual, contratos |
+| Jade `#00D9A3` | Interfaces y canales | `#xeon/interfaz` | canal Kapso, XEON CLI |
+| Violeta `#B388FF` | Producto | `#xeon/producto` | qué es XEON, propuestas |
+| Rosa `#F06292` | Operación de agentes | `#xeon/operacion` y `log.md` | orquestación, inbox, registro |
+| Gris `#90A4AE` | Fuentes | `#xeon/fuente` y `raw/` | fuentes y material crudo |
+| Menta `#6FFFD3` | Navegación | `#xeon/hub` | índice, README, esquema |
+
+En la bóveda de la raíz del repositorio también se colorean `docs/` (verde azulado `#26A69A`) y los archivos de instrucciones de la raíz (blanco menta `#EAFBF5`). Los grupos viven en `.obsidian/graph.json` de cada bóveda, que Git ignora; para reproducirlos en otra máquina, crea en *Graph view → Groups* una consulta por fila de esta tabla, en el mismo orden.
 
 ## Proyecto
 

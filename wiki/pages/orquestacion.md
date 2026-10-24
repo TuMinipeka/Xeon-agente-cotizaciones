@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/operacion
+---
+
 # Orquestación multi-agente de XEON
 
 Protocolo con el que varios agentes CLI trabajan en paralelo sobre XEON dentro de **herdr**. Es la adaptación al proyecto de la [fuente original](../raw/orquestacion-original-2026-10-24.md), que era un prompt genérico de competencia. Relacionado: [hito S2](hito-s2.md), [contratos de herramientas](contratos-herramientas.md), [decisiones pendientes](decisiones-pendientes.md), [esquema de la wiki](../SCHEMA.md).

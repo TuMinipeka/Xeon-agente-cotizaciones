@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/estado
+---
+
 # Hito S2: estado
 
 Equivale al `status_s2` del protocolo original. Muestra el estado de la hoja de ruta semanal y del hito actual. Relacionado: [orquestación](orquestacion.md), [contratos de herramientas](contratos-herramientas.md), [estado del corte](estado-del-corte.md).

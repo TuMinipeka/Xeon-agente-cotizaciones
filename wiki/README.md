@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/hub
+---
+
 # Wiki de XEON
 
 Esta bóveda reúne conocimiento verificable sobre XEON para consulta y mantenimiento incremental. Está dentro del vault de Obsidian del repositorio: abre `wiki/index.md` para navegarla.
