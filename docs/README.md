@@ -1,6 +1,7 @@
 # Documentación de XEON
 
 - [XeonContexto.md](XeonContexto.md): alcance funcional, principios y visión del producto.
+- [DESPLIEGUE_WHATSAPP.md](DESPLIEGUE_WHATSAPP.md): paso a paso para desplegar XEON en WhatsApp con Kapso y probar el bot.
 - [ARCHITECTURE.md](ARCHITECTURE.md): arquitectura implementada, límites y trabajo pendiente.
 - [DESIGN.md](DESIGN.md): identidad visual y reglas de uso de marca.
 - [GLOSSARY.md](GLOSSARY.md): términos del dominio y del proyecto.

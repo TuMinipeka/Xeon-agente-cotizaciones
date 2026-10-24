@@ -222,6 +222,10 @@ uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
 ### WhatsApp con Kapso
 
 Kapso es el único canal WhatsApp de XEON; el cotizador y las reglas permanecen en XEON.
+
+> [!TIP]
+> **Guía completa de despliegue y pruebas:** [`docs/DESPLIEGUE_WHATSAPP.md`](docs/DESPLIEGUE_WHATSAPP.md)
+> (requisitos, `.env`, túnel, webhook con `scripts/kapso_webhook.py`, guion de prueba y diagnóstico).
 Las skills de `gokapso/agent-skills` fijadas en `skills-lock.json` son
 `integrate-whatsapp` (registro), `automate-whatsapp` (automatización) y
 `observe-whatsapp` (observación). El usuario configura `KAPSO_API_KEY` a mano en `.env`; nunca
