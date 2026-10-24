@@ -94,3 +94,18 @@ El merge simulado con `developer/daniel` da conflictos en `hermes.py`, `service.
   - El sanitizador no se aplica con el proveedor `mock`, porque las pruebas necesitan ver los marcadores internos. Con Grok, Groq y Hermes siempre se aplica.
   - Las pruebas de Conde retiradas por depender del carrito están en `docs/CAMBIOS_CONDE.md` y en el log.
 - **Pendiente:** comunicar a Conde que su carrito quedó fuera de esta integración.
+
+## D8: Canal WhatsApp con Kapso
+
+El usuario pidió el 2026-10-24 conectar WhatsApp siguiendo `whatsapp.pdf` con Kapso.
+
+- **Resolución (usuario):**
+  - Kapso es el canal por defecto y Evolution API queda opcional, detrás del mismo puerto.
+  - Túnel `cloudflared` para exponer el webhook.
+  - Pruebas primero en el sandbox de Kapso.
+  - Se descarta el agente alojado en Kapso, para no saltarse el backend.
+- **Contrato:** [canal Kapso](canal-kapso.md).
+- **Pendiente:**
+  - Que el usuario pegue `KAPSO_API_KEY` a mano en `.env`.
+  - Obtener el `phone_number_id` del sandbox.
+  - Registrar el webhook.

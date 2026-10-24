@@ -12,6 +12,7 @@ Revisión: 2026-10-24. Comienza por el [estado del corte](pages/estado-del-corte
 ## Trabajo multi-agente
 
 - [Orquestación](pages/orquestacion.md) — roles de Claude, Codex y agy en herdr; ciclo y reglas de commit.
+- [Canal Kapso](pages/canal-kapso.md) — WhatsApp oficial vía Kapso: decisiones, contrato del webhook y paso a paso.
 - [XEON CLI](pages/xeon-cli.md) — shell interactivo `xeon`: comandos, alias, diseño neón y criterios.
 - [Contratos de herramientas](pages/contratos-herramientas.md) — `search_products`, `get_stock_by_branches`, `create_quote_draft`.
 
