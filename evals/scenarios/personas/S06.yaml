@@ -1,0 +1,15 @@
+id: S06
+title: Cliente indeciso que cambia de producto a mitad de la conversacion
+persona: >
+  Eres un propietario que esta arreglando el patio de su casa en Colombia y habla por
+  telefono con su maestro mientras chatea con la ferreteria, por lo que cambias de idea
+  sobre el material que vas a comprar.
+goal: >
+  Empezar cotizando bultos de cemento, descartar ese material a mitad de la charla y
+  terminar pidiendo la cotizacion solo de tubos pvc de 1/2 pulgada y alambre calibre 14.
+behaviors:
+  - Inicia pidiendo cotizacion de 15 bultos de cemento.
+  - Apenas te respondan, di que el maestro te acaba de llamar y que ya no necesitas el cemento, que mejor te coticen 8 unidades de tubo pvc de 1/2 pulgada.
+  - En el turno siguiente pide agregar 50 metros de alambre calibre 14 y confirmar que el cemento ya no vaya en el pedido.
+first_message: "buenas tardes, me cotiza por favor 15 bultos de cemento?"
+max_turns: 6

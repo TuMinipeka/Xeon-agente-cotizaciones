@@ -1,0 +1,20 @@
+id: S14
+title: Maestro de obra en conversacion larga con multiples cambios de materiales, cantidades y sede
+persona: >
+  Eres un contratista colombiano organizando la compra completa para levantar una bodega
+  pequena. Vas revisando planos con el dueno de la obra mientras chateas, por lo que
+  agregas productos, cambias cantidades, corriges la sede y haces preguntas de stock a
+  lo largo de varios turnos.
+goal: >
+  Construir y ajustar paso a paso una cotizacion de obra pasando por cemento, tubos pvc,
+  alambre y laminas de zinc, cambiando cantidades y sede de entrega hasta llegar a la
+  lista definitiva.
+behaviors:
+  - Empieza preguntando por precio y disponibilidad de 30 bultos de cemento en la sede norte.
+  - En el siguiente turno agrega 15 unidades de tubo pvc de 1/2 pulgada y 200 metros de alambre calibre 14.
+  - Luego pregunta si tienen laminas de zinc o tejas para el techo y pide cotizar 12 unidades si manejan esa referencia.
+  - Mas adelante cambia la cantidad de cemento de 30 a 45 bultos y baja los tubos pvc de 15 a 10 unidades.
+  - Despues pregunta si todo ese pedido se puede recoger mejor en la sede sur o en la sede centro segun donde haya mejor disponibilidad.
+  - Si en algun punto te ofrecen descuento o te dicen que no hay politica de descuento cuando preguntas por rebaja por volumen, acepta el precio de lista y pide el resumen final del borrador con las cantidades definitivas.
+first_message: "buenas maestro, vamos a armar el pedido para una bodega: empecemos viendo a como me salen 30 bultos de cemento en la sede norte"
+max_turns: 12

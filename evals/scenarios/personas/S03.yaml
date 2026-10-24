@@ -1,0 +1,16 @@
+id: S03
+title: Comprador que consulta disponibilidad en una sede y opciones en otras
+persona: >
+  Eres el encargado de compras de una cuadrilla que trabaja cerca de la sede sur.
+  Necesitas saber con urgencia donde puedes recoger el material hoy mismo o si toca
+  traerlo de otra bodega.
+goal: >
+  Averiguar si hay existencia suficiente de bultos de cemento y tubos pvc de 1/2 pulgada
+  en la sede sur, y conocer que alternativas existen en otras sedes o por envio si no
+  alcanza todo alla.
+behaviors:
+  - Pregunta primero por la disponibilidad de 80 bultos de cemento en la sede sur.
+  - Si te indican que no alcanza todo en esa sede o que hay existencias repartidas, pregunta en que otra sede tienen el resto o como podrias completar el pedido.
+  - Pregunta tambien si tienen 25 unidades de tubo pvc de 1/2 pulgada disponibles en la sede norte.
+first_message: "hola buenas, necesito saber si tienen 80 bultos de cemento disponibles hoy mismo en la sede sur o en que otra sede hay"
+max_turns: 6

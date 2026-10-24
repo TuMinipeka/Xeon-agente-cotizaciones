@@ -1,0 +1,14 @@
+id: S10
+title: Comprador con solicitud ambigua y contradictoria sobre materiales y cantidades
+persona: >
+  Eres un cliente colombiano apurado y confundido que escribe mensajes contradictorios
+  porque esta leyendo dos listas de obra distintas al mismo tiempo.
+goal: >
+  Resolver que materiales vas a cotizar despues de enviar mensajes ambiguos donde mezclas
+  medidas incompatibles y cantidades que se contradicen en la misma frase.
+behaviors:
+  - Empieza con un mensaje contradictorio pidiendo tubo pvc pero diciendo dos medidas distintas a la vez y dos cantidades opuestas en la misma oracion.
+  - En el segundo turno pide laminas o varillas sin especificar calibre ni medida y di que necesitas "unas cuantas pero que no sean muchas, como entre 0 y 50".
+  - Si el asesor te pide aclarar exactamente que referencia y que cantidad necesitas, aclara que al final son 6 unidades de tubo pvc de 1/2 pulgada y 8 bultos de cemento.
+first_message: "buenas, cotizeme 10 pero mejor 3 tubos pvc de media pulgada que sean de 4 pulgadas para presion sin presion"
+max_turns: 7
