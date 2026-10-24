@@ -23,7 +23,6 @@ def _sut() -> XEONSUT:
     return XEONSUT(Settings(_env_file=None, llm_provider="mock", whatsapp_send_enabled=False))
 
 
-@pytest.mark.xfail(strict=True, reason="E1: punto de miles interpretado como decimal")
 def test_e1_thousand_separator() -> None:
     async def check() -> None:
         sut = _sut()
@@ -53,7 +52,6 @@ def test_e2_branch_in_same_sentence() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E3: surtido activa sede sur por subcadena")
 def test_e3_surtido_does_not_select_south() -> None:
     async def check() -> None:
         sut = _sut()

@@ -4,9 +4,19 @@ from decimal import Decimal
 import httpx
 
 from xeon.api.app import create_app
+from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity
 from xeon.application.container import build_container
 from xeon.application.quote_draft import DraftLineRequest, QuoteDraftReady
 from xeon.config import Settings
+
+
+def test_colombian_quantities_and_branch_word_boundaries() -> None:
+    assert _extract_requested_quantity("quiero 1.000 bultos") == Decimal(1000)
+    assert _extract_requested_quantity("quiero 1.500 bultos") == Decimal(1500)
+    assert _extract_requested_quantity("quiero 2,5 metros") == Decimal("2.5")
+    assert _extract_requested_quantity("quiero 2.5 metros") == Decimal("2.5")
+    assert _extract_requested_branch("surtido en sede norte") == "sede-norte"
+    assert _extract_requested_branch("entrega en sede sur") == "sede-sur"
 
 
 def test_commercial_search_resolves_semantic_and_specs_queries_with_db_prices() -> None:

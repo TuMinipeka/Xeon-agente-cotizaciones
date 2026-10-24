@@ -314,7 +314,11 @@ def _extract_requested_quantity(text: str) -> Decimal | None:
     match = _QTY_RE.search(text) or _LEADING_QTY_RE.search(text)
     if match is None:
         return None
-    raw = match.group(1).replace(",", ".")
+    raw = match.group(1)
+    if re.fullmatch(r"\d{1,3}(?:\.\d{3})+", raw):
+        raw = raw.replace(".", "")
+    else:
+        raw = raw.replace(",", ".")
     try:
         value = Decimal(raw)
     except Exception:
@@ -323,9 +327,8 @@ def _extract_requested_quantity(text: str) -> Decimal | None:
 
 
 def _extract_requested_branch(text: str) -> str:
-    lowered = text.casefold()
-    if "sur" in lowered:
+    if re.search(r"\b(?:sede\s+)?sur\b", text, re.IGNORECASE):
         return "sede-sur"
-    if "centro" in lowered:
+    if re.search(r"\b(?:sede\s+)?centro\b", text, re.IGNORECASE):
         return "sede-centro"
     return "sede-norte"
