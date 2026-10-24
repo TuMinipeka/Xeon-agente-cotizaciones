@@ -16,12 +16,17 @@ import httpx
 DEFAULT_BASE_URL = "https://api.kapso.ai"
 DEFAULT_SECRET_FILE = "secrets/kapso_webhook_secret.txt"
 WEBHOOK_PATH = "/v1/channels/whatsapp/kapso/webhook"
-CONFIG_NAMES = {"KAPSO_API_KEY", "KAPSO_API_BASE_URL", "KAPSO_WEBHOOK_SECRET_FILE"}
+CONFIG_NAMES = {
+    "KAPSO_API_KEY",
+    "KAPSO_API_BASE_URL",
+    "KAPSO_WEBHOOK_SECRET_FILE",
+    "KAPSO_PHONE_NUMBER_ID",
+}
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+\Z")
 
 
 def _dotenv_values(path: Path) -> dict[str, str]:
-    """Read only the three settings used here; never expose file contents."""
+    """Read only the settings used here; never expose file contents."""
     try:
         lines = path.read_text(encoding="utf-8-sig").splitlines()
     except FileNotFoundError:
@@ -102,6 +107,142 @@ def _webhook_rows(data: object) -> list[dict[str, object]]:
     return []
 
 
+def _is_webhook_collection(data: object) -> bool:
+    if isinstance(data, list):
+        return True
+    if isinstance(data, dict):
+        return any(
+            _is_webhook_collection(data[key])
+            for key in ("whatsapp_webhooks", "data", "webhooks")
+            if key in data
+        )
+    return False
+
+
+def _request(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    api_key: str,
+    payload: dict[str, object] | None = None,
+) -> httpx.Response:
+    return client.request(
+        method,
+        url,
+        headers={"X-API-Key": api_key},
+        json=payload,
+        follow_redirects=False,
+    )
+
+
+def _response_data(response: httpx.Response) -> object:
+    try:
+        return response.json()
+    except ValueError:
+        return None
+
+
+def _tunnel_host(client: httpx.Client, manual_url: str | None) -> str:
+    if manual_url:
+        return urlsplit(_https_url(manual_url)).hostname or ""
+    for port in range(20241, 20246):
+        try:
+            response = client.get(
+                f"http://127.0.0.1:{port}/quicktunnel", timeout=1, follow_redirects=False
+            )
+        except httpx.HTTPError:
+            continue
+        if response.status_code != 200:
+            continue
+        data = _response_data(response)
+        if isinstance(data, dict):
+            hostname = data.get("hostname")
+            if isinstance(hostname, str) and re.fullmatch(
+                r"[a-z0-9-]+\.trycloudflare\.com", hostname
+            ):
+                return hostname
+    raise ValueError("No se encontro quick tunnel en los puertos 20241-20245; use --tunnel-url.")
+
+
+def _create_payload(url: str, secret_path: Path, *, rotate: bool) -> dict[str, object]:
+    if secret_path.exists() and not rotate:
+        raise ValueError("El archivo de secreto ya existe; use --rotate-secret.")
+    secret = secrets.token_hex(32)
+    _write_secret(secret_path, secret, rotate=rotate)
+    return {
+        "whatsapp_webhook": {
+            "url": url,
+            "events": ["whatsapp.message.received"],
+            "kind": "kapso",
+            "payload_version": "v2",
+            "buffer_enabled": False,
+            "active": True,
+            "secret_key": secret,
+        }
+    }
+
+
+def _sync_tunnel(
+    args: argparse.Namespace,
+    client: httpx.Client,
+    env: dict[str, str],
+    dotenv: dict[str, str],
+    base: str,
+    api_key: str,
+    out: TextIO,
+    err: TextIO,
+) -> int:
+    phone_id = args.phone_number_id or _setting("KAPSO_PHONE_NUMBER_ID", env, dotenv)
+    if not phone_id:
+        raise ValueError("Falta --phone-number-id o KAPSO_PHONE_NUMBER_ID.")
+    phone_id = _id(phone_id)
+    hostname = _tunnel_host(client, args.tunnel_url)
+    webhook_url = _https_url(f"https://{hostname}{WEBHOOK_PATH}", webhook=True)
+    list_url = f"{base}/platform/v1/whatsapp/phone_numbers/{phone_id}/webhooks"
+    listed = _request(client, "GET", list_url, api_key)
+    if listed.status_code >= 300:
+        print(f"HTTP {listed.status_code}", file=out)
+        print("No se pudo listar los webhooks de Kapso.", file=err)
+        return 1
+    data = _response_data(listed)
+    if not _is_webhook_collection(data):
+        raise ValueError("Kapso devolvio una lista de webhooks no reconocida.")
+    rows = _webhook_rows(data)
+    ids = [row.get("id") for row in rows]
+    if any(
+        not isinstance(identifier, str) or not SAFE_ID.fullmatch(identifier) for identifier in ids
+    ):
+        raise ValueError("Kapso devolvio un identificador de webhook invalido.")
+    if args.webhook_id:
+        selected = _id(args.webhook_id)
+        if selected not in ids:
+            raise ValueError("El --webhook-id no pertenece a ese numero de telefono.")
+    elif len(ids) > 1:
+        raise ValueError("Hay varios webhooks; indique --webhook-id.")
+    else:
+        selected = ids[0] if ids else None
+
+    if selected is None:
+        secret_path = Path(_setting("KAPSO_WEBHOOK_SECRET_FILE", env, dotenv, DEFAULT_SECRET_FILE))
+        payload = _create_payload(webhook_url, secret_path, rotate=args.rotate_secret)
+        response = _request(client, "POST", list_url, api_key, payload)
+    else:
+        update_url = f"{base}/platform/v1/whatsapp/webhooks/{selected}"
+        response = _request(
+            client, "PATCH", update_url, api_key, {"whatsapp_webhook": {"url": webhook_url}}
+        )
+    print(f"HTTP {response.status_code}", file=out)
+    if response.status_code >= 300:
+        print("Kapso rechazo la sincronizacion del webhook.", file=err)
+        return 1
+    webhook_id = selected or _response_id(_response_data(response))
+    if not webhook_id:
+        raise ValueError("Kapso no devolvio el webhook id creado.")
+    print(f"url: {webhook_url}", file=out)
+    print(f"webhook_id: {webhook_id}", file=out)
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Administra el webhook de Kapso para XEON.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -114,6 +255,11 @@ def _parser() -> argparse.ArgumentParser:
     update.add_argument("--url", required=True)
     listing = commands.add_parser("list")
     listing.add_argument("--phone-number-id", required=True)
+    sync = commands.add_parser("sync-tunnel")
+    sync.add_argument("--tunnel-url")
+    sync.add_argument("--phone-number-id")
+    sync.add_argument("--webhook-id")
+    sync.add_argument("--rotate-secret", action="store_true")
     return parser
 
 
@@ -136,45 +282,32 @@ def main(
         if not api_key:
             raise ValueError("Falta KAPSO_API_KEY.")
         base = _https_url(_setting("KAPSO_API_BASE_URL", env, dotenv, DEFAULT_BASE_URL))
-        webhook_url = _https_url(args.url, webhook=True) if args.command != "list" else ""
-        path = (
-            f"/platform/v1/whatsapp/webhooks/{_id(args.webhook_id)}"
-            if args.command == "update-url"
-            else f"/platform/v1/whatsapp/phone_numbers/{_id(args.phone_number_id)}/webhooks"
-        )
-        payload: dict[str, object] | None = None
-        if args.command == "create":
-            secret_path = Path(
-                _setting("KAPSO_WEBHOOK_SECRET_FILE", env, dotenv, DEFAULT_SECRET_FILE)
-            )
-            if secret_path.exists() and not args.rotate_secret:
-                raise ValueError("El archivo de secreto ya existe; use --rotate-secret.")
-            secret = secrets.token_hex(32)
-            _write_secret(secret_path, secret, rotate=args.rotate_secret)
-            payload = {
-                "whatsapp_webhook": {
-                    "url": webhook_url,
-                    "events": ["whatsapp.message.received"],
-                    "kind": "kapso",
-                    "payload_version": "v2",
-                    "buffer_enabled": False,
-                    "active": True,
-                    "secret_key": secret,
-                }
-            }
-        elif args.command == "update-url":
-            payload = {"whatsapp_webhook": {"url": webhook_url}}
-
         owns_client = client is None
         if client is None:
             client = httpx.Client(timeout=15, follow_redirects=False)
         try:
-            response = client.request(
+            if args.command == "sync-tunnel":
+                return _sync_tunnel(args, client, env, dotenv, base, api_key, out, err)
+            webhook_url = _https_url(args.url, webhook=True) if args.command != "list" else ""
+            path = (
+                f"/platform/v1/whatsapp/webhooks/{_id(args.webhook_id)}"
+                if args.command == "update-url"
+                else f"/platform/v1/whatsapp/phone_numbers/{_id(args.phone_number_id)}/webhooks"
+            )
+            payload: dict[str, object] | None = None
+            if args.command == "create":
+                secret_path = Path(
+                    _setting("KAPSO_WEBHOOK_SECRET_FILE", env, dotenv, DEFAULT_SECRET_FILE)
+                )
+                payload = _create_payload(webhook_url, secret_path, rotate=args.rotate_secret)
+            elif args.command == "update-url":
+                payload = {"whatsapp_webhook": {"url": webhook_url}}
+            response = _request(
+                client,
                 {"create": "POST", "update-url": "PATCH", "list": "GET"}[args.command],
                 base + path,
-                headers={"X-API-Key": api_key},
-                json=payload,
-                follow_redirects=False,
+                api_key,
+                payload,
             )
         finally:
             if owns_client:
@@ -185,10 +318,7 @@ def main(
             return 1
         if response.is_error:
             return 1
-        try:
-            data = response.json()
-        except ValueError:
-            data = None
+        data = _response_data(response)
         if args.command == "create":
             webhook_id = _response_id(data)
             if webhook_id:
