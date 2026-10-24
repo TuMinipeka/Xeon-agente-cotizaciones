@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -65,6 +66,15 @@ FOLLOWUPS: dict[str, list[str]] = {
         "Cambie el cemento a 45 bultos y los tubos a 10 unidades.",
     ],
 }
+
+
+_SECRET_RE = re.compile(
+    r"(pk_|xai-|sk-)[A-Za-z0-9_\-]{8,}|(Bearer|api[_-]?key)\s*[:=]?\s*\S+", re.I
+)
+
+
+def _safe_error(exc: BaseException) -> str:
+    return _SECRET_RE.sub("<redactado>", str(exc))[:300]
 
 
 class BudgetExceeded(RuntimeError):
@@ -446,7 +456,9 @@ async def run(
                         "status": "ERROR",
                         "origin": "infra",
                         "severity": checks["severity"],
-                        "evidence": f"{type(exc).__name__}; llamada={budget.used}",
+                        "evidence": (
+                            f"{type(exc).__name__}: {_safe_error(exc)}; llamada={budget.used}"
+                        ),
                         "checks": [],
                         "transcript": [],
                     }

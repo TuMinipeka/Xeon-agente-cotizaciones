@@ -26,6 +26,7 @@ dev = [
 ]
 evals = [
     "langwatch-scenario>=1.6,<1.7",
+    "mcp>=2.3.0",
     "pyyaml>=6.0.3",
 ]
 
