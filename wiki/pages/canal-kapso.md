@@ -62,3 +62,9 @@ Revisado: 2026-10-24. Estado: **`implementado`** y **verificado en vivo**. El us
 - **Hueco de la skill alpha:** `create.js` no envía `secret_key` y la API exige ese campo. El orquestador registró el webhook con `POST /platform/v1/whatsapp/phone_numbers/{id}/webhooks`, con el sobre `whatsapp_webhook` y un secreto generado localmente.
 - **Túnel:** `cloudflared` (quick tunnel). Si cambia la URL, hay que actualizar el webhook con `update.js`.
 - **Simulador local:** `scripts/simulate_whatsapp_webhook.py` firma un payload v2 con el secreto y lo envía al endpoint.
+
+## Guía operativa (2026-10-24)
+
+- **Paso a paso** de despliegue y pruebas: [`docs/DESPLIEGUE_WHATSAPP.md`](../../docs/DESPLIEGUE_WHATSAPP.md).
+- **Webhook:** `scripts/kapso_webhook.py` (`create`, `update-url`, `list`) reemplaza el script temporal del orquestador. Genera y envía el `secret_key` que el `create.js` de la skill omite.
+  - Validado contra la API real el 2026-10-24: `list` y `update-url` respondieron HTTP 200.

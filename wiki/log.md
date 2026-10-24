@@ -143,3 +143,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - PR #1 (`developer/daniel` → `develop`) fusionado con merge commit `3790f45` (`Merge: :twisted_rightwards_arrows: IntegrateDeveloperDanielIntoDevelop`), con el CI `quality` en verde y sin firmas de agentes.
 - **Pendiente:** `.github/workflows/ci.yml` solo dispara en push a `main` (ya inexistente) y `developer/daniel`, y en PR; conviene añadir `develop`.
+
+## [2026-10-24] documentación | Despliegue de WhatsApp con Kapso
+
+- **Sincronización:** `developer/daniel` se actualizó con `develop` (merge `8e01b02`).
+- **Script de Codex:** `scripts/kapso_webhook.py` con pruebas sin red. Validado por el orquestador contra Kapso real con `list` y `update-url` sobre la misma URL, sin cambios efectivos.
+- **Guía del orquestador:** `docs/DESPLIEGUE_WHATSAPP.md` cubre requisitos, secretos, `.env`, skills, `phone_number_id`, las tres terminales (API, túnel, webhook), verificación, guion de prueba desde el teléfono, diagnóstico, apagado y paso a un número propio. Está enlazada desde el README, `docs/README.md` y [canal Kapso](pages/canal-kapso.md).
