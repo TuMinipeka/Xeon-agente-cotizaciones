@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo-oficial-definitivo.png" width="220" alt="Logo oficial de XEON en jade y menta sobre fondo oscuro">
+  <img src="assets/brand/xeon-logo.png" width="220" alt="Logo oficial de XEON en jade y menta sobre fondo oscuro">
 </p>
 
 <h1 align="center">XEON — agente comercial para ferreterías</h1>
@@ -43,7 +43,7 @@ descuentos, stock y estados salen siempre de los casos de uso, nunca del modelo.
 ## 1. Inicio rápido: XEON CLI
 
 <p align="center">
-  <img src="XeonCli.png" width="760" alt="Diseño de XEON CLI: logo de tortuga con X, título neón, panel system ready y comandos disponibles">
+  <img src="assets/readme/xeon-cli.png" width="760" alt="Diseño de XEON CLI: logo de tortuga con X, título neón, panel system ready y comandos disponibles">
 </p>
 
 `xeon` abre el **Tactical Agent Shell**, un shell interactivo para probar el agente desde la
@@ -271,7 +271,7 @@ con Grok real es deliberada y acotada: `uv run xeon` y un `run`.
 
 ## 8. Trabajo con agentes y wiki
 
-- **Fuente de verdad:** [`XeonContexto.md`](XeonContexto.md) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- **Fuente de verdad:** [`docs/XeonContexto.md`](docs/XeonContexto.md) → [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
   → [`CONTRIBUTING.md`](CONTRIBUTING.md). Reglas para agentes en [`AGENTS.md`](AGENTS.md).
 - **Wiki compartida** ([`wiki/index.md`](wiki/index.md)): decisiones, contratos, estado de hitos
   y bitácora. Cada agente escribe primero en `wiki/inbox/` y las páginas compartidas se editan con

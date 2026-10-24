@@ -1,6 +1,6 @@
 # Identidad visual de XEON
 
-Fuente visual: [`logo-oficial-definitivo.png`](../logo-oficial-definitivo.png). El archivo es un raster con gradientes: los valores siguientes son **tokens de interfaz derivados del logo**, no una afirmación de que exista un único color plano oficial dentro de la imagen.
+Fuente visual: [`xeon-logo.png`](../assets/brand/xeon-logo.png). El archivo es un raster con gradientes: los valores siguientes son **tokens de interfaz derivados del logo**, no una afirmación de que exista un único color plano oficial dentro de la imagen.
 
 ## Dirección
 

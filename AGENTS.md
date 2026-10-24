@@ -4,7 +4,7 @@
 
 Antes de proponer cambios, leer en este orden:
 
-1. `XeonContexto.md`: alcance funcional, seguridad y decisiones del producto.
+1. `docs/XeonContexto.md`: alcance funcional, seguridad y decisiones del producto.
 2. `docs/ARCHITECTURE.md`: fronteras implementadas y pendientes.
 3. `CONTRIBUTING.md`: rama, pruebas y formato de commits.
 
