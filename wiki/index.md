@@ -20,7 +20,7 @@ Revisión: 2026-10-24. Comienza por el [estado del corte](pages/estado-del-corte
 | Gris `#90A4AE` | Fuentes | `#xeon/fuente` y `raw/` | fuentes y material crudo |
 | Menta `#6FFFD3` | Navegación | `#xeon/hub` | índice, README, esquema |
 
-En la bóveda de la raíz del repositorio también se colorean `docs/` (verde azulado `#26A69A`) y los archivos de instrucciones de la raíz (blanco menta `#EAFBF5`). Los grupos viven en `.obsidian/graph.json` de cada bóveda, que Git ignora; para reproducirlos en otra máquina, crea en *Graph view → Groups* una consulta por fila de esta tabla, en el mismo orden.
+En la bóveda de la raíz del repositorio también se colorean `docs/` (verde azulado `#26A69A`) y los archivos de instrucciones de la raíz (blanco menta `#EAFBF5`). Los grupos viven en `.obsidian/graph.json` de cada bóveda, que Git ignora; para reproducirlos en otra máquina, cierra Obsidian y ejecuta `uv run python scripts/apply_obsidian_graph_colors.py`. Con Obsidian abierto, la aplicación sobrescribe `graph.json` desde memoria y borra los grupos.
 
 ## Proyecto
 

@@ -163,3 +163,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Etiquetas:** 15 páginas recibieron encabezado YAML con una etiqueta de tipo (`xeon/decision`, `xeon/estado`, `xeon/arquitectura`, `xeon/interfaz`, `xeon/producto`, `xeon/operacion`, `xeon/fuente`, `xeon/hub`). `raw/` y `log.md` se clasifican por ruta, sin modificarlos.
 - **Colores:** 8 grupos en `wiki/.obsidian/graph.json` y 10 en `.obsidian/graph.json`; la bóveda de la raíz añade `docs/` y los archivos de instrucciones. Ambos archivos son locales e ignorados por Git.
 - **Documentación:** la convención quedó en [SCHEMA](SCHEMA.md) y la leyenda en [index](index.md).
+
+## [2026-10-24] corrección | Colores del grafo sobrescritos por Obsidian
+
+- **Problema:** el usuario no veía los colores. La causa no era el tema oscuro: con la bóveda `wiki` abierta, Obsidian reescribió `wiki/.obsidian/graph.json` desde memoria y dejó `colorGroups` vacío.
+- **Solución:** el orquestador creó `scripts/apply_obsidian_graph_colors.py`, que se niega a correr con Obsidian abierto salvo con `--force`. Con Obsidian cerrado lo aplicó: 8 grupos en la bóveda `wiki` y 10 en la raíz.
+- **Documentación:** la leyenda de [index](index.md) explica cómo reproducirlos.
