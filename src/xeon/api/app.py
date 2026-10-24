@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import json
 from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Annotated, Any
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import Body, FastAPI, HTTPException, Query, Response
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 
-from xeon.adapters.channels.evolution import parse_evolution_webhook
+from xeon.adapters.channels.kapso import parse_kapso_webhook, verify_kapso_signature
 from xeon.adapters.llm.openai_compatible import LLMProviderError
 from xeon.api.schemas import (
     AvailabilityItemOut,
@@ -21,11 +22,14 @@ from xeon.api.schemas import (
     QuoteLineOut,
     QuoteOutcomeResponse,
     StockByBranchesOut,
-    WhatsAppWebhookResponse,
 )
 from xeon.application.container import AppContainer, build_container
 from xeon.application.ports.catalog import ProductCatalog
-from xeon.application.ports.channels import ChannelDeliveryError, WhatsAppChannelPort
+from xeon.application.ports.channels import (
+    ChannelDeliveryError,
+    IncomingWhatsAppMessage,
+    WhatsAppChannelPort,
+)
 from xeon.application.ports.inventory import BranchInventory
 from xeon.application.ports.llm import LLMPort
 from xeon.application.ports.quotes import QuoteDraftRepository
@@ -40,7 +44,7 @@ from xeon.application.quote_draft import (
     QuoteNotFoundError,
 )
 from xeon.application.stock import AvailabilityItem, GetStockByBranchesQuery, StockByBranches
-from xeon.config import Settings, get_settings
+from xeon.config import Settings, SettingsError, get_settings
 from xeon.domain.inventory import InvalidInventoryError
 from xeon.domain.quote import EmptyQuoteError, InvalidQuantityError, Quote
 
@@ -128,7 +132,7 @@ def create_app(
         llm=llm,
         whatsapp_channel=whatsapp_channel,
     )
-    seen_webhook_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
+    seen_kapso_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -139,7 +143,7 @@ def create_app(
         title="XEON API",
         version="0.1.0",
         description=(
-            "API local de XEON orquestada con Hermes y canal WhatsApp (Evolution API). "
+            "API local de XEON con canal WhatsApp por Kapso. "
             "El chat interpreta; el cotizador calcula borradores DRAFT. "
             "No emite ni aprueba cotizaciones."
         ),
@@ -151,14 +155,16 @@ def create_app(
         return HealthResponse(
             status="ok",
             environment=runtime.settings.app_env,
-            provider=runtime.settings.llm_provider,
-            model=runtime.settings.llm_model,
+            provider=runtime.llm.provider_name,
+            model=runtime.llm.model,
         )
 
     @application.post("/v1/chat", response_model=ChatResponse)
     async def chat(request: ChatRequest) -> ChatResponse:
         try:
-            result = await runtime.agent.respond(request.message)
+            result = await runtime.agent.respond(
+                request.message, conversation_key=str(request.conversation_id)
+            )
         except LLMProviderError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return ChatResponse(
@@ -168,61 +174,56 @@ def create_app(
             model=result.model,
         )
 
-    @application.post(
-        "/v1/channels/whatsapp/webhook",
-        response_model=WhatsAppWebhookResponse,
-    )
-    async def whatsapp_webhook(
-        payload: Annotated[dict[str, Any], Body()],
-    ) -> WhatsAppWebhookResponse:
-        incoming = parse_evolution_webhook(
-            payload,
-            require_prefix=runtime.settings.whatsapp_require_prefix,
-        )
-        if incoming is None:
-            return WhatsAppWebhookResponse(status="ignored")
-
-        dedup_key = (incoming.instance, incoming.external_message_id)
-        if dedup_key in seen_webhook_messages:
-            return WhatsAppWebhookResponse(
-                status="ignored",
-                instance=incoming.instance,
-                external_message_id=incoming.external_message_id,
-                sender_number=incoming.sender_number,
-            )
-        seen_webhook_messages[dedup_key] = None
-        while len(seen_webhook_messages) > _MAX_SEEN_WEBHOOK_IDS:
-            seen_webhook_messages.popitem(last=False)
-
+    async def process_kapso_message(incoming: IncomingWhatsAppMessage) -> None:
         try:
-            result = await runtime.agent.respond(incoming.text)
-        except LLMProviderError as exc:
-            seen_webhook_messages.pop(dedup_key, None)
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
-
-        delivery_status = "LOCAL_ONLY"
-        if runtime.whatsapp_channel is not None:
-            try:
-                outbound_text = f"🛠️ *XEON Cotizador*\n{result.text}"
-                receipt = await runtime.whatsapp_channel.send_text(
-                    recipient_number=incoming.sender_number,
-                    text=outbound_text,
+            result = await runtime.agent.respond(
+                incoming.text,
+                conversation_key=f"kapso-{incoming.instance}-{incoming.sender_number}",
+                request_id=f"kapso-{incoming.external_message_id}",
+            )
+            if runtime.whatsapp_channel is not None:
+                await runtime.whatsapp_channel.send_text(
+                    recipient_number=incoming.sender_number, text=result.text
                 )
-                delivery_status = receipt.status
-            except ChannelDeliveryError as exc:
-                seen_webhook_messages.pop(dedup_key, None)
-                raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except LLMProviderError, ChannelDeliveryError:
+            # The signed webhook was accepted; provider errors cannot be returned after the ack.
+            seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)
 
-        return WhatsAppWebhookResponse(
-            status="processed",
-            instance=incoming.instance,
-            external_message_id=incoming.external_message_id,
-            sender_number=incoming.sender_number,
-            reply=result.text,
-            delivery_status=delivery_status,
-            provider=result.provider,
-            model=result.model,
-        )
+    @application.post("/v1/channels/whatsapp/kapso/webhook")
+    async def kapso_webhook(request: Request, background_tasks: BackgroundTasks) -> dict[str, str]:
+        signature = request.headers.get("X-Webhook-Signature")
+        if signature is None:
+            raise HTTPException(status_code=401, detail="Firma de webhook invalida.")
+        raw_body = await request.body()
+        try:
+            secret = runtime.settings.require_kapso_webhook_secret().get_secret_value()
+        except SettingsError as exc:
+            raise HTTPException(status_code=503, detail="Webhook Kapso sin configurar.") from exc
+        if not verify_kapso_signature(raw_body, signature, secret):
+            raise HTTPException(status_code=401, detail="Firma de webhook invalida.")
+        if request.headers.get("X-Webhook-Event") != "whatsapp.message.received":
+            return {"status": "ignored"}
+        try:
+            payload = json.loads(raw_body)
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="Payload JSON invalido.") from exc
+        events = payload if isinstance(payload, list) else [payload]
+        accepted = 0
+        for event in events:
+            incoming = parse_kapso_webhook(
+                event, idempotency_key=request.headers.get("X-Idempotency-Key")
+            )
+            if incoming is None:
+                continue
+            dedup_key = (incoming.instance, incoming.external_message_id)
+            if dedup_key in seen_kapso_messages:
+                continue
+            seen_kapso_messages[dedup_key] = None
+            while len(seen_kapso_messages) > _MAX_SEEN_WEBHOOK_IDS:
+                seen_kapso_messages.popitem(last=False)
+            background_tasks.add_task(process_kapso_message, incoming)
+            accepted += 1
+        return {"status": "processed" if accepted else "ignored"}
 
     @application.post("/v1/quotes", response_model=QuoteOutcomeResponse)
     async def create_quote(

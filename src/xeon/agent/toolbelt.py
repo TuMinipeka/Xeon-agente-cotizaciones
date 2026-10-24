@@ -11,6 +11,7 @@ from xeon.application.quote_draft import (
     CreateQuoteDraft,
     CreateQuoteDraftCommand,
     CreateQuoteResult,
+    DiscountPolicyUnavailable,
     DraftLineRequest,
     QuoteDraftReady,
 )
@@ -39,8 +40,8 @@ class SearchProductsOutcome:
     message: str = ""
 
 
-class HermesToolbelt:
-    """Authorized commercial tools exposed to the Hermes orchestrator.
+class CommercialToolbelt:
+    """Authorized commercial tools exposed to the XEON agent.
 
     Combines hybrid catalog discovery (exact SKU/alias + semantic RAG context + JSONB specs)
     with deterministic database queries for prices, stock, and quote drafts.
@@ -74,6 +75,16 @@ class HermesToolbelt:
                 query=cleaned,
                 clarification_reason="missing_units",
                 message="Faltan unidades y contexto; esas medidas no determinan una referencia.",
+            )
+        if re.search(r"\b(?:coso|cosa)\b", cleaned, re.IGNORECASE):
+            return SearchProductsOutcome(
+                status="clarification_required",
+                query=cleaned,
+                clarification_reason="ambiguous_reference",
+                message=(
+                    "La referencia es ambigua; se necesitan caracteristicas "
+                    "antes de seleccionar un SKU."
+                ),
             )
 
         try:
@@ -184,14 +195,28 @@ class HermesToolbelt:
             )
         )
 
-    def format_verified_context(self, user_message: str) -> str | None:
+    def prepare_verified_context(
+        self,
+        user_message: str,
+        *,
+        request_id: str | None = None,
+        last_sku: str | None = None,
+    ) -> tuple[str | None, str | None]:
         normalized = user_message.strip()
         if not normalized or normalized.casefold() in {"hola", "buenas", "buenos dias"}:
-            return None
+            return None, None
 
         outcome = self.search_products(normalized, limit=3)
+        if last_sku is not None and (
+            outcome.status == "not_found"
+            or (
+                outcome.status == "clarification_required"
+                and outcome.clarification_reason == "ambiguous_reference"
+            )
+        ):
+            outcome = self.search_products(last_sku, limit=1)
         if outcome.status in {"exact_match", "semantic_candidates"}:
-            lines = [f"[HERMES_TOOL:search_products status={outcome.status}]"]
+            lines = [f"[XEON_TOOL:search_products status={outcome.status}]"]
             for candidate in outcome.candidates:
                 specs_text = ", ".join(f"{k}={v}" for k, v in candidate.specs.items())
                 lines.append(
@@ -218,7 +243,7 @@ class HermesToolbelt:
                     else "unrequested"
                 )
                 lines.append(
-                    f"[HERMES_TOOL:get_stock_by_branches sku={stock.sku} "
+                    f"[XEON_TOOL:get_stock_by_branches sku={stock.sku} "
                     f"sede_solicitada={stock.requested_branch_id} "
                     f"disponible_local={stock.local_available} "
                     f"faltante={stock.shortfall} "
@@ -237,27 +262,34 @@ class HermesToolbelt:
                 try:
                     draft_res = self.create_quote_draft(
                         tenant_id="whatsapp",
-                        request_id=f"wa-{uuid.uuid4().hex[:12]}",
+                        request_id=request_id or f"wa-{uuid.uuid4().hex[:12]}",
                         lines=(DraftLineRequest(query=primary.sku, quantity=quantity),),
+                        discount_requested=_requests_discount(normalized),
                     )
                     if isinstance(draft_res, QuoteDraftReady):
                         q = draft_res.quote
                         lines.append(
-                            f"[HERMES_TOOL:create_quote_draft quote_id={q.id} "
+                            f"[XEON_TOOL:create_quote_draft quote_id={q.id} "
                             f"status={q.status.value} version=v{q.version} "
                             f"sku={primary.sku} cantidad={quantity} "
                             f"subtotal={q.subtotal.amount} {q.currency} "
                             f"total={q.total.amount} {q.currency}]"
                         )
+                    elif isinstance(draft_res, DiscountPolicyUnavailable):
+                        lines.append(
+                            "[XEON_TOOL:create_quote_draft status=discount_policy_unavailable] "
+                            "No hay politica de descuentos aprobada; no se aplica ni se inventa "
+                            "un porcentaje. No se creo un borrador."
+                        )
                 except Exception:
                     pass
 
-            return "\n".join(lines)
+            return "\n".join(lines), primary.sku
 
         if outcome.status in {"clarification_required", "catalog_unavailable"}:
-            return f"[HERMES_TOOL:search_products status={outcome.status}] {outcome.message}"
+            return f"[XEON_TOOL:search_products status={outcome.status}] {outcome.message}", None
 
-        return None
+        return None, None
 
 
 _QTY_RE = re.compile(
@@ -268,6 +300,14 @@ _LEADING_QTY_RE = re.compile(
     r"(?:cotizar|cotizame|necesito|quiero|dame)\s+(\d+(?:[.,]\d+)?)\b",
     re.IGNORECASE,
 )
+_DISCOUNT_RE = re.compile(
+    r"\b(?:descuentos?|rebajas?|precio\s+especial)\b|\b\d+(?:[.,]\d+)?\s*%",
+    re.IGNORECASE,
+)
+
+
+def _requests_discount(text: str) -> bool:
+    return _DISCOUNT_RE.search(text) is not None
 
 
 def _extract_requested_quantity(text: str) -> Decimal | None:

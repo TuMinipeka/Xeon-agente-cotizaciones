@@ -2,6 +2,11 @@
   "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
   "python.testing.pytestEnabled": true,
   "python.testing.pytestArgs": ["tests"],
-  "ruff.nativeServer": "on"
+  "ruff.nativeServer": "on",
+  "git.autorefresh": false,
+  "git.autofetch": false,
+  "files.watcherExclude": {
+    "**/.obsidian/**": true,
+    "**/wiki/.obsidian/**": true
+  }
 }
-

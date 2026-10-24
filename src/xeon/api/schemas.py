@@ -105,14 +105,3 @@ class QuoteOutcomeResponse(BaseModel):
     query: str | None = None
     reason: str | None = None
     quote: QuoteDraftOut | None = None
-
-
-class WhatsAppWebhookResponse(BaseModel):
-    status: Literal["processed", "ignored"]
-    instance: str | None = None
-    external_message_id: str | None = None
-    sender_number: str | None = None
-    reply: str | None = None
-    delivery_status: str | None = None
-    provider: str | None = None
-    model: str | None = None

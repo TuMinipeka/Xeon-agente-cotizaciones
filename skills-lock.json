@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "automate-whatsapp": {
+      "source": "gokapso/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/automate-whatsapp/SKILL.md",
+      "computedHash": "6565ec3bcb56922f962873a3ebdb105a2e72a7afaae9937a880b871d316a2e42"
+    },
+    "integrate-whatsapp": {
+      "source": "gokapso/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/integrate-whatsapp/SKILL.md",
+      "computedHash": "9a2aba4a28d371a48cf5a2525df3da21d914f0c05df97ab0817fb879d3656eeb"
+    },
+    "observe-whatsapp": {
+      "source": "gokapso/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/observe-whatsapp/SKILL.md",
+      "computedHash": "60a26e9f47de4bac922b58343aeae4f704a1b0b1e9fb546e66b7e47635f4ce38"
+    },
+    "tui-design": {
+      "source": "diegomarino/tui-design",
+      "sourceType": "github",
+      "skillPath": "skills/tui-design/SKILL.md",
+      "computedHash": "d726e0487f125f19aa997d234b8ef9ed1c893ea6a669571bff8fcd08c6eb5805"
+    },
+    "tui-fundamentals": {
+      "source": "josiahsiegel/claude-plugin-marketplace",
+      "sourceType": "github",
+      "skillPath": "plugins/tui-master/skills/tui-fundamentals/SKILL.md",
+      "computedHash": "558e1245f0c38dccf6d8b605fbf9845dddbb0afe963183bd136e3f55f09d6bbc"
+    }
+  }
+}

@@ -3,15 +3,15 @@
 **Integrantes:** Daniel Mayorga y Juan Pablo Conde Zapata.  
 **Fecha:** 17 de octubre de 2026.  
 **Versión documental:** 2.0.  
-**Estado:** especificación vigente; combina el núcleo ya implementado (Hermes, Groq, Evolution API, búsqueda híbrida y cotizador determinista) con las capacidades siguientes del proyecto.
+**Estado:** especificación vigente; distingue el núcleo implementado (Kapso, Grok, Groq de respaldo, catálogo sintético y cotizador determinista) de las capacidades planeadas.
 
-Este documento establece qué construimos, qué problema resolvemos, cómo utilizamos las herramientas y qué condiciones debe cumplir cada entrega. El stack prioriza agilidad, costo \$0 en canales de mensajería mediante **Evolution API (WhatsApp)**, inferencia rápida con **Groq API**, orquestación con **Hermes** y una **base de datos híbrida empresarial (SQL Relacional + NoSQL `JSONB` + Vectorial `pgvector`)** sobre PostgreSQL 17.
+Este documento establece qué construimos, qué problema resolvemos, cómo utilizamos las herramientas y qué condiciones debe cumplir cada entrega. El canal WhatsApp usa **Kapso**; **Grok** es el motor predeterminado, **Groq** el respaldo y `mock` el perfil de pruebas. `AgentService` y `CommercialToolbelt` preparan el contexto comercial. La base híbrida empresarial (SQL relacional + `JSONB` + `pgvector`) sobre PostgreSQL 17 es una evolución planeada.
 
 ## 1. Qué es XEON
 
-XEON es un agente de inteligencia artificial especializado en asistencia comercial y elaboración de cotizaciones para ferreterías, agroferreterías y distribuidores. Conversa con el comprador por WhatsApp, identifica productos (incluso ante descripciones ambiguas o jerga ferretera), consulta datos empresariales verificados y prepara una cotización que pueda revisarse y enviarse sin reconstruir manualmente toda la información.
+XEON es un agente de inteligencia artificial especializado en asistencia comercial y elaboración de cotizaciones para ferreterías, agroferreterías y distribuidores. Conversa con el comprador por WhatsApp, identifica productos (incluso ante descripciones ambiguas o jerga ferretera) y prepara un borrador calculado. El prototipo consulta datos sintéticos verificados; la integración con datos empresariales reales y la emisión de una cotización aprobada son posteriores.
 
-Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Para lograrlo combina lenguaje natural y búsqueda semántica con consultas transaccionales verificables, cálculos programados (`Decimal`) y aprobación humana.
+Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Hoy combina lenguaje natural, búsqueda lexical y cálculos programados (`Decimal`) sobre datos sintéticos; la búsqueda vectorial, las consultas transaccionales y la aprobación humana siguen planeadas.
 
 ## 2. Problemática y usuarios
 
@@ -46,16 +46,18 @@ Según el caso aportado por Daniel, Ferragro cuenta con comerciantes en zonas co
 
 ### 3.1. Recorrido principal
 
-El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el evento a **XEON**, donde **Hermes** extrae la intención, busca referencias candidatas mediante búsqueda híbrida (**RAG semántico + atributos NoSQL `JSONB` + alias exactos**) y consulta las tablas relacionales de la base de datos para precios y stock. El backend calcula la propuesta y la guarda como borrador versionado (`DRAFT`). Un vendedor autorizado revisa, aprueba o corrige. El sistema genera el PDF aprobado y lo entrega por WhatsApp.
+El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` y `CommercialToolbelt` identifican referencias en el catálogo sintético, consultan snapshots de stock y calculan con el backend un borrador `DRAFT`. Grok redacta a partir del contexto verificado. La revisión humana, la persistencia empresarial y el PDF aprobado forman parte de la visión posterior.
 
-### 3.2. Incluido en el MVP
+### 3.2. Alcance objetivo del MVP
 
-- Conversación en español por **WhatsApp mediante Evolution API** (autoalojada en Docker, sin costo por mensaje).
-- Orquestación de herramientas comerciales con **Hermes** conectado a **Groq API**.
-- Catálogo híbrido: unidades, alias, atributos técnicos polimórficos (`JSONB` / `specs`) y contexto semántico (`RAG` / `pgvector`) para identificar productos a partir de descripciones coloquiales.
+Los puntos siguientes describen el alcance buscado; las capacidades todavía no implementadas se señalan expresamente:
+
+- Conversación en español por **WhatsApp mediante Kapso** y webhook firmado.
+- Contexto comercial verificado por `AgentService` y `CommercialToolbelt`; **Grok** predeterminado, **Groq** de respaldo y `mock` en pruebas.
+- Catálogo sintético en memoria con unidades, alias, `specs` y búsqueda lexical; `JSONB` y RAG vectorial con `pgvector` están planeados.
 - Inventario por sucursal/bodega con clasificación de vigencia (`fresh`, `stale`, `unknown`) y tipo (`local`, `transfer`, `delivery`).
-- Precios, descuentos y logística calculados en el backend con `Decimal` y reglas explícitas.
-- Borrador de cotización (`DRAFT`), revisión humana, versionado y generación de PDF.
+- Precios y borradores calculados en el backend con `Decimal`; la política de descuentos y la logística empresarial están planeadas.
+- Borrador de cotización (`DRAFT`) versión 1; revisión humana, versionado de aprobaciones y generación de PDF planeados.
 - Operación interna por CLI (`Typer`), sin exigir un frontend pesado.
 - Datos sintéticos verificados antes de conectar un ERP real.
 
@@ -82,40 +84,42 @@ El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el even
 10. **Los datos de demostración se identifican como ficticios.** Nunca atribuirlos a Ferragro.
 11. **La intervención humana es funcionalidad del producto.**
 12. **Cotización PDF.** La versión aprobada se entrega en formato PDF.
+13. **La respuesta al cliente respeta el alcance comercial.** Bloquear solicitudes ajenas a la ferretería antes de consultar el modelo y mantener la parte comercial de solicitudes mixtas.
+14. **No exponer información interna.** Las respuestas de proveedores reales no deben revelar códigos internos, marcadores técnicos ni enlaces ajenos a los registrados.
 
-## 5. Stack tecnológico vigente (Simplificado y de Costo \$0)
+## 5. Stack tecnológico vigente y planeado
 
 | Capa | Tecnología | Para qué se usa |
 |---|---|---|
-| Lenguaje y Gestor | Python 3.14.8 + `uv` | Dominio, API, orquestador Hermes y CLI reproducible |
+| Lenguaje y Gestor | Python 3.14.8 + `uv` | Dominio, API, agente y CLI reproducible |
 | API | FastAPI + Uvicorn + Pydantic 2 | Endpoints REST, recepción de webhooks y validación |
 | Dominio | Python + `Decimal` | Cálculos monetarios exactos, stock y estados comerciales |
-| Agente / Orquestador | **Hermes** (`HermesToolbelt`) | Ciclo de razonamiento y ejecución acotada de herramientas |
-| Proveedor LLM | **Groq API** (`llama-3.3-70b-versatile`) + `MockLLM` | Inferencia de baja latencia vía `LLMPort` + `HTTPX` |
-| Canal WhatsApp | **Evolution API** (Docker local) + `HTTPX` | Conexión y automatización de WhatsApp sin costo por mensaje |
-| Base de Datos Híbrida | **PostgreSQL 17** (`SQL` + `JSONB` + `pgvector`) | Transacciones ACID (SQL), fichas polimórficas (NoSQL `JSONB`) y búsqueda semántica (RAG `pgvector`) en un solo motor |
-| Acceso a Datos | SQLAlchemy 2 + psycopg 3 + Alembic | Repositorios transaccionales y migraciones |
-| PDF | Jinja2 + WeasyPrint | Generación de cotización en PDF |
+| Agente | `AgentService` + `CommercialToolbelt` | Prepara contexto verificado; el modelo redacta, el backend calcula |
+| Proveedor LLM | Grok por defecto; Groq de respaldo; `MockLLM` en pruebas | Inferencia vía `LLMPort` + `HTTPX` |
+| Canal WhatsApp | Kapso + `HTTPX` | Webhook firmado y envío por API oficial de WhatsApp vía Kapso |
+| Base de datos híbrida (planeada) | PostgreSQL 17 (`SQL` + `JSONB` + `pgvector`) | Transacciones, fichas polimórficas y búsqueda vectorial |
+| Acceso a datos (planeado) | SQLAlchemy 2 + psycopg 3 + Alembic | Repositorios transaccionales y migraciones |
+| PDF (planeado) | Jinja2 + WeasyPrint | Generación de cotización aprobada |
 | Terminal Interna | Typer + HTTPX | CLI para operar, consultar stock y revisar borradores |
 | Despliegue y Calidad | Docker Compose, Pytest, Ruff, mypy, GitHub Actions | Entorno reproducible y verificación continua |
 
 ## 6. Arquitectura del sistema
 
-Se utiliza un monolito modular con arquitectura hexagonal: el dominio define lo que necesita mediante protocolos, y los adaptadores conectan **Evolution API (WhatsApp)**, **Groq API** y **PostgreSQL 17 Híbrido**. Como Evolution API y FastAPI corren en la misma red de Docker Compose, el webhook viaja por red interna sin requerir túneles públicos.
+Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; los datos comerciales del prototipo viven en memoria. PostgreSQL 17 híbrido es una evolución planeada. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
 
 ```mermaid
 flowchart TD
-    Cliente["Comprador en WhatsApp"] <--> Evo["Evolution API (Docker local, costo $0)"]
-    Evo -- "Webhook interno: POST /v1/channels/whatsapp/webhook" --> API["FastAPI (XEON)"]
-    API --> Hermes["Orquestador Hermes (HermesToolbelt)"]
-    Hermes <--> Groq["LLMPort: Mock o Groq API (llama-3.3-70b-versatile)"]
-    Hermes --> ToolSearch["search_products (RAG pgvector + JSONB specs + Exacto)"]
-    Hermes --> ToolStock["get_stock_by_branches (Consulta SQL Directa)"]
-    Hermes --> ToolQuote["create_quote_draft (Cálculo Decimal ACID)"]
-    ToolSearch --> DB[("PostgreSQL 17 Híbrido:\n1. SQL (Precios, Stock, Quotes)\n2. NoSQL JSONB (Specs, Webhooks)\n3. pgvector (RAG Semántico)")]
-    ToolStock --> DB
-    ToolQuote --> DB
-    Hermes -- "Respuesta verificada / PDF" --> Evo
+    Cliente["Comprador en WhatsApp"] <--> Kapso["Kapso / API oficial de WhatsApp"]
+    Kapso -- "Webhook firmado /v1/channels/whatsapp/kapso/webhook" --> API["FastAPI XEON"]
+    API --> Agente["AgentService + CommercialToolbelt"]
+    Agente <--> LLM["LLMPort: Grok / Groq / mock"]
+    Agente --> ToolSearch["search_products: SKU, alias y búsqueda lexical"]
+    Agente --> ToolStock["get_stock_by_branches: snapshots sintéticos"]
+    Agente --> ToolQuote["create_quote_draft: Decimal y DRAFT en memoria"]
+    ToolSearch --> Memoria[("Catálogo e inventario sintéticos")]
+    ToolStock --> Memoria
+    ToolQuote --> Borradores[("Borradores en memoria")]
+    Agente -- "Respuesta por Kapso" --> Kapso
     Vendedor["Vendedor (CLI Typer)"] --> API
 ```
 
@@ -123,43 +127,44 @@ flowchart TD
 
 | Módulo | Responsabilidad | Qué no debe hacer |
 |---|---|---|
-| `domain` | Entidades, dinero (`Decimal`), unidades, vigencia de stock, estados | Importar FastAPI, Evolution API o el cliente HTTP de Groq. |
+| `domain` | Entidades, dinero (`Decimal`), unidades, vigencia de stock, estados | Importar FastAPI, Kapso o clientes HTTP de modelos. |
 | `application` | Casos de uso (`CreateQuoteDraft`, `GetStockByBranches`) y puertos | Depender de un formato concreto de mensajería. |
-| `agent` | Orquestador **Hermes** (`HermesToolbelt`), prompts y selección de herramientas | Calcular totales por texto ni emitir aprobaciones. |
-| `adapters` | Conectores hacia Groq, Evolution API, memoria y PostgreSQL | Incorporar descuentos o reglas comerciales ocultas. |
-| `api` | Endpoints HTTP (`/v1/chat`, `/v1/quotes`, `/v1/stock`, `/v1/channels/whatsapp/webhook`) | Duplicar la lógica de cotización. |
+| `agent` | `AgentService`, `CommercialToolbelt` y prompts | Calcular totales por texto ni emitir aprobaciones. |
+| `adapters` | Conectores hacia Grok, Groq, Kapso y memoria; PostgreSQL queda planeado | Incorporar descuentos o reglas comerciales ocultas. |
+| `api` | Endpoints HTTP (`/v1/chat`, `/v1/quotes`, `/v1/stock`, `/v1/channels/whatsapp/kapso/webhook`) | Duplicar la lógica de cotización. |
 | `cli` | Operaciones humanas desde terminal (`uv run xeon ...`) | Saltarse las validaciones del dominio. |
 
-## 7. Herramientas de Hermes y límites
+## 7. Herramientas comerciales y límites
 
 | Función | Entrada principal | Resultado esperado | Regla |
 |---|---|---|---|
-| `search_products` | Texto del cliente, atributo o SKU | Candidatos por coincidencia exacta, atributos `JSONB` (`specs`) o contexto semántico (`RAG`), junto con el precio oficial leído de la BD | Si la entrada es ambigua o sin unidades, exige aclaración. |
-| `get_stock_by_branches` | SKU, sede, instante de evaluación, cantidad | Disponibilidad local, faltante y alternativas con vigencia (`fresh`/`stale`/`unknown`) | Consulta directa en BD; no reserva ni promete stock vencido. |
+| `search_products` | Texto del cliente, atributo o SKU | Candidatos por coincidencia exacta y puntuación lexical de `specs` y descripciones; precio sintético del catálogo | Si la entrada es ambigua o sin unidades, exige aclaración. |
+| `get_stock_by_branches` | SKU, sede, instante de evaluación, cantidad | Disponibilidad local, faltante y alternativas con vigencia (`fresh`/`stale`/`unknown`) | Usa snapshots sintéticos; no reserva ni promete stock vencido. |
 | `create_quote_draft` | `tenant_id`, `request_id`, líneas (`query`, `quantity`) | Borrador `DRAFT` versión 1 idempotente calculado con `Decimal` | Nunca aprueba ni inventa porcentajes de descuento. |
 
 ## 8. Arquitectura de Base de Datos Híbrida Empresarial (SQL + NoSQL `JSONB` + RAG `pgvector`)
 
 En una ferretería o agroferretería real, usar **solo SQL rígido** obliga a crear cientos de columnas nulas para atributos distintos (HP de una bomba, PSI de un tubo, calibre de un alambre), mientras que usar **solo NoSQL (ej. MongoDB)** debilita la integridad transaccional ACID de precios, stock y cotizaciones.
 
-XEON resuelve esto adoptando un **modelo híbrido multi-modelo dentro de PostgreSQL 17**:
+La arquitectura **planea** un modelo híbrido dentro de PostgreSQL 17. Las tablas, índices y flujos siguientes no están implementados en el prototipo:
 
 1. **Capa SQL Relacional (Exactitud comercial y financiera):**
    - Columnas estructuradas con tipos estrictos para `sku`, `name`, `unit`, `list_price NUMERIC(14,2)`, `currency`, `catalog_version`.
    - Tablas `stock_snapshots`, `quotes` y `quote_lines` con integridad referencial y llave única de idempotencia `(tenant_id, request_id)`.
 2. **Capa NoSQL Documental con `JSONB` e índices `GIN` (Agilidad polimórfica):**
    - `products.specs JSONB`: almacena especificaciones técnicas variables según la familia del producto (`{"diametro": "1/2 pulgada", "presion_psi": "200"}` o `{"calibre": "14", "uso": "cercas ganaderas"}`).
-   - `whatsapp_events.raw_payload JSONB`: almacena los payloads de webhooks de Evolution API sin requerir migraciones de esquema ante cambios del proveedor.
+   - `whatsapp_events.raw_payload JSONB`: podría almacenar los payloads de webhooks de Kapso sin requerir migraciones de esquema ante cambios del proveedor.
    - `discount_policies.rules JSONB`: almacena condiciones promocionales o alianzas (ej. *RindeMás*).
 3. **Capa Vectorial / RAG Semántico con `pgvector` (Desambiguación de lenguaje natural):**
    - `products.description_context` y `products.embedding`: almacenan usos comunes, problemas que resuelve el material y jerga ferretera regional **sin quemar precios ni existencias en el texto del vector**.
-   - Cuando el cliente hace una consulta ambigua en WhatsApp, Hermes recupera los `SKU`s candidatos por similitud semántica + filtro `JSONB` y obtiene el precio/stock vigente directamente de las columnas SQL en la misma operación.
+   - En una implementación futura, una consulta ambigua podría recuperar `SKU`s candidatos por similitud semántica y filtros `JSONB`; precio y stock vendrían de columnas SQL. Hoy la búsqueda es lexical sobre datos sintéticos en memoria.
 
-## 9. Canal WhatsApp sin costo con Evolution API
+## 9. Canal WhatsApp con Kapso
 
-- **Recepción:** Evolution API se conecta a la cuenta de WhatsApp de pruebas mediante código QR y reenvía los eventos `messages.upsert` al endpoint `POST /v1/channels/whatsapp/webhook`.
-- **Filtrado seguro:** El adaptador ignora eventos de estado (`status@broadcast`), grupos (`@g.us`) y mensajes enviados por el propio bot (`fromMe=True`).
-- **Respuesta:** Cuando `WHATSAPP_SEND_ENABLED=true`, XEON envía la respuesta generada por Hermes a `POST {EVOLUTION_API_URL}/message/sendText/{EVOLUTION_INSTANCE}` autenticándose con `EVOLUTION_API_KEY` / `EVOLUTION_API_KEY_FILE`.
+- **Recepción:** Kapso entrega eventos v2 `whatsapp.message.received` a `POST /v1/channels/whatsapp/kapso/webhook`. XEON comprueba `X-Webhook-Signature` con HMAC-SHA256 del cuerpo crudo antes de interpretar JSON; sin firma válida responde 401.
+- **Filtrado y continuidad:** solo se procesan mensajes de texto entrantes, también en lotes. Se deduplican en memoria por ID externo; `conversation_key=kapso-{phone_number_id}-{phone}` mantiene el historial corto y `request_id=kapso-{message.id}` estabiliza la creación de borradores.
+- **Respuesta:** cuando `WHATSAPP_SEND_ENABLED=true`, `KapsoChannelAdapter` envía texto por la API oficial de WhatsApp vía Kapso, autenticado con `X-API-Key`. Un acuse `processed` indica trabajo programado en segundo plano, no entrega confirmada al teléfono.
+- **Operación:** el sandbox necesita `KAPSO_PHONE_NUMBER_ID`, `KAPSO_API_KEY` configurada a mano y URL pública por `cloudflared`. El registro del webhook deja el `secret_key` en `secrets/kapso_webhook_secret.txt`. No hay envíos proactivos ni plantillas fuera de la ventana de 24 h.
 
 ## 10. Configuración de referencia (`.env.example`)
 
@@ -168,8 +173,8 @@ APP_ENV=development
 DATA_MODE=synthetic
 DEFAULT_TIMEZONE=America/Bogota
 
-# Inicio sin gasto de inferencia; activar groq solo para pruebas deliberadas.
-LLM_PROVIDER=mock
+# Grok por defecto; mock para pruebas sin red. Groq es respaldo.
+LLM_PROVIDER=grok
 LLM_MODEL=llama-3.3-70b-versatile
 LLM_BASE_URL=https://api.groq.com/openai/v1
 LLM_MAX_OUTPUT_TOKENS=2048
@@ -179,12 +184,20 @@ AGENT_MAX_STEPS=6
 GROQ_API_KEY=
 GROQ_API_KEY_FILE=
 
-# Canal WhatsApp sin costo mediante Evolution API
+GROK_API_KEY=
+GROK_API_KEY_FILE=secrets/grok_api_key.txt
+GROK_MODEL=grok-4.20-0309-non-reasoning
+GROK_BASE_URL=https://api.reto.pltk.mx/v1
+
+# Kapso: clave manual y secreto de webhook en archivo ignorado por Git.
 WHATSAPP_SEND_ENABLED=false
-EVOLUTION_API_URL=http://evolution-api:8080
-EVOLUTION_INSTANCE=xeon-ferreteria
-EVOLUTION_API_KEY=
-EVOLUTION_API_KEY_FILE=
+KAPSO_API_BASE_URL=https://api.kapso.ai
+KAPSO_API_KEY=
+KAPSO_API_KEY_FILE=
+KAPSO_PHONE_NUMBER_ID=
+KAPSO_WEBHOOK_SECRET=
+KAPSO_WEBHOOK_SECRET_FILE=secrets/kapso_webhook_secret.txt
+META_GRAPH_VERSION=v24.0
 
 LOG_LEVEL=INFO
 ```
@@ -201,6 +214,6 @@ LOG_LEVEL=INFO
 | T06 | Fuente caída | Indica imposibilidad de confirmar; no responde «agotado». |
 | T07 | Snapshot vencido | Señala antigüedad (`stale`) y no promete disponibilidad firme. |
 | T08 | Descuento no autorizado | Rechaza si no hay política; no inventa porcentaje. |
-| T09 | Consulta descriptiva/coloquial | Hermes recupera candidatos por contexto semántico (RAG) y `specs` (`JSONB`) con precio oficial de BD. |
-| T10 | Webhook Evolution API (`messages.upsert`) | Normaliza mensaje del cliente, ignora `fromMe=True` y responde con datos verificados. |
-| T19 | Perfil `mock` | Cero llamadas externas a Groq. |
+| T09 | Consulta descriptiva/coloquial | `CommercialToolbelt` puntúa candidatos del catálogo sintético; RAG vectorial y BD empresarial siguen planeados. |
+| T10 | Webhook Kapso firmado (`whatsapp.message.received`) | Verifica HMAC, ignora eventos ajenos y no texto, deduplica mensajes y programa la respuesta. |
+| T19 | Perfil `mock` | Cero llamadas externas a proveedores LLM. |
