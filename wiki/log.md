@@ -126,3 +126,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Wiki:** el orquestador reescribió los enlaces en 9 páginas; 132 enlaces revisados, 0 rotos.
 - **Raíz final:** solo los archivos que exigen las herramientas o las convenciones.
 - **Verificación:** 146 pruebas en verde.
+
+## [2026-10-24] repositorio | Normalización y PR hacia develop
+
+- **Finales de línea:** los cambios que mostraba `CONTRIBUTING.md` (y antes `GLOSSARY.md`) eran solo de final de línea. La causa era la falta de `.gitattributes` con `core.autocrlf=true`. Se añadió `.gitattributes` (`* text=auto eol=lf`, CRLF para `.ps1/.bat/.cmd` y binarios marcados) y se renormalizó; el índice ya estaba en LF, así que solo se agregó el archivo (`1fcbac0`).
+- **Ramas:** `developer/daniel` avanzó por fast-forward hasta `feature/kapso-channel` y se subió.
+- **PR #1** (`developer/daniel` → `develop`): 42 commits, sin conflictos, `MERGEABLE`. Título y descripción actualizados a todo el alcance (CLI, Grok, Kapso, QA, D7, D9, D10), sin firmas de agentes.
