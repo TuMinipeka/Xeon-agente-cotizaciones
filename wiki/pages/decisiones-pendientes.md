@@ -73,3 +73,24 @@ QA confirmó el 2026-10-24 tres defectos relacionados (QA1 a QA3 en [hito S2](hi
   - pasar el `conversation_id` a `AgentService`.
 
 Revisado: 2026-10-24. Registrar la resolución y sus fuentes en [log.md](../log.md).
+
+## D7: Integración con `developer/conde`
+
+La rama de Conde (11 commits sobre `9660c76`) rediseñó la conversación:
+
+- carrito por conversación (`ConversationState`) y confirmación obligatoria de SKU en `hermes.py`;
+- `application/commercial_scope.py`, que filtra temas no comerciales antes del LLM;
+- `agent/customer_safety.py`, que sanitiza las respuestas al cliente;
+- una semilla sintética ampliada.
+
+El merge simulado con `developer/daniel` da conflictos en `hermes.py`, `service.py`, `app.py`, `README.md` y `docs/ARCHITECTURE.md`.
+
+- **Resolución (usuario, 2026-10-24):** **base de `developer/daniel` más los módulos de Conde.**
+  - Se mantienen la cotización directa, QA1–QA3 y la memoria con historial a Grok.
+  - Se integran en `AgentService` `CommercialScopePolicy` y `CustomerResponsePolicy`, la semilla sintética y los cambios sin conflicto.
+  - **No** entran el carrito ni la confirmación de SKU de Conde.
+  - Las pruebas de Conde que dependen del carrito se retiran o adaptan, y se documenta cuáles.
+- **Aplicado (2026-10-24):** merge `bf89cf0` (`Merge: :twisted_rightwards_arrows: IntegrateCondeScopeAndSafetyModules`), hecho por Codex en un worktree aislado y auditado por el orquestador; 131 pruebas en verde.
+  - El sanitizador no se aplica con el proveedor `mock`, porque las pruebas necesitan ver los marcadores internos. Con Grok, Groq y Hermes siempre se aplica.
+  - Las pruebas de Conde retiradas por depender del carrito están en `docs/CAMBIOS_CONDE.md` y en el log.
+- **Pendiente:** comunicar a Conde que su carrito quedó fuera de esta integración.

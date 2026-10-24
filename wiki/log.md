@@ -74,3 +74,17 @@ El usuario autorizó expresamente modificar archivos privados.
 - **Orquestador:** auditoría del diff; suite con 104 aprobadas y 0 `xfail`.
 - **Hallazgo pendiente:** `.interface-design/system.md` aparece borrado en el árbol de trabajo sin intervención de los agentes. Se excluyó de los commits y queda por confirmar con el usuario.
 - **Inbox:** se integraron y retiraron las notas `codex-env-grok`, `agy-git-lock`, `codex-qa123` y `agy-grok-rehearsal`.
+
+## [2026-10-24] implementación | XEON CLI, merge con Conde y README
+
+El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `tui-design` y `tui-fundamentals`, un merge con `developer/conde`, un PR hacia `develop` y un README mejorado.
+
+- **Skills:** instaladas y revisadas; se versiona `skills-lock.json`. El usuario había dado dos comandos idénticos.
+- **Contrato:** [XEON CLI](pages/xeon-cli.md).
+- **Shell:** Codex implementó `src/xeon/shell/` (`5286b02`) con dos pasadas visuales tras la auditoría.
+- **QA:** agy validó en terminal real y encontró QA-CLI-1 a QA-CLI-4. Codex los corrigió (`d0ae75a`) y agy confirmó la corrección en terminal real.
+- **Merge:** D7 (base nuestra más los módulos de alcance y seguridad de Conde), hecho por Codex en el worktree `../xeon-merge` (`bf89cf0`).
+- **Documentación:** el orquestador reestructuró el README alrededor de la CLI y actualizó `docs/ARCHITECTURE.md` (`2aa9da9`).
+- **Repositorio:** `origin/main` ya no existe en el remoto; el PR va hacia `develop`.
+- **Archivos borrados fuera de los agentes:** `Xeon.png`, `video/.../xeon.png` y `.interface-design/system.md` siguen sin incluirse en commits, pendientes de confirmación del usuario.
+- **Inbox:** se integraron y retiraron las notas `codex-xeon-cli`, `codex-merge-conde`, `agy-xeon-cli-qa` y `codex-cli-qa-fixes`.
