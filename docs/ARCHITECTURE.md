@@ -16,7 +16,7 @@ POST /v1/chat   POST /v1/channels/whatsapp/webhook (Evolution API)
         v                               v
      LLMPort                    Herramientas comerciales autorizadas:
       /   \                     - search_products (Exacto + RAG semantico + JSONB specs)
-   Mock   Groq API              - get_stock_by_branches (SQL / Snapshots deterministas)
+   Mock   Groq/Grok API         - get_stock_by_branches (SQL / Snapshots deterministas)
                                 - create_quote_draft (Calculo Decimal ACID)
 
 POST /v1/quotes  GET /v1/quotes/{id}
@@ -46,10 +46,14 @@ GET /v1/stock  CLI stock show
          FulfillmentStatus(sufficient|partial|unknown)
 ```
 
-### 1. Orquestacion con Hermes y Groq API
+### 1. Orquestacion con Hermes, Groq y Grok API
 - `MockLLM` es el perfil predeterminado y garantiza cero llamadas externas.
 - El perfil `groq` exige una credencial explicita (`GROQ_API_KEY` o `GROQ_API_KEY_FILE`) y consume
   el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`).
+- El perfil `grok` reutiliza `OpenAICompatibleLLM` a traves de `LLMPort`, exige `GROK_MODEL`
+  explicito y una credencial (`GROK_API_KEY` o `GROK_API_KEY_FILE`); su URL predeterminada es
+  `https://api.x.ai/v1`. El adaptador y sus pruebas con transporte simulado estan implementados;
+  la prueba real con xAI sigue pendiente de autorizacion y presupuesto.
 - `HermesToolbelt` conecta el turno conversacional con las herramientas deterministas del backend:
   identifica referencias candidatas mediante busqueda hibrida (`search_products`), consulta stock
   por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).

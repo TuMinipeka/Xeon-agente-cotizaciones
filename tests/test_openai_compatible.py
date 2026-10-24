@@ -35,3 +35,34 @@ def test_adapter_uses_expected_chat_completions_contract() -> None:
         assert result.provider == "groq"
 
     asyncio.run(run())
+
+
+def test_grok_uses_openai_compatible_contract_without_network() -> None:
+    async def run() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert str(request.url) == "https://api.x.ai/v1/chat/completions"
+            assert request.headers["Authorization"] == "Bearer test-secret"
+            payload = __import__("json").loads(request.content)
+            assert payload["model"] == "test-model"
+            return httpx.Response(200, json={"choices": [{"message": {"content": "respuesta"}}]})
+
+        client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        adapter = OpenAICompatibleLLM(
+            base_url="https://api.x.ai/v1",
+            api_key="test-secret",
+            model="test-model",
+            max_output_tokens=256,
+            timeout_seconds=5,
+            provider_name="grok",
+            client=client,
+        )
+        try:
+            result = await adapter.complete((ChatMessage(role="user", content="hola"),))
+        finally:
+            await client.aclose()
+
+        assert result.text == "respuesta"
+        assert result.provider == "grok"
+        assert result.model == "test-model"
+
+    asyncio.run(run())
