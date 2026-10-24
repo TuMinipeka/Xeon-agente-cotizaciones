@@ -40,7 +40,7 @@ def test_adapter_uses_expected_chat_completions_contract() -> None:
 def test_grok_uses_openai_compatible_contract_without_network() -> None:
     async def run() -> None:
         def handler(request: httpx.Request) -> httpx.Response:
-            assert str(request.url) == "https://api.x.ai/v1/chat/completions"
+            assert str(request.url) == "https://api.reto.pltk.mx/v1/chat/completions"
             assert request.headers["Authorization"] == "Bearer test-secret"
             payload = __import__("json").loads(request.content)
             assert payload["model"] == "test-model"
@@ -48,7 +48,7 @@ def test_grok_uses_openai_compatible_contract_without_network() -> None:
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         adapter = OpenAICompatibleLLM(
-            base_url="https://api.x.ai/v1",
+            base_url="https://api.reto.pltk.mx/v1",
             api_key="test-secret",
             model="test-model",
             max_output_tokens=256,

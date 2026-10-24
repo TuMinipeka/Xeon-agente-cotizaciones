@@ -16,7 +16,7 @@ POST /v1/chat   POST /v1/channels/whatsapp/webhook (Evolution API)
         v                               v
      LLMPort                    Herramientas comerciales autorizadas:
       /   \                     - search_products (Exacto + RAG semantico + JSONB specs)
-   Mock   Groq/Grok API         - get_stock_by_branches (SQL / Snapshots deterministas)
+   Grok   Mock/Groq/Hermes      - get_stock_by_branches (SQL / Snapshots deterministas)
                                 - create_quote_draft (Calculo Decimal ACID)
 
 POST /v1/quotes  GET /v1/quotes/{id}
@@ -47,13 +47,15 @@ GET /v1/stock  CLI stock show
 ```
 
 ### 1. Orquestacion con Hermes, Groq y Grok API
-- `MockLLM` es el perfil predeterminado y garantiza cero llamadas externas.
+- `grok` es el perfil predeterminado. Reutiliza `OpenAICompatibleLLM` mediante `LLMPort` con
+  el modelo `grok-4.20-0309-non-reasoning` y la pasarela del reto `https://api.reto.pltk.mx/v1`.
+  La clave se toma por defecto del archivo local `secrets/grok_api_key.txt`; en Compose se monta
+  como `/run/secrets/grok_api_key`. Falta el smoke test real autorizado por el orquestador.
+- `MockLLM` se selecciona explicitamente en las pruebas y no realiza llamadas externas.
 - El perfil `groq` exige una credencial explicita (`GROQ_API_KEY` o `GROQ_API_KEY_FILE`) y consume
-  el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`).
-- El perfil `grok` reutiliza `OpenAICompatibleLLM` a traves de `LLMPort`, exige `GROK_MODEL`
-  explicito y una credencial (`GROK_API_KEY` o `GROK_API_KEY_FILE`); su URL predeterminada es
-  `https://api.x.ai/v1`. El adaptador y sus pruebas con transporte simulado estan implementados;
-  la prueba real con xAI sigue pendiente de autorizacion y presupuesto.
+  el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`) como alternativa.
+- El perfil `hermes` sigue disponible como alternativa local. La fabrica rechaza un modelo Grok
+  vacio aun cuando existe un modelo predeterminado.
 - `HermesToolbelt` conecta el turno conversacional con las herramientas deterministas del backend:
   identifica referencias candidatas mediante busqueda hibrida (`search_products`), consulta stock
   por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
@@ -91,7 +93,7 @@ equivalente en memoria para pruebas):
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable`, `HermesToolbelt.search_products` |
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
-| T19 | Perfil mock: cero llamadas a Groq | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
+| T19 | Perfil mock: cero llamadas a proveedores LLM | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse
 

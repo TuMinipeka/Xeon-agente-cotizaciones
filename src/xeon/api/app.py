@@ -151,8 +151,8 @@ def create_app(
         return HealthResponse(
             status="ok",
             environment=runtime.settings.app_env,
-            provider=runtime.settings.llm_provider,
-            model=runtime.settings.llm_model,
+            provider=runtime.llm.provider_name,
+            model=runtime.llm.model,
         )
 
     @application.post("/v1/chat", response_model=ChatResponse)

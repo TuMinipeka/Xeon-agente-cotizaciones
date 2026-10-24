@@ -2,11 +2,13 @@ services:
   api:
     environment:
       LLM_PROVIDER: groq
+      GROK_API_KEY_FILE: !reset null
       GROQ_API_KEY_FILE: /run/secrets/groq_api_key
-    secrets:
+    secrets: !override
       - groq_api_key
 
 secrets:
+  grok_api_key: !reset null
   groq_api_key:
     file: ./secrets/groq_api_key.txt
 

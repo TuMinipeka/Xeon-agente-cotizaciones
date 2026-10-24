@@ -15,6 +15,12 @@ pero requiere una instancia vinculada para operar con personas reales.
 > persistencia comercial en PostgreSQL, aprobación humana ni PDF. Un borrador `DRAFT` no reserva
 > inventario ni es una cotización aprobada.
 
+El motor LLM predeterminado es **Grok** mediante la pasarela del reto
+`https://api.reto.pltk.mx/v1`, con modelo `grok-4.20-0309-non-reasoning`. La API requiere la
+clave en `secrets/grok_api_key.txt` al iniciar; `mock` se selecciona expresamente para pruebas
+sin red y Groq/Hermes quedan como alternativas. La integración real queda pendiente del smoke test
+autorizado por el equipo.
+
 ## Identidad visual
 
 El logo oficial define la identidad de XEON: **fondo casi negro, jade y menta**. La paleta de
@@ -42,7 +48,7 @@ disponibilidad de inventario.
 | Catálogo por SKU, alias y coincidencia de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial operativo |
 | Stock sintético por sede con origen, vigencia y faltante local | Sin lectura ni reserva de inventario real |
 | Borradores `DRAFT` con `Decimal` e idempotencia en memoria | Se pierden al reiniciar el proceso; sin aprobación ni PDF |
-| LLM `mock`, conexión OpenAI compatible a Hermes local o Groq | `HermesToolbelt` es código propio; no hay un grafo de LangGraph |
+| Grok predeterminado; `mock` para pruebas y conexión OpenAI compatible a Groq/Hermes | La llamada real a la pasarela sigue pendiente de verificación; `HermesToolbelt` es código propio |
 | Webhook y adaptador de envío de Evolution API | La conexión real de WhatsApp depende de Docker, QR y configuración local |
 
 **Ir directo a:** [primer uso](#4-guía-para-el-siguiente-desarrollador-instalación-desde-cero) ·
@@ -98,7 +104,7 @@ flowchart LR
     T --> P[Catálogo sintético]
     T --> I[Inventario sintético]
     T --> Q[Borrador DRAFT en memoria]
-    S --> L[LLMPort: mock / Hermes HTTP / Groq HTTP]
+    S --> L[LLMPort: Grok por defecto / mock / Groq / Hermes]
     L --> R[Respuesta]
     R --> E[Envío opcional por Evolution API]
 ```
@@ -116,7 +122,7 @@ flowchart LR
    `(tenant_id, request_id)` evita duplicar ese borrador mientras viva el mismo proceso. Un
    producto ambiguo o medidas sin unidad deben aclararse antes de confirmar una referencia.
 4. **Respuesta.** `AgentService` incorpora el contexto al prompt y llama al `LLMPort`. `mock`
-   responde localmente; `hermes` y `groq` usan el adaptador HTTP OpenAI compatible. La clase
+   responde localmente en pruebas; `grok`, `hermes` y `groq` usan el adaptador HTTP OpenAI compatible. La clase
    `HermesToolbelt` no ejecuta por sí misma el ciclo de herramientas de Hermes: prepara contexto
    antes de la llamada al modelo. El envío por WhatsApp solo se intenta cuando
    `WHATSAPP_SEND_ENABLED=true`.
@@ -181,7 +187,9 @@ pertenecen al diseño futuro, no a las dependencias actuales de `pyproject.toml`
 
 ### 4.2. Primer uso: API y CLI en modo `mock`
 
-Desde la raíz del repositorio, en la rama `developer/daniel` o una rama corta derivada:
+Esta es una prueba local sin red que fuerza `mock`; el perfil normal es `grok` y requiere el
+archivo de clave indicado arriba. Desde la raíz del repositorio, en la rama `developer/daniel`
+o una rama corta derivada:
 
 ```powershell
 git branch --show-current
@@ -212,22 +220,25 @@ uv run python scripts/simulate_whatsapp_webhook.py --provider mock --message "/x
 ```
 
 En modo `mock` no hay solicitudes al proveedor LLM. Es una demostración funcional local,
-no una prueba de conexión con Groq, Hermes o WhatsApp real.
+no una prueba de conexión con Grok, Groq, Hermes o WhatsApp real.
 
 ### 4.3. Perfiles de IA y canal opcional
 
 | Perfil | Configuración | Efecto |
 |---|---|---|
-| `mock` | `$env:LLM_PROVIDER = "mock"` | Respuesta local; no consume créditos de inferencia. |
+| `grok` (predeterminado) | `secrets/grok_api_key.txt`; URL `https://api.reto.pltk.mx/v1` y modelo `grok-4.20-0309-non-reasoning` | Usa la pasarela del reto; requiere prueba real deliberada. |
+| `mock` | `$env:LLM_PROVIDER = "mock"` | Pruebas locales sin red ni créditos de inferencia. |
 | `hermes` | `$env:LLM_PROVIDER = "hermes"` y servidor compatible en `HERMES_BASE_URL` | Envía chat al servicio HTTP local de Hermes; el modelo se selecciona con `HERMES_MODEL`. |
-| `groq` | `$env:LLM_PROVIDER = "groq"` y `GROQ_API_KEY_FILE` | Hace solicitudes a Groq; pueden aplicar límites o costos del proveedor. |
+| `groq` | `$env:LLM_PROVIDER = "groq"` y `GROQ_API_KEY_FILE` | Alternativa por Groq; pueden aplicar límites o costos. |
 
 `hermes` requiere que el servidor HTTP de Hermes esté realmente disponible en la URL configurada.
 El comando y las opciones para iniciarlo dependen de la versión instalada de Hermes; comprobar
 su ayuda local antes de usarlo. El puente no instala Hermes dentro del repositorio.
 
 Para la prueba con Evolution API, revisar primero [`compose.evolution.yaml`](compose.evolution.yaml)
-y configurar credenciales propias fuera de Git. Después:
+y configurar credenciales propias fuera de Git. El Compose principal usa Grok por defecto y
+monta `secrets/grok_api_key.txt` como `/run/secrets/grok_api_key`; ese archivo debe existir antes
+de iniciar el servicio `api`. Después:
 
 ```powershell
 docker compose -f compose.yaml -f compose.evolution.yaml --profile core up -d --build
@@ -261,7 +272,7 @@ uv run pytest
 
 Las pruebas cubren dominio monetario, ambigüedad de producto, cotización, stock, API, CLI,
 adaptadores LLM y contrato del webhook. Usan `mock` o dobles HTTP; su aprobación no demuestra
-una conexión real a Groq, Hermes ni WhatsApp. El número de pruebas puede cambiar en cada corte.
+una conexión real a Grok, Groq, Hermes ni WhatsApp. El número de pruebas puede cambiar en cada corte.
 
 ### Nivel 2. Demostración local sintética
 
@@ -272,7 +283,8 @@ no representa el inventario del día actual.
 
 ### Nivel 3. Integración opcional con LLM externo
 
-Selecciona `hermes` o `groq` según [4.3](#43-perfiles-de-ia-y-canal-opcional) y prueba
+El orquestador puede probar `grok` o seleccionar `hermes`/`groq` según
+[4.3](#43-perfiles-de-ia-y-canal-opcional) y ejecutar
 `uv run xeon chat "cemento"` con la API iniciada bajo ese perfil. Revisa la respuesta y los
 errores HTTP del proveedor. Esta prueba puede consumir cuota de API.
 
@@ -335,7 +347,7 @@ Ninguna función de esta lista debe anunciarse como disponible en una demostraci
 |---|---|---|
 | Dominio y cotizador | `Money`, `Product`, `StockSnapshot`, `Quote` y casos de uso con pruebas. | Persistencia, concurrencia, precios y stock reales. |
 | Búsqueda | Exacta y puntuación léxica sobre datos sintéticos. | Índices JSONB, embeddings, pgvector y confirmación conversacional del SKU. |
-| IA | `AgentService`, `HermesToolbelt`, `LLMPort`, Mock y adaptador OpenAI compatible. | Validar el flujo real de Hermes/Groq y una orquestación de herramientas más controlada. |
+| IA | `AgentService`, `HermesToolbelt`, `LLMPort`, Grok predeterminado, Mock y adaptador OpenAI compatible. | Validar el flujo real de Grok mediante la pasarela y una orquestación de herramientas más controlada. |
 | WhatsApp | Parser, webhook, filtro por prefijo, deduplicación local y adaptador de envío. | Autenticación del webhook, deduplicación persistente y prueba de entrega real. |
 | Operación | CLI, API y Docker para entorno local. | Autenticación/autorización, auditoría, despliegue y monitoreo. |
 

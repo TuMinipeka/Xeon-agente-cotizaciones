@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     data_mode: Literal["synthetic"] = "synthetic"
     default_timezone: str = "America/Bogota"
 
-    llm_provider: Literal["mock", "groq", "grok", "hermes"] = "mock"
+    llm_provider: Literal["mock", "groq", "grok", "hermes"] = "grok"
     llm_model: str = "llama-3.3-70b-versatile"
     llm_base_url: str = "https://api.groq.com/openai/v1"
     llm_max_output_tokens: int = Field(default=2048, ge=1, le=32_000)
@@ -60,9 +60,9 @@ class Settings(BaseSettings):
     groq_api_key: SecretStr | None = None
     groq_api_key_file: Path | None = None
     grok_api_key: SecretStr | None = None
-    grok_api_key_file: Path | None = None
-    grok_base_url: str = "https://api.x.ai/v1"
-    grok_model: str = ""
+    grok_api_key_file: Path | None = Path("secrets/grok_api_key.txt")
+    grok_base_url: str = "https://api.reto.pltk.mx/v1"
+    grok_model: str = "grok-4.20-0309-non-reasoning"
 
     whatsapp_send_enabled: bool = False
     whatsapp_require_prefix: bool = False

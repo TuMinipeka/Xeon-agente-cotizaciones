@@ -2,8 +2,28 @@ import asyncio
 
 import httpx
 
-from xeon.api.app import create_app
+from xeon.api.app import app, create_app
 from xeon.config import Settings
+
+
+def test_imported_app_uses_mock_during_tests() -> None:
+    async def run() -> tuple[httpx.Response, httpx.Response]:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            health = await client.get("/health")
+            chat = await client.post("/v1/chat", json={"message": "hola"})
+            return health, chat
+
+    health, chat = asyncio.run(run())
+
+    assert health.status_code == 200
+    assert chat.status_code == 200
+    assert health.json()["provider"] == "mock"
+    assert health.json()["model"] == "mock-xeon-v1"
+    assert (health.json()["provider"], health.json()["model"]) == (
+        chat.json()["provider"],
+        chat.json()["model"],
+    )
 
 
 def test_mock_chat_runs_end_to_end_without_external_calls() -> None:

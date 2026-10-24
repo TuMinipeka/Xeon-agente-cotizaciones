@@ -32,9 +32,17 @@ class OpenAICompatibleLLM:
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=timeout_seconds)
 
+    @property
+    def provider_name(self) -> str:
+        return self._provider_name
+
+    @property
+    def model(self) -> str:
+        return self._model
+
     async def complete(self, messages: Sequence[ChatMessage]) -> LLMResponse:
         payload = {
-            "model": self._model,
+            "model": self.model,
             "messages": [
                 {"role": message.role, "content": message.content} for message in messages
             ],
@@ -61,7 +69,7 @@ class OpenAICompatibleLLM:
                 "No fue posible obtener una respuesta valida del proveedor LLM."
             ) from exc
 
-        return LLMResponse(text=text, provider=self._provider_name, model=self._model)
+        return LLMResponse(text=text, provider=self.provider_name, model=self.model)
 
     async def aclose(self) -> None:
         if self._owns_client:
