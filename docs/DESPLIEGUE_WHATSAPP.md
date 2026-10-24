@@ -133,7 +133,7 @@ curl.exe http://127.0.0.1:8000/health
 curl.exe https://<algo>.trycloudflare.com/health
 ```
 
-Ambos deben responder `"provider":"grok","model":"grok-4.20-0309-non-reasoning"`. Si dice `mock`,
+Ambos deben responder `"provider":"grok","model":"grok-4.6"`. Si dice `mock`,
 revisa `LLM_PROVIDER` en `.env`.
 
 Prueba local de un mensaje firmado. Con `WHATSAPP_SEND_ENABLED=true`, el envío al número ficticio

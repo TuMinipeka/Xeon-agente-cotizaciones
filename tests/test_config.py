@@ -16,7 +16,7 @@ def test_grok_is_the_default_profile(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert settings.llm_provider == "grok"
     assert settings.grok_base_url == "https://api.reto.pltk.mx/v1"
-    assert settings.grok_model == "grok-4.20-0309-non-reasoning"
+    assert settings.grok_model == "grok-4.6"
     assert settings.grok_api_key_file == Path("secrets/grok_api_key.txt")
 
 
@@ -101,7 +101,7 @@ def test_grok_factory_reports_the_constructed_provider_and_model(tmp_path: Path)
     llm = build_llm(settings)
     try:
         assert llm.provider_name == "grok"
-        assert llm.model == "grok-4.20-0309-non-reasoning"
+        assert llm.model == "grok-4.6"
     finally:
         asyncio.run(llm.aclose())
 

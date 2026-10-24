@@ -94,7 +94,7 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 | Disponible y probado | Límite actual |
 |---|---|
 | Shell `xeon` (Rich) y subcomandos Typer `health`, `chat`, `quotes`, `stock` | Sin autenticación ni perfiles de usuario |
-| **Grok** por defecto (`grok-4.20-0309-non-reasoning`), verificado con llamadas reales; `mock` en pruebas y Groq como respaldo | Costos de inferencia según la pasarela del reto |
+| **Grok** por defecto (`grok-4.6`, verificado por el orquestador mediante XEON); `mock` en pruebas y Groq como respaldo | Costos de inferencia según la pasarela del reto |
 | Búsqueda por SKU, alias y puntuación de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial |
 | Stock sintético por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante | Sin lectura ni reserva de inventario real |
 | Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
@@ -188,7 +188,7 @@ diseño futuro.
 
 | Perfil | Configuración | Uso |
 |---|---|---|
-| `grok` (predeterminado) | `secrets/grok_api_key.txt`; URL `https://api.reto.pltk.mx/v1`; modelo `grok-4.20-0309-non-reasoning` | Ejecución normal. Consume inferencia. |
+| `grok` (predeterminado) | `secrets/grok_api_key.txt`; URL `https://api.reto.pltk.mx/v1`; modelo `grok-4.6` | Ejecución normal. Consume inferencia. |
 | `mock` | `$env:LLM_PROVIDER = "mock"` | Pruebas y ensayos sin red. La suite lo fuerza siempre. |
 | `groq` | `LLM_PROVIDER=groq` y `GROQ_API_KEY_FILE` | Alternativa. |
 

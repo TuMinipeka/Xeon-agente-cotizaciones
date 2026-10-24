@@ -186,7 +186,7 @@ GROQ_API_KEY_FILE=
 
 GROK_API_KEY=
 GROK_API_KEY_FILE=secrets/grok_api_key.txt
-GROK_MODEL=grok-4.20-0309-non-reasoning
+GROK_MODEL=grok-4.6
 GROK_BASE_URL=https://api.reto.pltk.mx/v1
 
 # Kapso: clave manual y secreto de webhook en archivo ignorado por Git.

@@ -20,7 +20,7 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
   precios (`Decimal`), descuentos, impuestos, stock y estados.
 - Ningun modelo puede aprobar cotizaciones, ejecutar SQL libre, cambiar inventario o leer secretos.
 - Cada proveedor externo (Grok, Groq y Kapso para WhatsApp) entra por un puerto.
-- Grok (`grok-4.20-0309-non-reasoning`, `https://api.reto.pltk.mx/v1`) es el proveedor por
+- Grok (`grok-4.6`, `https://api.reto.pltk.mx/v1`) es el proveedor por
   defecto en ejecucion; la clave solo se lee desde `secrets/grok_api_key.txt`. Las pruebas fuerzan
   `LLM_PROVIDER=mock` y datos sinteticos; una llamada real fuera de la ejecucion normal debe ser
   deliberada y acotada.
