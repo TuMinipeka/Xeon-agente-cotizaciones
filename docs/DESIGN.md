@@ -57,7 +57,7 @@ Referencias: [heurísticas de Nielsen](https://www.nngroup.com/articles/ten-usab
 ## Aplicación por superficie
 
 - **Logo:** usar el PNG oficial. Mantener una zona oscura limpia alrededor para conservar el brillo y la silueta.
-- **Video Remotion:** sustituir la mascota azul antigua por el logo oficial; convertir los brillos cian y las escenas cobrizas a jade/menta, con contraste de texto comprobado. La escena del asesor se diferencia por contenido y encuadre.
+- **XEON CLI y documentación:** usar el logo oficial y los tokens jade/menta; comprobar contraste y legibilidad en terminales con y sin color.
 - **Demo y futura consola:** compartir los tokens de esta guía. SKU, precio y stock mantienen etiquetas de procedencia y vigencia; no usar el color de marca como semáforo de disponibilidad.
 
-Esta guía fija la identidad. La demo y la composición Remotion usan el logo oficial y la nueva familia cromática; cualquier exportación final debe revisarse visualmente después del render.
+Esta guía fija la identidad para el shell, la documentación y cualquier material visual futuro. Cada exportación debe revisarse visualmente antes de publicarse.

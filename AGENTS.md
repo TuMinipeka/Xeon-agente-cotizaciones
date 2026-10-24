@@ -14,12 +14,12 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
 ## Limites de arquitectura
 
 - Mantener arquitectura hexagonal: `domain` no importa FastAPI, HTTPX ni SDK de modelos.
-- La IA (orquestada con **Hermes** y **Grok** via la pasarela del reto) interpreta lenguaje y usa busqueda hibrida
-  (`RAG pgvector` + atributos `NoSQL JSONB`) solo para identificar `SKU`s candidatos ante consultas
-  ambiguas; el backend determina precios (`Decimal`), descuentos, impuestos, stock y estados desde
-  la capa relacional (`SQL`).
+- `AgentService` y `CommercialToolbelt` preparan contexto comercial verificado; Grok lo usa para
+  interpretar y redactar. Hoy la busqueda de candidatos es lexical sobre catalogo sintetico.
+  RAG con `pgvector` y persistencia `JSONB`/SQL son arquitectura planeada. El backend determina
+  precios (`Decimal`), descuentos, impuestos, stock y estados.
 - Ningun modelo puede aprobar cotizaciones, ejecutar SQL libre, cambiar inventario o leer secretos.
-- Cada proveedor externo (Grok, Groq, Evolution API para WhatsApp) entra por un puerto.
+- Cada proveedor externo (Grok, Groq y Kapso para WhatsApp) entra por un puerto.
 - Grok (`grok-4.20-0309-non-reasoning`, `https://api.reto.pltk.mx/v1`) es el proveedor por
   defecto en ejecucion; la clave solo se lee desde `secrets/grok_api_key.txt`. Las pruebas fuerzan
   `LLM_PROVIDER=mock` y datos sinteticos; una llamada real fuera de la ejecucion normal debe ser
@@ -30,8 +30,8 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
 ## Seguridad
 
 - Nunca leer, imprimir, registrar, versionar ni copiar `secrets/grok_api_key.txt`,
-  `secrets/groq_api_key.txt`,
-  `secrets/evolution_api_key.txt` o archivos `.env`.
+  `secrets/groq_api_key.txt`, `secrets/kapso_webhook_secret.txt`, cualquier archivo de clave Kapso
+  o archivos `.env`.
 - No incluir credenciales en prompts, fixtures, capturas, commits o mensajes de error.
 - La configuracion visible solo contiene nombres de variables o referencias a archivos secretos.
 - Antes de una llamada pagada, confirmar que la tarea la necesita y limitar el alcance.

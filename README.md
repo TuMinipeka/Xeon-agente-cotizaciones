@@ -11,7 +11,7 @@
 
 <p align="center">
   <code>Python 3.14</code> · <code>FastAPI</code> · <code>Grok (pasarela del reto)</code> ·
-  <code>Evolution API</code> · <code>Rich CLI</code> · <code>Arquitectura hexagonal</code>
+  <code>Kapso</code> · <code>Rich CLI</code> · <code>Arquitectura hexagonal</code>
 </p>
 
 > [!IMPORTANT]
@@ -94,14 +94,14 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 | Disponible y probado | Límite actual |
 |---|---|
 | Shell `xeon` (Rich) y subcomandos Typer `health`, `chat`, `quotes`, `stock` | Sin autenticación ni perfiles de usuario |
-| **Grok** por defecto (`grok-4.20-0309-non-reasoning`), verificado con llamadas reales; `mock` en pruebas; Groq y Hermes como alternativas | Costos de inferencia según la pasarela del reto |
+| **Grok** por defecto (`grok-4.20-0309-non-reasoning`), verificado con llamadas reales; `mock` en pruebas y Groq como respaldo | Costos de inferencia según la pasarela del reto |
 | Búsqueda por SKU, alias y puntuación de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial |
 | Stock sintético por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante | Sin lectura ni reserva de inventario real |
 | Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
 | Memoria por conversación (últimos turnos a Grok y último SKU), acotada con LRU | Local al proceso; no se comparte entre workers |
 | Descuentos: sin política aprobada se rechazan, también cuando se piden por chat | Sin políticas versionadas |
 | `CommercialScopePolicy` (bloquea temas ajenos antes del LLM) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
-| Webhook de Evolution API con filtros, prefijo opcional y deduplicación | Sin firma del webhook; entrega real requiere QR y prueba manual |
+| Webhook firmado de Kapso (`whatsapp.message.received`), lotes y deduplicación en memoria; ensayo en sandbox realizado | Acuse `processed` no confirma entrega al teléfono; sin cola durable |
 
 ---
 
@@ -113,21 +113,21 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 flowchart LR
     U[Shell xeon] --> S
     C[POST /v1/chat] --> S
-    W[Webhook Evolution API] --> F[Filtro y deduplicación] --> S
+    W[Webhook Kapso con firma HMAC] --> F[Filtro y deduplicación] --> S
     S[AgentService] --> P[CommercialScopePolicy]
     S --> M[ConversationMemory]
-    S --> T[HermesToolbelt]
+    S --> T[CommercialToolbelt]
     T --> K[Catálogo sintético]
     T --> I[Inventario sintético]
     T --> Q[Borrador DRAFT]
-    S --> L[LLMPort: Grok / mock / Groq / Hermes]
+    S --> L[LLMPort: Grok / Groq / mock]
     L --> R[CustomerResponsePolicy]
     R --> O[Respuesta / envío por WhatsApp]
 ```
 
 1. **Alcance.** `CommercialScopePolicy` responde localmente a lo que no es ferretería y separa
    la parte comercial de las solicitudes mixtas.
-2. **Contexto verificado.** `HermesToolbelt.prepare_verified_context` busca el producto (o usa el
+2. **Contexto verificado.** `CommercialToolbelt.prepare_verified_context` busca el producto (o usa el
    último SKU de la conversación ante «ese mismo»), consulta stock y, si hay cantidad, crea un
    `DRAFT`. Si detecta un pedido de descuento sin política, informa y no crea borrador.
 3. **Modelo.** `AgentService` envía a Grok el prompt de sistema, el contexto verificado, el
@@ -135,6 +135,9 @@ flowchart LR
    calcula precios: redacta a partir de datos ya verificados.
 4. **Salida.** `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados de las
    respuestas de proveedores reales.
+
+El contexto inyectado al modelo lleva marcadores `[XEON_TOOL:...]`; son internos y el filtro de
+salida impide mostrarlos al comprador cuando responde un proveedor real.
 
 > [!WARNING]
 > En el chat, una búsqueda descriptiva toma el primer candidato para consultar stock y cotizar.
@@ -153,26 +156,26 @@ src/xeon/
 ├── domain/                 Money, Product, Quote, StockSnapshot e invariantes
 ├── application/            Casos de uso, puertos (Protocol) y commercial_scope
 │   └── container.py        AppContainer: composición de adaptadores
-├── agent/                  AgentService, prompts, HermesToolbelt, customer_safety
+├── agent/                  AgentService, prompts, CommercialToolbelt, customer_safety
 ├── adapters/
 │   ├── catalog/            Catálogo sintético (2000 productos con procedencia)
 │   ├── inventory/          Snapshots de stock en memoria
 │   ├── persistence/        Borradores e idempotencia en memoria
 │   ├── conversation/       Memoria de conversación acotada (LRU)
-│   ├── llm/                Mock y cliente OpenAI compatible (Grok, Groq, Hermes)
-│   └── channels/           Parser y envío mediante Evolution API
+│   ├── llm/                Mock y cliente OpenAI compatible (Grok, Groq)
+│   └── channels/           Parser y envío mediante Kapso
 ├── api/                    Endpoints FastAPI y esquemas Pydantic
 ├── shell/                  XEON CLI: theme, commands, session, render, app
 ├── cli.py                  Entrada Typer: `xeon` (shell) y subcomandos
 └── config.py               Configuración tipada
-scripts/                    Evolution API, simulación de webhook y configurador de .env
+scripts/                    Simulador Kapso y configuración de Grok
 tests/                      Dominio, API, shell, memoria, alcance y adaptadores (mock)
 wiki/                       Memoria compartida del proyecto entre agentes y conversaciones
 docs/                       ARCHITECTURE.md, DESIGN.md, CAMBIOS_CONDE.md
 ```
 
 El dominio no importa FastAPI, HTTPX ni SDKs de modelos. Cada proveedor externo (Grok, Groq,
-Evolution API) entra por un puerto; el shell, la API y Typer son interfaces de entrada que
+Kapso) entra por un puerto; el shell, la API y Typer son interfaces de entrada que
 delegan en los mismos casos de uso. Detalle: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 **Dependencias reales:** Python 3.14.8, `uv`, FastAPI, Pydantic Settings, Typer, Rich, HTTPX,
@@ -188,7 +191,6 @@ diseño futuro.
 | `grok` (predeterminado) | `secrets/grok_api_key.txt`; URL `https://api.reto.pltk.mx/v1`; modelo `grok-4.20-0309-non-reasoning` | Ejecución normal. Consume inferencia. |
 | `mock` | `$env:LLM_PROVIDER = "mock"` | Pruebas y ensayos sin red. La suite lo fuerza siempre. |
 | `groq` | `LLM_PROVIDER=groq` y `GROQ_API_KEY_FILE` | Alternativa. |
-| `hermes` | `LLM_PROVIDER=hermes` y servidor en `HERMES_BASE_URL` | Puente local opcional. |
 
 - Una variable `LLM_PROVIDER` en `.env` o en el entorno prevalece sobre el valor por defecto.
   `uv run python scripts/configure_grok_env.py` ajusta `.env` a Grok sin imprimir secretos.
@@ -214,21 +216,40 @@ uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
 | `uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00 --requested-quantity 50` | Origen, tipo, vigencia y faltante. |
 
 **Endpoints:** `GET /health`, `POST /v1/chat`, `POST /v1/quotes`, `GET /v1/quotes/{id}`,
-`GET /v1/stock`, `POST /v1/channels/whatsapp/webhook`. Contrato interactivo en
+`GET /v1/stock`, `POST /v1/channels/whatsapp/kapso/webhook`. Contrato interactivo en
 `http://127.0.0.1:8000/docs`.
 
-**WhatsApp (opcional):** revisa [`compose.evolution.yaml`](compose.evolution.yaml), crea
-`secrets/grok_api_key.txt` y luego:
+### WhatsApp con Kapso
+
+Kapso es el único canal WhatsApp de XEON; el cotizador y las reglas permanecen en XEON.
+Las skills de `gokapso/agent-skills` fijadas en `skills-lock.json` son
+`integrate-whatsapp` (registro), `automate-whatsapp` (automatización) y
+`observe-whatsapp` (observación). El usuario configura `KAPSO_API_KEY` a mano en `.env`; nunca
+se pega en el repositorio ni en prompts. Para el sandbox se necesita el `phone_number_id` de
+Kapso (`KAPSO_PHONE_NUMBER_ID`) y una URL HTTPS pública. Un túnel gratuito de `cloudflared`
+puede apuntar a `http://127.0.0.1:8000`; la URL del túnel cambia al reiniciarlo.
+
+1. Configura Grok y Kapso según [`.env.example`](.env.example). Inicia XEON con
+   `uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000`.
+2. Inicia el túnel con `cloudflared tunnel --url http://127.0.0.1:8000` y toma su URL HTTPS.
+3. Registra un webhook **del número de sandbox** con la skill `integrate-whatsapp`, evento
+   `whatsapp.message.received`, payload v2 y buffering desactivado. Su URL termina en
+   `/v1/channels/whatsapp/kapso/webhook`. Guarda el `secret_key` en
+   `secrets/kapso_webhook_secret.txt` (ruta ignorada por Git).
+4. Para ensayar el endpoint local con el mismo formato firmado, usa:
 
 ```powershell
-docker compose -f compose.yaml -f compose.evolution.yaml --profile core up -d --build
-uv run python scripts/setup_evolution_whatsapp.py   # guarda qr_whatsapp.png para vincular
-uv run python scripts/simulate_whatsapp_webhook.py --provider mock --message "/xeon necesito 2 bultos de cemento"
+uv run python scripts/simulate_whatsapp_webhook.py --phone-number-id <ID_SANDBOX> --message "necesito 2 bultos de cemento"
 ```
 
-`LOCAL_ONLY` indica que el envío está deshabilitado; `ACCEPTED_BY_PROVIDER` indica aceptación por
-Evolution API, no entrega comprobada al teléfono. La API y el webhook no tienen autenticación:
-úsalos solo en local.
+El simulador usa `KAPSO_WEBHOOK_SECRET_FILE` (por defecto la ruta anterior), firma el cuerpo crudo
+con HMAC-SHA256 y envía a `http://127.0.0.1:8000/v1/channels/whatsapp/kapso/webhook` por defecto;
+`--url` permite cambiar el destino. No imprime el secreto. El endpoint responde 401 si falta o
+falla la firma. `processed` significa que se programó el trabajo de fondo; la aceptación de la API
+de envío y la entrega al teléfono son estados distintos. El envío solo se activa con
+`WHATSAPP_SEND_ENABLED=true`; no hay mensajes proactivos ni plantillas fuera de la ventana de 24 h.
+El túnel también expone rutas comerciales sin autenticación; úsalo solo en un ensayo supervisado
+y ciérralo al terminar.
 
 ---
 
@@ -257,8 +278,8 @@ con Grok real es deliberada y acotada: `uv run xeon` y un `run`.
   el bloqueo `wiki/.write-lock/` ([`wiki/SCHEMA.md`](wiki/SCHEMA.md)).
 - **Orquestación en herdr** ([`wiki/pages/orquestacion.md`](wiki/pages/orquestacion.md)): Claude
   Opus orquesta y audita, Codex implementa, Antigravity (agy) hace QA.
-- **Skills de diseño de terminal:** fijadas en `skills-lock.json` (`tui-design`,
-  `tui-fundamentals`). Para reinstalarlas:
+- **Skills fijadas en `skills-lock.json`:** `tui-design`, `tui-fundamentals`,
+  `integrate-whatsapp`, `automate-whatsapp` y `observe-whatsapp`. Para reinstalar las de terminal:
   `npx skills add https://github.com/diegomarino/tui-design --skill tui-design` y
   `npx skills add https://github.com/josiahsiegel/claude-plugin-marketplace --skill tui-fundamentals`.
 

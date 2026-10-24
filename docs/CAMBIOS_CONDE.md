@@ -4,6 +4,8 @@
 > se integraron en `merge/conde-integration` por la decisión D7. La implementación vigente usa
 > cotización directa y memoria conversacional corta; sí incorpora alcance comercial, filtrado
 > de respuestas y datos sintéticos ampliados.
+> La referencia posterior a `HermesToolbelt` es histórica: desde D9 se llama
+> `CommercialToolbelt`; el proveedor Hermes y el canal Evolution fueron retirados.
 
 ## 2026-10-17 — Memoria conversacional y carrito comercial
 
