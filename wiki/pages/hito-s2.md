@@ -26,16 +26,25 @@ Revisado: 2026-10-24.
 - `ruff check` y `ruff format --check` pasan (91 archivos).
 - `mypy src` pasa (39 archivos).
 - `pytest`: **93 aprobadas y 3 `xfail` estrictas** (defectos documentados abajo).
+- **Tras corregir QA1–QA3 (2026-10-24):** 104 aprobadas y 0 `xfail`; `mypy` sobre 42 archivos.
 
-## Defectos confirmados por QA
+## Defectos de QA
 
-Cada uno está fijado con una prueba `xfail(strict=True)` en `tests/test_multiturn_context.py`. Cuando el defecto se corrija, la prueba empezará a pasar y la suite fallará hasta que se quite la marca.
+**QA1, QA2 y QA3 están corregidos** (`implementado`, 2026-10-24) según el [contrato](contratos-herramientas.md). Sus pruebas ya no llevan `xfail`: son obligatorias.
+
+agy los validó en un **ensayo real con Grok** (`grok-4.20-0309-non-reasoning`, 3 llamadas a `/v1/chat` en la misma conversación):
+
+- **QA2:** "Cotízame 5 unidades de ese mismo" recuperó `TUB-PVC-20` de la memoria y creó un `DRAFT v1` de 21000.00 COP.
+- **QA3:** "el descuento de siempre" devolvió `discount_policy_unavailable` sin crear borrador, y Grok explicó que no hay política aprobada.
+- Ningún turno inventó precios.
+
+La tabla conserva la descripción original de cada defecto:
 
 | ID | Defecto | Ubicación | Prueba |
 |---|---|---|---|
-| QA1 | Un webhook repetido entre workers o tras un reinicio crea 2 borradores, porque el `request_id` es aleatorio. En un mismo proceso lo frena la caché volátil `seen_webhook_messages` (`api/app.py:131,185-195`). | `agent/hermes.py:240` | `test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repository` |
-| QA2 | No hay memoria conversacional. `AgentService.respond` solo recibe el turno actual, así que una frase como "de ese mismo" pierde el SKU anterior. | `agent/service.py:17`, `api/app.py:161,198` | `test_multiturn_chat_retains_product_context_across_turns` |
-| QA3 | T08 por chat: "dame el descuento de siempre" crea un borrador a precio de lista sin informar `DiscountPolicyUnavailable`. | `agent/hermes.py:238` | `test_t08_chat_natural_language_discount_request_reports_policy_unavailable` |
+| QA1 (**corregido**) | Un webhook repetido entre workers o tras un reinicio crea 2 borradores, porque el `request_id` es aleatorio. En un mismo proceso lo frena la caché volátil `seen_webhook_messages` (`api/app.py:131,185-195`). | `agent/hermes.py:240` | `test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repository` |
+| QA2 (**corregido**) | No hay memoria conversacional. `AgentService.respond` solo recibe el turno actual, así que una frase como "de ese mismo" pierde el SKU anterior. | `agent/service.py:17`, `api/app.py:161,198` | `test_multiturn_chat_retains_product_context_across_turns` |
+| QA3 (**corregido**) | T08 por chat: "dame el descuento de siempre" crea un borrador a precio de lista sin informar `DiscountPolicyUnavailable`. | `agent/hermes.py:238` | `test_t08_chat_natural_language_discount_request_reports_policy_unavailable` |
 
 | QA4 (**corregido**, 2026-10-24) | `/health` reportaba `provider=grok` pero `model=llama-3.3-70b-versatile` porque leía `settings.llm_model`. Ahora `LLMPort` expone `provider_name` y `model`, y `/health` los toma del LLM activo. | `api/app.py:150-156`, `application/ports/llm.py` | `tests/test_api_e2e.py`, `tests/test_config.py` |
 

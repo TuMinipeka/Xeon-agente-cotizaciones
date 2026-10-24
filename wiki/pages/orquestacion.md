@@ -63,6 +63,14 @@ herdr agent get w7:p9
 
 **Windows PowerShell 5.1:** pasar el prompt en un here-string `@'…'@` **sin comillas dobles** dentro. PowerShell 5.1 parte los argumentos nativos que llevan `"`, y herdr responde `unknown option` (código 2, el prompt no se envía). Verificado el 2026-10-24. Para confirmar que el agente empezó, usar `--wait --until working --timeout 30000`.
 
+**Higiene de git con varios agentes** (causa verificada por agy el 2026-10-24):
+
+- **Causa principal del `.git/index.lock` abandonado:** la app de escritorio de Codex (`ChatGPT.exe`), que lanza varios `git` concurrentes al detectar cambios. VS Code, con `git.autorefresh`, contribuye.
+- **Mitigación aplicada:** `git.autorefresh=false` y `git.autofetch=false` en `.vscode/settings.json`, y el estado de interfaz de Obsidian ignorado en `.gitignore`.
+- **Agentes:** las lecturas de git usan `git --no-optional-locks status|diff`.
+- **Antes de borrar un lock:** confirmar que no hay ningún proceso `git.exe` vivo y moverlo aparte, nunca borrarlo a ciegas.
+- **Recomendación al usuario:** cerrar la app de escritorio de Codex mientras se coordina por herdr.
+
 Si un agente queda `blocked`, el orquestador inspecciona con `agent read` y consulta al usuario antes de responder el diálogo. Un `timeout` no prueba que el prompt no llegara: no se reenvía a ciegas.
 
 ## Por verificar

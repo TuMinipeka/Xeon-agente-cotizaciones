@@ -64,7 +64,8 @@ QA confirmó el 2026-10-24 tres defectos relacionados (QA1 a QA3 en [hito S2](hi
 - QA2: no hay memoria por `conversation_id`.
 - QA3: el descuento pedido por chat no se detecta.
 
-- **Pendiente:** decidir si se corrigen antes de la demo de S2. Propuesta:
+- **Resolución (usuario, 2026-10-24):** se corrigieron QA1, QA2 y QA3 antes de la demo, con historial corto enviado a Grok. Están implementados, cubiertos por pruebas y validados con Grok real (ver [hito S2](hito-s2.md)).
+- **Sigue pendiente de D6:** la fecha fija de `evaluated_at` y el `except Exception: pass` de la consulta de stock. Propuesta original:
   - usar la hora del reloj inyectado;
   - informar la fuente caída;
   - derivar `request_id` del `external_message_id`;

@@ -51,3 +51,26 @@ El usuario reportó como urgente que XEON se ejecutaba con `mock` o Groq en luga
   - Suite con 97 aprobadas y 3 `xfail`.
   - Se corrigió la nota sobre Plática en [orquestación](pages/orquestacion.md).
 - **Inbox:** se integraron y retiraron las notas `codex-grok-default`, `agy-qa-grok-default` y `codex-qa4-health-model`.
+
+## [2026-10-24] corrección | QA1–QA3, entorno Grok y bloqueo de git
+
+Decisiones del usuario (preguntas del orquestador):
+
+- Corregir los tres defectos antes de la demo.
+- Memoria con historial corto enviado a Grok.
+- Push a `developer/daniel` sin PR.
+- Rotar la clave al terminar el reto.
+
+El usuario autorizó expresamente modificar archivos privados.
+
+- **Codex:**
+  - Creó `.env` con `LLM_PROVIDER=grok` (antes no existía) y el script `scripts/configure_grok_env.py`, que no imprime secretos.
+  - Implementó el contrato QA1–QA3: `request_id` estable por mensaje de WhatsApp, puerto `ConversationMemory` con adaptador acotado y LRU, y detección de descuentos.
+  - Hizo los ajustes de la auditoría: eliminó el envoltorio sin uso y movió el adaptador a `adapters/conversation/`.
+- **agy:**
+  - Diagnosticó el `index.lock` abandonado: lo deja la app de escritorio de Codex y contribuye el `autorefresh` de VS Code.
+  - Aplicó la mitigación en `.vscode/settings.json` y `.gitignore`.
+  - Hizo el ensayo real con Grok (3 llamadas): QA2 y QA3 se comportan como se esperaba.
+- **Orquestador:** auditoría del diff; suite con 104 aprobadas y 0 `xfail`.
+- **Hallazgo pendiente:** `.interface-design/system.md` aparece borrado en el árbol de trabajo sin intervención de los agentes. Se excluyó de los commits y queda por confirmar con el usuario.
+- **Inbox:** se integraron y retiraron las notas `codex-env-grok`, `agy-git-lock`, `codex-qa123` y `agy-grok-rehearsal`.
