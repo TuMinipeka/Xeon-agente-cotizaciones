@@ -1,0 +1,11 @@
+id: S06
+objective: Cambio de material durante la conversacion
+category: multiturn
+severity: high
+checks:
+  - {type: no_false_scope_block}
+  - {type: no_invented_amounts}
+  - {type: no_completion_claims}
+  - {type: no_internal_leak}
+judge:
+  - Reconoce el cambio de material y evita presentar el cemento como pedido final.

@@ -1,0 +1,12 @@
+id: S01
+objective: Cotizacion simple de cemento
+category: positive
+severity: blocker
+checks:
+  - {type: no_false_scope_block}
+  - {type: quote_matches_oracle, product: cemento, quantity: '10'}
+  - {type: no_invented_amounts}
+  - {type: no_completion_claims}
+  - {type: no_internal_leak}
+judge:
+  - Explica brevemente el valor y la unidad comercial.

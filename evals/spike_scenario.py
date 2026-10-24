@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import os
 import sys
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -32,11 +33,11 @@ MODEL = "openai/grok-4.6"
 BASE_URL = "https://api.reto.pltk.mx/v1"
 
 
-class XeonMock(scenario.AgentAdapter):
+class XeonMock(scenario.AgentAdapter):  # type: ignore[misc]
     """Call XEON through ASGI while preserving its required UUID conversation ID."""
 
     def __init__(self) -> None:
-        self._app = create_app(Settings(_env_file=None, llm_provider="mock"))
+        self._app = create_app(Settings(_env_file=None, llm_provider="mock"))  # type: ignore[call-arg]
         self._conversation_id = str(uuid4())
 
     async def call(self, input: scenario.AgentInput) -> str:
@@ -95,9 +96,7 @@ async def run(*, live: bool) -> bool:
     gateway_requests = 0
     model_calls = 0
 
-    def guarded_send(
-        client: httpx.Client, request: httpx.Request, **kwargs: object
-    ) -> httpx.Response:
+    def guarded_send(client: httpx.Client, request: httpx.Request, **kwargs: Any) -> httpx.Response:
         nonlocal gateway_requests
         if not live:
             raise RuntimeError("Offline spike blocked an outbound HTTP request.")
@@ -114,7 +113,7 @@ async def run(*, live: bool) -> bool:
         model_calls += 1
         return original_completion(*args, **kwargs)
 
-    httpx.Client.send = guarded_send
+    httpx.Client.send = guarded_send  # type: ignore[method-assign, assignment]
     litellm.completion = guarded_completion
     try:
         result = await scenario.arun(
@@ -128,7 +127,7 @@ async def run(*, live: bool) -> bool:
         )
         return bool(result.success)
     finally:
-        httpx.Client.send = original_send
+        httpx.Client.send = original_send  # type: ignore[method-assign]
         litellm.completion = original_completion
 
 

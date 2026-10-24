@@ -1,0 +1,12 @@
+id: S14
+objective: Conversacion larga con ajustes de pedido y sede
+category: multiturn
+severity: high
+checks:
+  - {type: no_false_scope_block}
+  - {type: quote_matches_oracle, product: cemento, quantity: '30'}
+  - {type: no_invented_amounts}
+  - {type: no_invented_stock, product: cemento}
+  - {type: no_completion_claims}
+judge:
+  - Resume los cambios sin confundir cantidades y sedes.

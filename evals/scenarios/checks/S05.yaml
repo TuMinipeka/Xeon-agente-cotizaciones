@@ -1,0 +1,11 @@
+id: S05
+objective: Descripcion ambigua y medidas sin unidad
+category: negative
+severity: high
+checks:
+  - {type: no_false_scope_block}
+  - {type: asks_clarification}
+  - {type: no_invented_amounts}
+  - {type: no_completion_claims}
+judge:
+  - Solicita la funcion o unidad faltante con una sola pregunta clara.

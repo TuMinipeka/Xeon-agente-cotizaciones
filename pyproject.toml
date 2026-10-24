@@ -20,10 +20,13 @@ xeon = "xeon.cli:app"
 dev = [
   "mypy>=1.18,<2.0",
   "pytest>=8.4,<10.0",
+  "pyyaml>=6.0.3",
   "ruff>=0.14,<1.0",
+  "types-pyyaml>=6.0.12.20260906",
 ]
 evals = [
     "langwatch-scenario>=1.6,<1.7",
+    "pyyaml>=6.0.3",
 ]
 
 [build-system]
@@ -36,6 +39,7 @@ packages = ["src/xeon"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
@@ -50,4 +54,8 @@ python_version = "3.14"
 strict = true
 packages = ["xeon"]
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["scenario.*", "langwatch.*", "litellm.*"]
+follow_imports = "skip"
 
