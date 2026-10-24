@@ -53,12 +53,18 @@ class DiscountPolicyUnavailable:
     message: str
 
 
+@dataclass(frozen=True, slots=True)
+class IdempotencyConflict:
+    message: str
+
+
 CreateQuoteResult = (
     QuoteDraftReady
     | ClarificationRequired
     | ProductNotFound
     | CatalogUnavailable
     | DiscountPolicyUnavailable
+    | IdempotencyConflict
 )
 
 
@@ -83,6 +89,19 @@ class CreateQuoteDraft:
         request_id = _require_key_part(command.request_id, name="request_id")
         existing = self._quotes.get_by_idempotency_key(tenant_id, request_id)
         if existing is not None:
+            if len(existing.lines) != len(command.lines):
+                return IdempotencyConflict("request_id ya corresponde a otras lineas.")
+            try:
+                for requested, saved in zip(command.lines, existing.lines, strict=True):
+                    product = self._catalog.find_exact(requested.query)
+                    if (
+                        product is None
+                        or product.sku != saved.sku
+                        or Decimal(str(requested.quantity)) != saved.quantity
+                    ):
+                        return IdempotencyConflict("request_id ya corresponde a otras lineas.")
+            except CatalogUnavailableError, ValueError:
+                return IdempotencyConflict("No se puede comprobar el request_id existente.")
             return QuoteDraftReady(quote=existing, replayed=True)
 
         if command.discount_requested:

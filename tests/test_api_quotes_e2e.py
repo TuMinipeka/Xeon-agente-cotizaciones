@@ -73,6 +73,23 @@ def test_idempotent_retry_does_not_create_second_draft() -> None:
     asyncio.run(run())
 
 
+def test_changed_idempotent_request_returns_conflict() -> None:
+    async def run() -> None:
+        payload = {
+            "tenant_id": "demo",
+            "request_id": "same-key",
+            "lines": [{"query": "CEM-50", "quantity": "2"}],
+        }
+        async with _client() as client:
+            assert (await client.post("/v1/quotes", json=payload)).status_code == 201
+            payload["lines"] = [{"query": "CEM-50", "quantity": "3"}]
+            changed = await client.post("/v1/quotes", json=payload)
+            assert changed.status_code == 409
+            assert changed.json()["outcome"] == "idempotency_conflict"
+
+    asyncio.run(run())
+
+
 def test_ambiguous_product_asks_for_clarification() -> None:
     async def run() -> None:
         async with _client() as client:

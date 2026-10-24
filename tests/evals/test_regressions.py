@@ -23,7 +23,6 @@ def _sut() -> XEONSUT:
     return XEONSUT(Settings(_env_file=None, llm_provider="mock", whatsapp_send_enabled=False))
 
 
-@pytest.mark.xfail(strict=True, reason="E1: punto de miles interpretado como decimal")
 def test_e1_thousand_separator() -> None:
     async def check() -> None:
         sut = _sut()
@@ -40,7 +39,6 @@ def test_e1_thousand_separator() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E2: sede sur perdida al separar la clausula")
 def test_e2_branch_in_same_sentence() -> None:
     async def check() -> None:
         sut = _sut()
@@ -53,7 +51,6 @@ def test_e2_branch_in_same_sentence() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E3: surtido activa sede sur por subcadena")
 def test_e3_surtido_does_not_select_south() -> None:
     async def check() -> None:
         sut = _sut()
@@ -69,7 +66,6 @@ def test_e3_surtido_does_not_select_south() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E4: idempotencia devuelve borrador previo con otras lineas")
 def test_e4_request_id_conflict() -> None:
     service = CreateQuoteDraft(InMemoryProductCatalog(), InMemoryQuoteDraftRepository())
     first = service.execute(
@@ -82,7 +78,6 @@ def test_e4_request_id_conflict() -> None:
     assert not isinstance(second, QuoteDraftReady) or second.quote.id != first.quote.id
 
 
-@pytest.mark.xfail(strict=True, reason="E5: fecha fija del chat marca stock vencido como fresh")
 def test_e5_current_stock_freshness() -> None:
     async def check() -> None:
         sut = _sut()
@@ -95,7 +90,6 @@ def test_e5_current_stock_freshness() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E6: fallo de stock oculto por except Exception pass")
 def test_e6_stock_failure_is_visible(monkeypatch: pytest.MonkeyPatch) -> None:
     async def check() -> None:
         sut = _sut()
@@ -120,7 +114,6 @@ def test_e6_stock_failure_is_visible(monkeypatch: pytest.MonkeyPatch) -> None:
         "soy cliente frecuente, dame el descuento de siempre en 20 bultos de cemento",
     ],
 )
-@pytest.mark.xfail(strict=True, reason="E7: saludo o contexto con coma activa aviso de alcance")
 def test_e7_commercial_request_with_comma_has_no_scope_notice(message: str) -> None:
     async def check() -> None:
         sut = _sut()
@@ -133,7 +126,6 @@ def test_e7_commercial_request_with_comma_has_no_scope_notice(message: str) -> N
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E8: recogida en sede norte bloqueada por alcance")
 def test_e8_pickup_followup_remains_commercial() -> None:
     async def check() -> None:
         sut = _sut()
@@ -147,12 +139,18 @@ def test_e8_pickup_followup_remains_commercial() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E9: pedido de dos productos no crea borrador multilinea")
-def test_e9_multiple_products_create_multiline_draft() -> None:
+@pytest.mark.parametrize(
+    "message",
+    [
+        "cotice 10 bultos de cemento y 5 tubos PVC de 1/2 pulgada",
+        "cotice 10 bultos de cemento, 5 tubos PVC de 1/2 pulgada",
+    ],
+)
+def test_e9_multiple_products_create_multiline_draft(message: str) -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 10 bultos de cemento y 5 tubos PVC de 1/2 pulgada")
+            await sut.respond(message)
             assert any(len(draft["lines"]) >= 2 for draft in sut.drafts())
         finally:
             await sut.aclose()
@@ -160,7 +158,6 @@ def test_e9_multiple_products_create_multiline_draft() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E10: candidatos semanticos ambiguos crean borrador")
 def test_e10_ambiguous_product_requires_clarification_before_draft() -> None:
     async def check() -> None:
         sut = _sut()
@@ -168,6 +165,42 @@ def test_e10_ambiguous_product_requires_clarification_before_draft() -> None:
             await sut.respond("cotice 10 tubos pvc")
             assert any(context.count("- SKU=") > 1 for context in sut.llm.tool_contexts())
             assert not sut.drafts()
+        finally:
+            await sut.aclose()
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    "selection", ["el primero", "1", "Tubo PVC presion referencia sintetica 1"]
+)
+def test_e10_pending_choice_creates_one_draft(selection: str) -> None:
+    async def check() -> None:
+        sut = _sut()
+        try:
+            await sut.respond("cotice 10 tubos pvc")
+            pending = sut.container.conversation_memory.pending_candidates(str(sut.conversation_id))
+            assert pending is not None
+            assert len(pending.skus) > 1
+            assert not sut.drafts()
+            await sut.respond(selection)
+            assert len(sut.drafts()) == 1
+            assert sut.drafts()[0]["lines"][0]["sku"] == pending.skus[0]
+        finally:
+            await sut.aclose()
+
+    asyncio.run(check())
+
+
+def test_e10_new_specific_product_request_replaces_pending_choice() -> None:
+    async def check() -> None:
+        sut = _sut()
+        try:
+            await sut.respond("cotice 10 tubos pvc")
+            assert not sut.drafts()
+            await sut.respond("cotice 25 tubos pvc de 1/2 pulgada en sede norte")
+            assert len(sut.drafts()) == 1
+            assert sut.drafts()[0]["lines"][0]["sku"] == "TUB-PVC-20"
         finally:
             await sut.aclose()
 

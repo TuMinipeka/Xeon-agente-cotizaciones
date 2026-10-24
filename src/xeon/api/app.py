@@ -39,6 +39,7 @@ from xeon.application.quote_draft import (
     CreateQuoteDraftCommand,
     DiscountPolicyUnavailable,
     DraftLineRequest,
+    IdempotencyConflict,
     ProductNotFound,
     QuoteDraftReady,
     QuoteNotFoundError,
@@ -251,6 +252,9 @@ def create_app(
                 outcome="draft_ready",
                 quote=_quote_out(result.quote, replayed=result.replayed),
             )
+        if isinstance(result, IdempotencyConflict):
+            response.status_code = 409
+            return QuoteOutcomeResponse(outcome="idempotency_conflict", message=result.message)
         if isinstance(result, ClarificationRequired):
             response.status_code = 422
             return QuoteOutcomeResponse(

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from xeon.adapters.catalog.memory import InMemoryProductCatalog
 from xeon.adapters.channels.kapso import KapsoChannelAdapter
@@ -51,6 +53,7 @@ def build_container(
     llm: LLMPort | None = None,
     conversation_memory: ConversationMemory | None = None,
     whatsapp_channel: WhatsAppChannelPort | None = None,
+    clock: Callable[[], datetime] | None = None,
 ) -> AppContainer:
     resolved_catalog = catalog or InMemoryProductCatalog()
     resolved_inventory = inventory or InMemoryBranchInventory()
@@ -67,6 +70,7 @@ def build_container(
         catalog=resolved_catalog,
         create_quote_draft=create_quote_draft,
         get_stock_by_branches=get_stock_by_branches,
+        clock=clock,
     )
     agent = AgentService(resolved_llm, tools=commercial_tools, memory=resolved_memory)
 

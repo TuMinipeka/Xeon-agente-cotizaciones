@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
+from xeon.application.ports.conversation_memory import PendingCandidates
 from xeon.application.ports.llm import ChatMessage
 
 
@@ -10,6 +11,7 @@ from xeon.application.ports.llm import ChatMessage
 class _Conversation:
     messages: list[ChatMessage] = field(default_factory=list)
     sku: str | None = None
+    pending: PendingCandidates | None = None
 
 
 class InMemoryConversationMemory:
@@ -35,6 +37,20 @@ class InMemoryConversationMemory:
             return None
         self._conversations.move_to_end(key)
         return conversation.sku
+
+    def pending_candidates(self, key: str) -> PendingCandidates | None:
+        conversation = self._conversations.get(key)
+        if conversation is None:
+            return None
+        self._conversations.move_to_end(key)
+        return conversation.pending
+
+    def set_pending_candidates(self, key: str, pending: PendingCandidates | None) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        self._conversations.move_to_end(key)
+        conversation.pending = pending
+        while len(self._conversations) > self._max_conversations:
+            self._conversations.popitem(last=False)
 
     def record(self, key: str, user: str, assistant: str, sku: str | None) -> None:
         conversation = self._conversations.setdefault(key, _Conversation())
