@@ -14,19 +14,23 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
 ## Limites de arquitectura
 
 - Mantener arquitectura hexagonal: `domain` no importa FastAPI, HTTPX ni SDK de modelos.
-- La IA (orquestada con **Hermes** y **Groq**) interpreta lenguaje y usa busqueda hibrida
+- La IA (orquestada con **Hermes** y **Grok** via la pasarela del reto) interpreta lenguaje y usa busqueda hibrida
   (`RAG pgvector` + atributos `NoSQL JSONB`) solo para identificar `SKU`s candidatos ante consultas
   ambiguas; el backend determina precios (`Decimal`), descuentos, impuestos, stock y estados desde
   la capa relacional (`SQL`).
 - Ningun modelo puede aprobar cotizaciones, ejecutar SQL libre, cambiar inventario o leer secretos.
-- Cada proveedor externo (Groq API, Evolution API para WhatsApp) entra por un puerto.
-- Empezar con datos sinteticos y `LLM_PROVIDER=mock`; una prueba real debe ser deliberada.
+- Cada proveedor externo (Grok, Groq, Evolution API para WhatsApp) entra por un puerto.
+- Grok (`grok-4.20-0309-non-reasoning`, `https://api.reto.pltk.mx/v1`) es el proveedor por
+  defecto en ejecucion; la clave solo se lee desde `secrets/grok_api_key.txt`. Las pruebas fuerzan
+  `LLM_PROVIDER=mock` y datos sinteticos; una llamada real fuera de la ejecucion normal debe ser
+  deliberada y acotada.
 - No añadir dependencias externas de forma decorativa: cada componente debe llegar con un corte
   funcional, prueba y evidencia.
 
 ## Seguridad
 
-- Nunca leer, imprimir, registrar, versionar ni copiar `secrets/groq_api_key.txt`,
+- Nunca leer, imprimir, registrar, versionar ni copiar `secrets/grok_api_key.txt`,
+  `secrets/groq_api_key.txt`,
   `secrets/evolution_api_key.txt` o archivos `.env`.
 - No incluir credenciales en prompts, fixtures, capturas, commits o mensajes de error.
 - La configuracion visible solo contiene nombres de variables o referencias a archivos secretos.

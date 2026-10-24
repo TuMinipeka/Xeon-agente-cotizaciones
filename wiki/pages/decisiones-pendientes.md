@@ -17,11 +17,22 @@ El repositorio `senior-architect-agent` se descargó para consulta. Falta decidi
 El usuario decidió el 2026-10-24 migrar el motor a **Grok (xAI)**, según la [orquestación](orquestacion.md). Hoy el código solo tiene `mock`, `groq` y `hermes` (`src/xeon/config.py:27`).
 
 - **Avance:** Codex implementó el perfil `grok` el 2026-10-24 (`implementado`). Reutiliza `OpenAICompatibleLLM`, con URL base `https://api.x.ai/v1`, clave en `GROK_API_KEY` o `GROK_API_KEY_FILE` y `GROK_MODEL` obligatorio. Además, el nuevo `_require_api_key` en `config.py` elimina la duplicación de los `require_*`. Hay pruebas sin red en `tests/test_config.py` y `tests/test_openai_compatible.py`.
+- **Resolución (usuario, 2026-10-24, corrección urgente):** XEON se ejecutaba con `mock` o con Groq en lugar de la integración oficial con Grok. Se decidió:
+  - **Grok es el proveedor por defecto** en `config.py` y en `compose.yaml`.
+  - **URL base:** `https://api.reto.pltk.mx/v1`, la pasarela de la plataforma del reto, compatible con OpenAI. Ofrece 14 modelos `grok-*`, consultados con `GET /v1/models` el 2026-10-24.
+  - **Modelo:** `grok-4.20-0309-non-reasoning`.
+  - **Clave:** solo por archivo, en `secrets/grok_api_key.txt` (ignorado por git) y montado como secreto en compose. Nunca en prompts, wiki, commits ni fixtures.
+  - **Pruebas:** fuerzan `mock` (sin red ni gasto).
+  - Groq queda como alternativa no predeterminada.
+- **Verificado (2026-10-24):**
+  - Codex implementó la configuración, compose, `tests/conftest.py` (fuerza `mock`, ignora `.env` y bloquea transportes HTTP reales) y la corrección QA4.
+  - agy confirmó que el arranque por defecto reporta `grok` y que una clave ausente produce un error claro sin filtrar valores.
+  - El orquestador hizo una llamada real con la configuración por defecto: respuesta con `provider=grok` y `model=grok-4.20-0309-non-reasoning`.
+  - Suite: 97 aprobadas y 3 `xfail`.
 - **Pendiente:**
-  - Qué modelo de Grok usar.
-  - Si se retira Groq o queda como alternativa.
-  - Cuándo actualizar `XeonContexto.md` y `AGENTS.md`, que todavía nombran a Groq.
-  - Presupuesto para la primera prueba real.
+  - Actualizar en `XeonContexto.md` el motor (de Groq a Grok); pide una decisión documental de D1.
+  - Decidir si se retira `GROK_API_KEY` directa y se deja solo el archivo.
+  - Rotar la clave tras el reto, porque se compartió en una conversación.
 
 ## D4: Clave quemada en código y proveedor `hermes` sin documentar
 

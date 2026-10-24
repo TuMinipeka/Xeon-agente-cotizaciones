@@ -33,3 +33,21 @@ Se integraron las notas de inbox `2026-10-24T-codex-grok-provider.md` y `2026-10
 - **Auditoría del orquestador:** ruff y mypy en verde; pytest con 93 aprobadas y 3 `xfail`. Las opciones de la CLI del guion se verificaron con `--help`.
 - **Coordinación:** herdr marcó a agy como `blocked` por un diálogo de permiso de escritura que se resolvió en su panel; el orquestador no respondió el diálogo.
 - **Páginas actualizadas:** [hito S2](pages/hito-s2.md), [decisiones pendientes](pages/decisiones-pendientes.md) (D3 y D6) y [estado del corte](pages/estado-del-corte.md).
+
+## [2026-10-24] corrección | Grok como motor oficial por defecto
+
+El usuario reportó como urgente que XEON se ejecutaba con `mock` o Groq en lugar de la integración oficial con Grok, y entregó la pasarela del reto `https://api.reto.pltk.mx/v1` y una clave.
+
+- **Clave:** guardada solo en `secrets/grok_api_key.txt` (ignorado por git); no se compartió con los agentes ni se registró aquí.
+- **Modelo:** el usuario eligió `grok-4.20-0309-non-reasoning` entre 14 modelos que expone `GET /v1/models`.
+- **Codex:**
+  - Grok es el proveedor por defecto en `config.py`, `compose.yaml` y `.env.example`.
+  - `tests/conftest.py` fuerza `mock` y bloquea la red.
+  - Corrigió QA4, el modelo que reportaba `/health`.
+- **agy:** QA del arranque por defecto y de la falta de clave; detectó QA4.
+- **Orquestador:**
+  - `AGENTS.md` actualizado.
+  - Una llamada real verificada.
+  - Suite con 97 aprobadas y 3 `xfail`.
+  - Se corrigió la nota sobre Plática en [orquestación](pages/orquestacion.md).
+- **Inbox:** se integraron y retiraron las notas `codex-grok-default`, `agy-qa-grok-default` y `codex-qa4-health-model`.

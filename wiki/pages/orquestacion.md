@@ -8,11 +8,11 @@ Revisado: 2026-10-24. Estado general: **implementado como acuerdo de trabajo**; 
 
 - **Producto:** XEON, un agente comercial para ferreterías ([qué es XEON](que-es-xeon.md)).
 - **Motor LLM:**
-  - **Groq** a través de `LLMPort`, con `OpenAICompatibleLLM` (`implementado`).
-  - Perfil **`mock`** por defecto (`implementado`).
-  - Migración a **Grok (xAI)** decidida por el usuario el 2026-10-24 (`planificado`; ver D3 en [decisiones pendientes](decisiones-pendientes.md)).
+  - **Grok** (`grok-4.20-0309-non-reasoning`) a través de `LLMPort` y `OpenAICompatibleLLM`. Es el proveedor por defecto desde la corrección urgente del 2026-10-24 (en curso; ver D3 en [decisiones pendientes](decisiones-pendientes.md)).
+  - **`mock`** solo para pruebas.
+  - **Groq**: alternativa no predeterminada.
 - **Memoria compartida:** la wiki `wiki/` sustituye al "Vault" del prompt original. Un cambio no existe oficialmente mientras no esté registrado en la wiki.
-- **Fuera de alcance:** el "Sandbox de Plática" de la fuente original no aplica a XEON (decisión del usuario, 2026-10-24).
+- **Plataforma del reto (corrección del 2026-10-24):** la indicación inicial de ignorar el "Sandbox de Plática" quedó superada. La pasarela oficial de Grok que entregó el usuario, `https://api.reto.pltk.mx/v1`, es de la plataforma del reto. Es el endpoint por defecto del motor (ver D3).
 
 ### Mapeo de rutas del prompt original
 

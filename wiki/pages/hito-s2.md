@@ -37,14 +37,19 @@ Cada uno está fijado con una prueba `xfail(strict=True)` en `tests/test_multitu
 | QA2 | No hay memoria conversacional. `AgentService.respond` solo recibe el turno actual, así que una frase como "de ese mismo" pierde el SKU anterior. | `agent/service.py:17`, `api/app.py:161,198` | `test_multiturn_chat_retains_product_context_across_turns` |
 | QA3 | T08 por chat: "dame el descuento de siempre" crea un borrador a precio de lista sin informar `DiscountPolicyUnavailable`. | `agent/hermes.py:238` | `test_t08_chat_natural_language_discount_request_reports_policy_unavailable` |
 
+| QA4 (**corregido**, 2026-10-24) | `/health` reportaba `provider=grok` pero `model=llama-3.3-70b-versatile` porque leía `settings.llm_model`. Ahora `LLMPort` expone `provider_name` y `model`, y `/health` los toma del LLM activo. | `api/app.py:150-156`, `application/ports/llm.py` | `tests/test_api_e2e.py`, `tests/test_config.py` |
+
 **Casos que pasan:** T02, T03, T08 por `/v1/quotes`, T10 (`fromMe`, eco del bot y grupos), T19 (cero llamadas externas), payloads malformados (200 `ignored` o 422) e inyección de prompt (el precio de lista y el estado `DRAFT` se mantienen y el catálogo queda intacto).
 
 ## Guion de demo, menos de 2 min (modo `mock`)
 
 Fuente: reporte QA de agy. Los comandos y opciones de la CLI se verificaron con `--help`; el recorrido completo todavía no se ha ejecutado de punta a punta.
 
-1. **API (terminal 1):** `$env:LLM_PROVIDER='mock'; $env:WHATSAPP_SEND_ENABLED='false'; uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000`
-2. **Salud:** `uv run xeon health`. Debe mostrar `provider: mock`. *Por verificar:* el reporte esperaba el modelo `llama-3.3-70b-versatile`, pero en modo mock el modelo es `mock-xeon-v1`.
+1. **API (terminal 1).** Hay dos modos:
+   - **Demo oficial con Grok** (el predeterminado; los pasos 3 y 6 consumen inferencia real): `Remove-Item Env:LLM_PROVIDER -ErrorAction SilentlyContinue; $env:WHATSAPP_SEND_ENABLED='false'; uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000`
+   - **Ensayo sin costo:** anteponer `$env:LLM_PROVIDER='mock';`. Al terminar, limpiar con `Remove-Item Env:LLM_PROVIDER, Env:WHATSAPP_SEND_ENABLED -ErrorAction SilentlyContinue`.
+   - Si tu `.env` local define `LLM_PROVIDER`, esa línea manda sobre el valor por defecto.
+2. **Salud:** `uv run xeon health`. Debe mostrar `provider: grok, model: grok-4.20-0309-non-reasoning`, o `mock` con `mock-xeon-v1` en el ensayo. El modelo sale del LLM activo desde la corrección de QA4.
 3. **`search_products`:**
    - `uv run xeon chat 'Necesito el coso que va en el aire acondicionado'` (T02).
    - `uv run xeon chat 'La pieza mide 20 x 30 x 10'` (T03).
