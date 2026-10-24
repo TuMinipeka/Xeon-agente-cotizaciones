@@ -138,3 +138,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Fallo:** el CI del PR #1 (ubuntu-latest) falló en `test_banner_text_snapshot`. Codex lo reprodujo en WSL Ubuntu: Rich usa `legacy_windows=True` en Windows (esquinas `┌┐└┘`) y `False` en Linux (`╭╮╰╯`). El contenido era idéntico y no había defecto de producción.
 - **Corrección:** consola de prueba determinista y snapshots de texto en `tests/snapshots/` en lugar de hashes. Pasa en Windows y en Linux; 146 aprobadas.
 - **Nota:** Codex instaló `python3.14-venv` en WSL Ubuntu para reproducir el fallo.
+
+## [2026-10-24] integración | PR #1 fusionado en develop
+
+- PR #1 (`developer/daniel` → `develop`) fusionado con merge commit `3790f45` (`Merge: :twisted_rightwards_arrows: IntegrateDeveloperDanielIntoDevelop`), con el CI `quality` en verde y sin firmas de agentes.
+- **Pendiente:** `.github/workflows/ci.yml` solo dispara en push a `main` (ya inexistente) y `developer/daniel`, y en PR; conviene añadir `develop`.
