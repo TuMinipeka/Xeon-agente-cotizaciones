@@ -12,6 +12,7 @@ class _Conversation:
     messages: list[ChatMessage] = field(default_factory=list)
     sku: str | None = None
     pending: PendingCandidates | None = None
+    commercial_active: bool = False
 
 
 class InMemoryConversationMemory:
@@ -49,6 +50,20 @@ class InMemoryConversationMemory:
         conversation = self._conversations.setdefault(key, _Conversation())
         self._conversations.move_to_end(key)
         conversation.pending = pending
+        while len(self._conversations) > self._max_conversations:
+            self._conversations.popitem(last=False)
+
+    def commercial_active(self, key: str) -> bool:
+        conversation = self._conversations.get(key)
+        if conversation is None:
+            return False
+        self._conversations.move_to_end(key)
+        return conversation.commercial_active
+
+    def mark_commercial(self, key: str) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        self._conversations.move_to_end(key)
+        conversation.commercial_active = True
         while len(self._conversations) > self._max_conversations:
             self._conversations.popitem(last=False)
 

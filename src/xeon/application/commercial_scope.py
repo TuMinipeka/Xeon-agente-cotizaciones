@@ -155,6 +155,11 @@ class CommercialScopePolicy:
                 ),
             )
 
+        if commercial_context:
+            segments = tuple(part for part in _SEGMENT_SEPARATOR.split(cleaned) if part)
+            if not any(_is_out_of_scope(part) for part in segments):
+                return ScopeDecision(kind="commercial", commercial_query=cleaned)
+
         if any(phrase in normalized for phrase in _SELECTION_PHRASES):
             return ScopeDecision(kind="commercial", commercial_query=cleaned)
 

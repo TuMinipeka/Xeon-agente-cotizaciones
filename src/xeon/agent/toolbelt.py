@@ -364,9 +364,9 @@ def _has_branch(text: str) -> bool:
 def _pending_selection(text: str, pending: PendingCandidates | None) -> str | None:
     if pending is None:
         return None
-    match = re.search(r"^\s*([1-3])\s*$|\bopcion\s+([1-3])\b", text, re.I)
+    match = re.search(r"^\s*([1-3])\s*$|\bopcion\s+([1-3])\b|\bel\s+([1-3])\b", text, re.I)
     if match is not None:
-        index = int(match.group(1) or match.group(2)) - 1
+        index = int(match.group(1) or match.group(2) or match.group(3)) - 1
     elif re.search(r"\b(?:el|la)\s+primer[oa]\b", text, re.I):
         index = 0
     elif re.search(r"\b(?:el|la)\s+segund[oa]\b", text, re.I):

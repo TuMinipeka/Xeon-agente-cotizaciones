@@ -50,8 +50,14 @@ class AgentService:
             if self._memory is not None and conversation_key is not None
             else None
         )
+        active = (
+            self._memory.commercial_active(conversation_key)
+            if self._memory is not None and conversation_key is not None
+            else False
+        )
         scope = self._scope_policy.classify(
-            user_message, commercial_context=previous_sku is not None or pending is not None
+            user_message,
+            commercial_context=active or previous_sku is not None or pending is not None,
         )
         if scope.kind == "out_of_scope":
             return LLMResponse(
@@ -59,6 +65,13 @@ class AgentService:
                 provider="local-policy",
                 model="commercial-scope-v1",
             )
+
+        if (
+            self._memory is not None
+            and conversation_key is not None
+            and scope.kind in {"commercial", "mixed"}
+        ):
+            self._memory.mark_commercial(conversation_key)
 
         commercial_message = scope.commercial_query or user_message
         message_list: list[ChatMessage] = [
