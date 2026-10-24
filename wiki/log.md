@@ -176,3 +176,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Auditoría** de solo lectura registrada en [auditoría 2026-10-24](pages/auditoria-2026-10-24.md), con los defectos E1–E6.
 - **Contrato** en [evaluación conversacional](pages/evaluacion-conversacional.md); decisión D11.
 - **Skills:** `scenarios` (descargada con `gh`), `ai-system-testing`, `agent-evals` y `promptfoo-evaluation`, revisadas.
+
+## [2026-10-24] avance | Evaluación conversacional: modelo, spike y personas
+
+- **Codex:** cambio de modelo a `grok-4.6` (`2a7d098`) y spike de Scenario válido tras un diagnóstico (`b5d573c`).
+- **agy:** 14 personas (`feca7f6`).
+- **Orquestador:** llamada real de verificación de `grok-4.6` y revisión de la ceguera de las personas.
+- **Inbox:** se integraron y retiraron las notas `codex-model-and-spike` y `agy-personas`.
+- **Siguiente:** el harness `evals/`, de Codex.

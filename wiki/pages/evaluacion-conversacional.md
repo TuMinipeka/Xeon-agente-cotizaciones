@@ -107,3 +107,13 @@ El juez solo evalúa claridad, pertinencia, tono y manejo de la ambigüedad. Un 
 - La guarda de red permite únicamente el host de la pasarela Grok y solo en las corridas reales.
 - Trazas sin claves.
 - Huella de cada corrida: commit, árbol sucio, set de casos, modelo y semilla.
+
+## Avance
+
+- **Paso 0** (commit `2a7d098`): Codex cambió el modelo por defecto a `grok-4.6` en código, compose, `.env.example`, el configurador y la documentación. El orquestador lo verificó con una llamada real por `OpenAICompatibleLLM`: respondió `provider=grok`, `model=grok-4.6`. La suite tiene 155 pruebas.
+- **Spike** (commit `b5d573c`):
+  - `langwatch-scenario==1.6.0` instala y funciona en Python 3.14.8 (grupo `evals`, rango `>=1.6,<1.7`).
+  - Los dos `RuntimeError` iniciales eran nuestros. El primero lo lanzó nuestro límite de llamadas al reintentar litellm; el segundo vino de un `conversation_id` que no era un UUID.
+  - Una llamada real vía litellm a la pasarela se completó sin error, sin exportar trazas (sin `LANGWATCH_API_KEY`, `instrumentors=[]`).
+  - Depende de un ajuste interno de Scenario 1.6 (`drop_temperature`); por eso queda acotado a esa serie.
+- **Personas** (commit `feca7f6`, de agy): 14 archivos `S01`–`S14` en `evals/scenarios/personas/`. El orquestador revisó que no revelan respuestas esperadas, precios ni SKUs.
