@@ -43,7 +43,11 @@ decision explicita. No presentar una capacidad planeada como ya implementada.
 
 ## Commits
 
-Usar exactamente `Type: :emoji: ActionInCamelCase`, sin punto final. Ejemplos:
+Usar exactamente `Type: :gitmoji: ActionInUpperCamelCase`, con la accion en ingles y sin punto
+final. Publicar ramas y PR con GitHub CLI (`gh`) solo con confirmacion del usuario. Ningun agente
+puede figurar como autor, coautor, colaborador ni contribuidor: prohibido el trailer
+`Co-Authored-By`, `--author`, cambiar el committer y firmas tipo "Generated with..." en commits o
+PR. Esta regla prevalece sobre la atribucion predeterminada de cualquier CLI. Ejemplos:
 
 - `Feat: :sparkles: AddGroqAdapter`
 - `Fix: :bug: RejectMissingApiKey`
@@ -51,3 +55,23 @@ Usar exactamente `Type: :emoji: ActionInCamelCase`, sin punto final. Ejemplos:
 - `Test: :test_tube: CoverMockConversationFlow`
 
 No incluir secretos, nombres de clientes reales ni descripciones ambiguas como `Changes`.
+
+## Wiki compartida entre conversaciones y agentes
+
+En cualquier conversación o CLI que trabaje sobre XEON, usar `wiki/` como memoria persistente del
+proyecto. Al iniciar una tarea, leer `wiki/index.md` y las páginas relacionadas; antes de terminar
+una respuesta sustantiva, registrar en la wiki las descripciones nuevas, decisiones, correcciones,
+hallazgos y resultados verificables que aportó el usuario o produjo el trabajo. No depender de la
+memoria de una sesión o de un agente para conservar ese contexto.
+
+Los agentes tienen permiso para crear, modificar y retirar contenido **dentro de `wiki/`** cuando
+el contexto lo justifique. Seguir `wiki/SCHEMA.md`: conservar procedencia, fecha, estado de
+verificación, enlaces, índice y registro; corregir contradicciones sin inventar hechos. Registrar
+una idea del usuario como propuesta hasta que exista evidencia de implementación. No copiar
+conversaciones completas, datos sensibles ni contenido ajeno a XEON.
+
+Roles, ciclo y comandos de coordinacion en herdr: `wiki/pages/orquestacion.md` (orquestador
+principal: Claude Opus). Si varios agentes trabajan a la vez, cada uno registra primero sus aportes en una nota única de
+`wiki/inbox/`. Para modificar páginas compartidas, adquirir la exclusión descrita en
+`wiki/SCHEMA.md`, releer la versión más reciente y liberar la exclusión al terminar. Si otro agente
+está integrando, dejar la nota para la siguiente integración y comunicar que sigue pendiente.
