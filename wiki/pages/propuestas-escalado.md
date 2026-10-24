@@ -6,7 +6,7 @@ Revisado: 2026-10-24.
 
 ## Base implementada (referencia)
 
-- Chat por WhatsApp con Evolution API.
+- Chat por WhatsApp con Kapso (API oficial).
 - Búsqueda léxica en memoria.
 - Borrador `DRAFT` con `Decimal` e idempotencia en memoria.
 - CLI Typer.
@@ -41,7 +41,7 @@ El detalle está en [estado del corte](estado-del-corte.md).
 | Operación | Plan de recuperación ante desastres | Resiliencia | Backups | Costo |
 | Canales | Integración con ERP (Odoo, SAP) | Venta real | API del ERP | Un adaptador por cada ERP |
 | Canales | Telegram, SMS o panel B2B | Alcance | Nuevo adaptador por puerto | Estado fragmentado; costo del SMS |
-| Métricas | Conversión de cotización a venta, P95 de `/v1/chat`, tasa de aclaraciones, recall@K, costo por cotización y disponibilidad de Evolution API | Gestión del negocio y SLA | Persistencia y telemetría | Métricas mal interpretadas; recall@K necesita un conjunto etiquetado |
+| Métricas | Conversión de cotización a venta, P95 de `/v1/chat`, tasa de aclaraciones, recall@K, costo por cotización y entregas fallidas en Kapso (`observe-whatsapp`) | Gestión del negocio y SLA | Persistencia y telemetría | Métricas mal interpretadas; recall@K necesita un conjunto etiquetado |
 
 ## Orden sugerido (propuesta)
 

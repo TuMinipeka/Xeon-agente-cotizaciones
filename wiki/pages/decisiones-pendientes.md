@@ -12,6 +12,8 @@ El [documento funcional](../../XeonContexto.md) presenta PostgreSQL 17, JSONB, p
 
 El repositorio `senior-architect-agent` se descargó para consulta. Falta decidir si seguirá como referencia local o si el equipo quiere instalarlo como habilidad formal para futuros agentes. No es un requisito para mantener esta wiki.
 
+- **Cerrada (2026-10-24, D9):** el repositorio externo se eliminó junto con `references/`; no se instaló como habilidad.
+
 ## D3: Migración de Groq a Grok (xAI)
 
 El usuario decidió el 2026-10-24 migrar el motor a **Grok (xAI)**, según la [orquestación](orquestacion.md). Hoy el código solo tiene `mock`, `groq` y `hermes` (`src/xeon/config.py:27`).
@@ -40,6 +42,8 @@ El mismo valor literal por defecto de `HERMES_API_KEY` aparece en cuatro lugares
 
 - **Riesgo:** contradice la regla de que la configuración visible solo contiene nombres de variables.
 - **Pendiente:** decidir si se elimina el valor por defecto y se documenta o retira el puente Hermes. No se modificó sin aprobación.
+
+- **Cerrada (2026-10-24, D9):** se eliminaron el proveedor `hermes` y su clave por defecto escrita en `config.py`, `.env.example`, `compose.yaml` y las pruebas.
 
 ## D5: Agentes del prompt frente a los agentes reales
 
@@ -109,3 +113,19 @@ El usuario pidió el 2026-10-24 conectar WhatsApp siguiendo `whatsapp.pdf` con K
   - Que el usuario pegue `KAPSO_API_KEY` a mano en `.env`.
   - Obtener el `phone_number_id` del sandbox.
   - Registrar el webhook.
+
+## D9: Limpieza al stack Kapso + Grok
+
+El usuario confirmó el 2026-10-24 que la prueba por WhatsApp con Kapso respondió con la lógica de negocio. Pidió eliminar todo lo que ya no contribuye al proyecto.
+
+- **Resolución (usuario):**
+  - **Evolution API:** se elimina por completo (adaptador, endpoint `/v1/channels/whatsapp/webhook`, compose, scripts de configuración y QR, pruebas y configuración). Kapso es el único canal de WhatsApp.
+  - **Hermes:** se elimina el proveedor LLM `hermes`, junto con su clave escrita en el código, lo que cierra D4. `HermesToolbelt` pasa a llamarse `CommercialToolbelt` y los marcadores `HERMES_TOOL` pasan a `XEON_TOOL`. La lógica no cambia.
+  - **Groq:** se **mantiene** como respaldo de Grok.
+  - **Material eliminado:**
+    - el video `video/xeon-remotion/`;
+    - `docs/NOTA_ENTREGA_2026-10-17.md`;
+    - los restos locales sin versionar: canvas, `whatsapp.pdf`, `Xeon/`, `.bootstrap/`, `.kilo/`, QR, `references/senior-architect-agent` y la skill `integrate-whatsapp-calling`;
+    - se confirma en un commit el borrado de `Xeon.png`, `video/.../xeon.png` y `.interface-design/system.md`.
+- **Reparto:** Codex se encarga del código; el orquestador, de la documentación, la wiki y los restos locales; agy, de la QA final.
+- **Efectos en la wiki:** se retira `metodo-arquitectura.md` (dependía de `references/`) y D2 queda cerrada al eliminarse esa referencia.

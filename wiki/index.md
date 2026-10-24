@@ -19,7 +19,6 @@ Revisión: 2026-10-24. Comienza por el [estado del corte](pages/estado-del-corte
 ## Arquitectura
 
 - [Arquitectura actual](pages/arquitectura-actual.md) — módulos y recorrido verificable del prototipo.
-- [Método de arquitectura](pages/metodo-arquitectura.md) — uso del repositorio externo descargado.
 
 ## Decisiones y mantenimiento
 

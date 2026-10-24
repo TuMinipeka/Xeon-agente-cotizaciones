@@ -12,4 +12,4 @@ La wiki es una síntesis generada; los documentos y el código enlazados en [sou
 
 Codex, Claude y Gemini comparten las reglas de [AGENTS.md](../AGENTS.md) mediante sus archivos de entrada del repositorio. Cada agente puede crear, modificar o retirar páginas de esta wiki; [SCHEMA.md](SCHEMA.md) define cómo conservar aportes de otras conversaciones y coordinar escrituras paralelas.
 
-El repositorio [`senior-architect-agent`](../references/senior-architect-agent/README.md) está descargado como referencia metodológica local. No está instalado como habilidad global ni forma parte de la aplicación XEON.
+Las skills de agentes del proyecto se fijan en `skills-lock.json` (diseño de terminal y WhatsApp con Kapso). La antigua referencia `senior-architect-agent` se retiró en la limpieza D9.

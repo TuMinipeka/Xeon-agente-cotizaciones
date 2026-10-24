@@ -88,3 +88,19 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Repositorio:** `origin/main` ya no existe en el remoto; el PR va hacia `develop`.
 - **Archivos borrados fuera de los agentes:** `Xeon.png`, `video/.../xeon.png` y `.interface-design/system.md` siguen sin incluirse en commits, pendientes de confirmación del usuario.
 - **Inbox:** se integraron y retiraron las notas `codex-xeon-cli`, `codex-merge-conde`, `agy-xeon-cli-qa` y `codex-cli-qa-fixes`.
+
+## [2026-10-24] limpieza | Stack Kapso + Grok (D9)
+
+- **Verificación del usuario:** el usuario confirmó que la prueba por WhatsApp (sandbox de Kapso) respondió con la lógica de negocio.
+- **Kapso:** commits `1ce0e26` (canal, de Codex, auditado: HMAC antes de parsear) y `1deb23f` (contrato). La puesta en marcha (sandbox `597907523413541`, webhook `86b37b90…`, quick tunnel) está registrada en [canal Kapso](pages/canal-kapso.md).
+- **Limpieza D9:** commit `54fa146`.
+  - Codex eliminó Evolution API y el proveedor Hermes, renombró `HermesToolbelt` a `CommercialToolbelt` (marcadores `XEON_TOOL`), migró las pruebas QA1 y multi-turno al webhook firmado de Kapso y sustituyó el simulador.
+  - Se borraron `video/xeon-remotion/` y `docs/NOTA_ENTREGA_2026-10-17.md`, y se confirmó el borrado de `Xeon.png`, `video/.../xeon.png` y `.interface-design/system.md`.
+  - Suite: 146 aprobadas.
+- **Restos locales:** el orquestador eliminó, tras revisar su contenido, `Sin título.canvas`, `whatsapp.pdf`, `Xeon/` (plantillas vacías de Obsidian), `.bootstrap/`, `.kilo/`, `qr_whatsapp.png`, `references/` y la skill `integrate-whatsapp-calling` (también retirada de `skills-lock.json`).
+- **Wiki:**
+  - Se retiró `metodo-arquitectura.md` y la fuente S6 quedó marcada como retirada.
+  - D2 y D4 quedan cerradas.
+  - Se actualizaron arquitectura, estado, contratos, canal Kapso y propuestas.
+  - Se integraron y retiraron las notas `codex-kapso-channel`, `claude-kapso-live` y `codex-stack-cleanup`.
+- **Pendiente:** Codex está actualizando la documentación del repositorio y después viene la QA final de agy.

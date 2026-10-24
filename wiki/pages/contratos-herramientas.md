@@ -1,10 +1,10 @@
-# Contratos de las herramientas de Hermes
+# Contratos de las herramientas comerciales
 
-Equivale al `tools_spec` del protocolo original. Define las entradas, salidas y reglas de las tres herramientas comerciales de `HermesToolbelt`. Relacionado: [hito S2](hito-s2.md), [arquitectura actual](arquitectura-actual.md), [orquestación](orquestacion.md).
+Equivale al `tools_spec` del protocolo original. Define las entradas, salidas y reglas de las tres herramientas comerciales de `CommercialToolbelt` (llamado `HermesToolbelt` hasta la limpieza D9). Relacionado: [hito S2](hito-s2.md), [arquitectura actual](arquitectura-actual.md), [orquestación](orquestacion.md).
 
 Revisado: 2026-10-24. Fuentes:
 
-- Código: `src/xeon/agent/hermes.py`.
+- Código: `src/xeon/agent/toolbelt.py` (antes `hermes.py`; los números de línea citados abajo corresponden a la versión anterior). Los marcadores de contexto pasaron de `HERMES_TOOL` a `XEON_TOOL`.
 - Documento funcional: [XeonContexto §7](../../XeonContexto.md), líneas 133-139.
 
 Estado de las tres herramientas: `implementado` (inspección estática).

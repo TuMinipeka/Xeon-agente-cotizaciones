@@ -2,11 +2,11 @@
 
 Integración de WhatsApp a través de Kapso (API oficial de WhatsApp Cloud) como canal predeterminado de XEON, siguiendo `whatsapp.pdf` (guía NodeStudio) y las skills `gokapso/agent-skills`. Relacionado: [orquestación](orquestacion.md), [decisiones pendientes](decisiones-pendientes.md) (D8), [estado del corte](estado-del-corte.md).
 
-Revisado: 2026-10-24. Estado: **`planificado`**. El orquestador definió el contrato; la implementación está delegada a Codex y la QA a agy.
+Revisado: 2026-10-24. Estado: **`implementado`** y **verificado en vivo**. El usuario confirmó que, desde el sandbox, XEON respondió por WhatsApp con la lógica de negocio. Commits `1ce0e26` (canal) y `54fa146` (limpieza D9).
 
 ## Decisiones del usuario (2026-10-24)
 
-- **Kapso es el canal por defecto** y Evolution API queda como opción. `WHATSAPP_CHANNEL=kapso|evolution` selecciona el adaptador de envío.
+- **Kapso es el único canal de WhatsApp.** Evolution API se eliminó en la limpieza D9; `WHATSAPP_CHANNEL` ya no existe.
 - **URL pública** con un túnel `cloudflared` gratuito hacia `http://127.0.0.1:8000`. La URL cambia en cada reinicio.
 - **Pruebas primero en el sandbox de Kapso** y después con el número conectado.
 - El agente alojado en Kapso **no** se usa: el cotizador y las reglas siguen en XEON.
@@ -55,3 +55,11 @@ Revisado: 2026-10-24. Estado: **`planificado`**. El orquestador definió el cont
 - Pruebas sin red con `httpx.MockTransport`, LLM `mock` y HMAC calculado en la prueba.
 - `ruff`, `mypy` y `pytest` en verde.
 - **Ensayo real** en el sandbox: un mensaje desde el teléfono del usuario recibe la respuesta de XEON con Grok.
+
+## Puesta en marcha verificada (2026-10-24)
+
+- **Sandbox:** `phone_number_id` `597907523413541`.
+- **Webhook:** `86b37b90-3438-4734-a01b-0973c6e94ea8` (`kind: kapso`, `payload_version: v2`, sin buffering). El secreto está en `secrets/kapso_webhook_secret.txt`.
+- **Hueco de la skill alpha:** `create.js` no envía `secret_key` y la API exige ese campo. El orquestador registró el webhook con `POST /platform/v1/whatsapp/phone_numbers/{id}/webhooks`, con el sobre `whatsapp_webhook` y un secreto generado localmente.
+- **Túnel:** `cloudflared` (quick tunnel). Si cambia la URL, hay que actualizar el webhook con `update.js`.
+- **Simulador local:** `scripts/simulate_whatsapp_webhook.py` firma un payload v2 con el secreto y lo envía al endpoint.
