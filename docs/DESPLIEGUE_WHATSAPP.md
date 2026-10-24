@@ -86,26 +86,40 @@ uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
 Copia la URL `https://<algo>.trycloudflare.com` que aparece en la salida. **Cambia cada vez que
 reinicias el túnel.**
 
-### Terminal 3: webhook de Kapso
+### Terminal 3: conectar Kapso con el túnel
 
-**Primera vez:** crea el webhook. El script genera el secreto, lo guarda en
-`secrets/kapso_webhook_secret.txt` y lo registra en Kapso.
+Con las terminales 1 y 2 en marcha, ejecuta **un solo comando**:
 
 ```powershell
-uv run python scripts/kapso_webhook.py create --phone-number-id <ID_SANDBOX> --url https://<algo>.trycloudflare.com/v1/channels/whatsapp/kapso/webhook
+uv run python scripts/kapso_webhook.py sync-tunnel
 ```
 
-Anota el `webhook id` que imprime.
+El comando hace todo sin que copies nada:
 
-**Siguientes veces:** cuando cambie la URL del túnel, solo actualízala.
+1. Lee la URL actual del túnel desde `cloudflared` (puerto local de métricas `20241`-`20245`).
+2. Toma el `phone_number_id` de `KAPSO_PHONE_NUMBER_ID` en `.env`.
+3. Busca el webhook de ese número en Kapso:
+   - **Si existe**, actualiza su URL a `https://<túnel>/v1/channels/whatsapp/kapso/webhook`.
+   - **Si no existe** (primera vez), lo crea, genera el secreto en
+     `secrets/kapso_webhook_secret.txt` y lo registra.
+4. Imprime la URL final y el `webhook_id`. Nunca muestra claves ni secretos.
 
-```powershell
-uv run python scripts/kapso_webhook.py update-url --webhook-id <WEBHOOK_ID> --url https://<algo>.trycloudflare.com/v1/channels/whatsapp/kapso/webhook
+Salida esperada:
+
+```text
+HTTP 200
+url: https://<algo>.trycloudflare.com/v1/channels/whatsapp/kapso/webhook
+webhook_id: <id>
 ```
 
-Para ver los webhooks registrados:
+**Repite este comando cada vez que reinicies el túnel**, porque la URL cambia.
+
+Variantes (normalmente no hacen falta):
 
 ```powershell
+# Pasar la URL del túnel a mano (si cloudflared no expone el puerto de métricas)
+uv run python scripts/kapso_webhook.py sync-tunnel --tunnel-url https://<algo>.trycloudflare.com
+# Ver los webhooks registrados del número
 uv run python scripts/kapso_webhook.py list --phone-number-id <ID_SANDBOX>
 ```
 
@@ -155,7 +169,7 @@ Cada mensaje enviado o recibido cuenta en el plan de Kapso.
 
 | Síntoma | Causa probable | Qué hacer |
 |---|---|---|
-| El teléfono no recibe respuesta | Túnel reiniciado con otra URL | `kapso_webhook.py update-url` con la URL nueva |
+| El teléfono no recibe respuesta | Túnel reiniciado con otra URL | `uv run python scripts/kapso_webhook.py sync-tunnel` |
 | | `WHATSAPP_SEND_ENABLED=false` | Ponlo en `true` y reinicia la terminal 1 |
 | | No te uniste al sandbox | Envía el código de activación (paso 5) |
 | La API registra `401` en el webhook | Secreto distinto al registrado en Kapso | `kapso_webhook.py create --rotate-secret …` y borra el webhook viejo en Kapso |
@@ -177,7 +191,7 @@ cd ..\..\..
 ## 7. Apagar
 
 Pulsa `Ctrl+C` en las terminales 1 y 2. El webhook queda registrado en Kapso; en la próxima
-sesión basta con repetir el paso 3 usando `update-url`.
+sesión basta con repetir el paso 3 (`sync-tunnel`).
 
 ## 8. Para pasar del sandbox a un número propio
 

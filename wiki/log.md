@@ -149,3 +149,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Sincronización:** `developer/daniel` se actualizó con `develop` (merge `8e01b02`).
 - **Script de Codex:** `scripts/kapso_webhook.py` con pruebas sin red. Validado por el orquestador contra Kapso real con `list` y `update-url` sobre la misma URL, sin cambios efectivos.
 - **Guía del orquestador:** `docs/DESPLIEGUE_WHATSAPP.md` cubre requisitos, secretos, `.env`, skills, `phone_number_id`, las tres terminales (API, túnel, webhook), verificación, guion de prueba desde el teléfono, diagnóstico, apagado y paso a un número propio. Está enlazada desde el README, `docs/README.md` y [canal Kapso](pages/canal-kapso.md).
+
+## [2026-10-24] operación | Terminal 3 de la guía de WhatsApp
+
+- **Ambigüedad reportada por el usuario:** el paso 3 de `docs/DESPLIEGUE_WHATSAPP.md` no dejaba claro qué ejecutar. La API y el túnel del orquestador habían terminado con la sesión anterior; el usuario los tenía corriendo en su terminal y el webhook seguía apuntando a la URL vieja.
+- **Configuración aplicada por el orquestador:** leyó el host actual desde `cloudflared` (`/quicktunnel` en el puerto 20241), comprobó `/health` (Grok) y actualizó el webhook `86b37b90…`. Una petición sin firma dio 401.
+- **Codex:** añadió `kapso_webhook.py sync-tunnel`, que detecta el túnel y el webhook y actualiza o crea el webhook. Validado en real (HTTP 200); suite en verde.
+- **Guía:** el paso 3 se reescribió con un solo comando (`sync-tunnel`) y su salida esperada.
