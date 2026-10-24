@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import sys
@@ -59,17 +58,7 @@ def main(
         color_system=None if plain else "truecolor",
     )
     try:
-
-        async def launch() -> int:
-            if isinstance(engine, HTTPEngine):
-                try:
-                    await engine.refresh()
-                except Exception:
-                    await engine.aclose()
-                    raise
-            return await run_shell(session, console=console)
-
-        code = asyncio.run(launch())
+        code = run_shell(session, console=console)
     except KeyboardInterrupt as exc:
         raise typer.Exit(code=130) from exc
     except (httpx.HTTPError, KeyError, ValueError) as exc:

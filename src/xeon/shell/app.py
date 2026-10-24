@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import sys
 from collections.abc import Callable
 from time import perf_counter
@@ -20,10 +21,10 @@ from xeon.shell.render import (
     render_status,
     supports_art,
 )
-from xeon.shell.session import Session
+from xeon.shell.session import HTTPEngine, Session
 
 
-async def run_shell(
+def run_shell(
     session: Session,
     *,
     console: Console,
@@ -33,6 +34,23 @@ async def run_shell(
     """Own the line-oriented terminal lifecycle, including engine cleanup."""
     interactive = sys.stdin.isatty() if stdin_is_tty is None else stdin_is_tty
     plain = not console.is_terminal or not supports_art(console)
+    with asyncio.Runner() as runner:
+        try:
+            if isinstance(session.engine, HTTPEngine):
+                runner.run(session.engine.refresh())
+            return _read_commands(session, console, read_line, interactive, plain, runner)
+        finally:
+            runner.run(session.engine.aclose())
+
+
+def _read_commands(
+    session: Session,
+    console: Console,
+    read_line: Callable[[], str],
+    interactive: bool,
+    plain: bool,
+    runner: asyncio.Runner,
+) -> int:
     try:
         if interactive:
             console.print(render_banner(session, console.width, plain=plain))
@@ -50,24 +68,44 @@ async def run_shell(
                 if interactive:
                     console.print()
                 return 130
+            if "\x03" in line:
+                if interactive:
+                    console.print()
+                return 130
             command = parse_command(line)
             if command is None:
                 continue
             if command.name == "quit":
                 return 0
             try:
-                await _execute(command, session, console)
+                runner.run(_execute(command, session, console))
             except KeyboardInterrupt:
                 if interactive:
                     console.print()
                 return 130
-    finally:
-        await session.engine.aclose()
+    except KeyboardInterrupt:
+        if interactive:
+            console.print()
+        return 130
 
 
 async def _execute(command: ParsedCommand, session: Session, console: Console) -> None:
     started = perf_counter()
     plain = not console.is_terminal or not supports_art(console)
+    if command.name == "invalid":
+        session.record("invalid", "warn", started)
+        console.print(
+            render_error(
+                f"Comando no valido. Quisiste decir '{command.argument}'? "
+                "Escribe 'help' para ver comandos o 'r <mensaje>' para consultar.",
+                plain=plain,
+            )
+        )
+        return
+    if command.name == "usage":
+        session.record(command.argument, "warn", started)
+        console.print(render_error(f"Uso: {command.argument} (sin argumentos).", plain=plain))
+        return
     if command.name == "run":
         if not command.argument:
             session.record("run", "warn", started)
@@ -97,10 +135,7 @@ async def _execute(command: ParsedCommand, session: Session, console: Console) -
         session.record("help", "ok", started)
         from xeon.shell.render import render_commands
 
-        if plain:
-            console.print(render_banner(session, console.width, plain=True))
-        else:
-            console.print(render_commands(console.width))
+        console.print(render_commands(console.width, plain=plain))
         console.print(render_footer(console.width, plain=plain))
     elif command.name == "logs":
         if command.argument:

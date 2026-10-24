@@ -127,7 +127,13 @@ def _commands_table() -> Table:
     return table
 
 
-def render_commands(width: int) -> RenderableType:
+def render_commands(width: int, *, plain: bool = False) -> RenderableType:
+    if plain:
+        return Text(
+            "\n".join(
+                f"{name} / {aliases}  {description}" for name, aliases, description in _COMMANDS
+            )
+        )
     if width < 60:
         return Text("  ".join(name for name, _, _ in _COMMANDS), style=theme.ACCENT)
     return Panel(

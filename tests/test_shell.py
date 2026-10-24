@@ -116,9 +116,7 @@ def test_cp1252_legacy_console_uses_plain_ascii() -> None:
 
     output = Cp1252Output()
     console = Console(file=output, width=80, force_terminal=True, legacy_windows=True)
-    code = asyncio.run(
-        run_shell(_mock_session(), console=console, read_line=lambda: "quit", stdin_is_tty=True)
-    )
+    code = run_shell(_mock_session(), console=console, read_line=lambda: "quit", stdin_is_tty=True)
     assert code == 0
     assert "XEON CLI | Tactical Agent Shell" in output.getvalue()
     assert "xeon > " in output.getvalue()
@@ -183,9 +181,7 @@ def test_shell_run_new_logs_and_config_hide_secrets() -> None:
             "quit",
         ]
     )
-    code = asyncio.run(
-        run_shell(session, console=console, read_line=lambda: next(commands), stdin_is_tty=False)
-    )
+    code = run_shell(session, console=console, read_line=lambda: next(commands), stdin_is_tty=False)
     text = output.getvalue()
     assert code == 0
     assert "SKU=CEM-50" in text
@@ -203,9 +199,7 @@ def test_shell_uses_same_conversation_for_multiple_mock_turns() -> None:
     conversation_id: UUID = session.conversation_id
     console, output = _console()
     commands = iter(["Tienen tubo pvc de 1/2 pulgada?", "r Cotizame 5 unidades de ese mismo", "q"])
-    code = asyncio.run(
-        run_shell(session, console=console, read_line=lambda: next(commands), stdin_is_tty=False)
-    )
+    code = run_shell(session, console=console, read_line=lambda: next(commands), stdin_is_tty=False)
     assert code == 0
     assert session.conversation_id == conversation_id
     assert session.turns == 2
@@ -220,12 +214,62 @@ def test_shell_eof_and_ctrl_c_exit_codes() -> None:
     def interrupt() -> str:
         raise KeyboardInterrupt
 
-    for reader, expected in ((eof, 0), (interrupt, 130)):
+    for reader, expected in ((eof, 0), (interrupt, 130), (lambda: "\x03", 130)):
         console, _ = _console()
-        code = asyncio.run(
-            run_shell(_mock_session(), console=console, read_line=reader, stdin_is_tty=False)
-        )
+        code = run_shell(_mock_session(), console=console, read_line=reader, stdin_is_tty=False)
         assert code == expected
+
+
+@pytest.mark.parametrize("line", ["statu", "quitt", "helpp", "confg", "/status", ":status"])
+def test_mistyped_command_never_calls_engine(line: str) -> None:
+    session = _mock_session()
+    console, output = _console()
+    lines = iter([line, "quit"])
+    assert (
+        run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0
+    )
+    assert session.turns == 0
+    assert "Comando no valido" in output.getvalue()
+    assert "Quisiste decir" in output.getvalue()
+
+
+@pytest.mark.parametrize(
+    "line", ["status foo", "config bar", "new 123", "help extra", "quit ahora"]
+)
+def test_no_argument_commands_show_usage_without_running(line: str) -> None:
+    session = _mock_session()
+    console, output = _console()
+    lines = iter([line, "quit"])
+    assert (
+        run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0
+    )
+    assert session.turns == 0
+    assert "Uso:" in output.getvalue()
+
+
+def test_distant_free_text_still_runs() -> None:
+    session = _mock_session()
+    console, _ = _console()
+    lines = iter(["cemento", "necesito cemento", "quit"])
+    assert (
+        run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0
+    )
+    assert session.turns == 2
+
+
+def test_plain_help_lists_commands_without_banner() -> None:
+    console, output = _console()
+    lines = iter(["help", "quit"])
+    assert (
+        run_shell(
+            _mock_session(), console=console, read_line=lambda: next(lines), stdin_is_tty=False
+        )
+        == 0
+    )
+    assert "run / r" in output.getvalue()
+    assert "q quit" in output.getvalue()
+    assert "XEON CLI" not in output.getvalue()
+    assert "system ready" not in output.getvalue()
 
 
 def test_cli_no_color_and_piped_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
