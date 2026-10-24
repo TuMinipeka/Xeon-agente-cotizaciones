@@ -169,3 +169,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Problema:** el usuario no veía los colores. La causa no era el tema oscuro: con la bóveda `wiki` abierta, Obsidian reescribió `wiki/.obsidian/graph.json` desde memoria y dejó `colorGroups` vacío.
 - **Solución:** el orquestador creó `scripts/apply_obsidian_graph_colors.py`, que se niega a correr con Obsidian abierto salvo con `--force`. Con Obsidian cerrado lo aplicó: 8 grupos en la bóveda `wiki` y 10 en la raíz.
 - **Documentación:** la leyenda de [index](index.md) explica cómo reproducirlos.
+
+## [2026-10-24] inicio | Evaluación conversacional (D11)
+
+- **Rama:** `feature/conversational-evals` desde `developer/daniel`.
+- **Auditoría** de solo lectura registrada en [auditoría 2026-10-24](pages/auditoria-2026-10-24.md), con los defectos E1–E6.
+- **Contrato** en [evaluación conversacional](pages/evaluacion-conversacional.md); decisión D11.
+- **Skills:** `scenarios` (descargada con `gh`), `ai-system-testing`, `agent-evals` y `promptfoo-evaluation`, revisadas.
