@@ -44,6 +44,12 @@ Pasan a ser escenarios y regresiones.
 | E4 | Reusar un `request_id` con otras líneas devuelve en silencio el borrador anterior | `application/quote_draft.py:84-86` | Alta |
 | E5 | `evaluated_at` fijo en el chat: el stock nunca aparece vencido (D6) | `toolbelt.py:237` | Alta |
 | E6 | `except Exception: pass` oculta fallas de stock y de borrador (D6) | `toolbelt.py:258, 284` | Alta |
+| E7 | Un saludo o contexto separado por coma («buenas vecino, …», «soy cliente frecuente, …») antepone el aviso de fuera de alcance a respuestas comerciales | Harness offline: `no_false_scope_block` 0/30; prueba directa en la API | Alta |
+| E8 | «Lo recojo en la sede norte.» se bloquea como fuera de alcance (`provider=local-policy`) | Harness offline; prueba directa | Alta |
+| E9 | Varios productos en un mensaje no generan un borrador con varias líneas | S02 offline: `quote_matches_oracle` sin borrador | Alta (funcional) |
+| E10 | Un pedido ambiguo con varios candidatos semánticos crea el borrador con el primero, sin preguntar | S10 offline: `asks_clarification` con 1 borrador | Alta (principio «ambigüedad exige aclaración») |
+
+E7–E10 los detectó el harness (corrida offline `7b5801d3`), no la auditoría estática. Las regresiones están en `tests/evals/test_regressions.py` como `xfail` estricto. E9 y E10 rozan una decisión de producto (D7 mantuvo la cotización directa): se corrigen solo si el usuario lo aprueba.
 
 ## Incompleto (documentado pero no implementado)
 

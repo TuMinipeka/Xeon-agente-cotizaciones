@@ -7,7 +7,7 @@ tags:
 
 Sistema de pruebas con cliente simulado, oráculo independiente y regresiones permanentes. El orquestador definió el contrato el 2026-10-24; Codex lo implementa y agy redacta las personas y ejecuta las corridas. Relacionado: [auditoría](auditoria-2026-10-24.md), [orquestación](orquestacion.md), [decisiones](decisiones-pendientes.md) (D11).
 
-Estado: **`planificado`**.
+Estado: **`implementado`** (harness, commit `1de7448`); corridas reales en curso.
 
 ## Decisiones del usuario (2026-10-24)
 
@@ -117,3 +117,8 @@ El juez solo evalúa claridad, pertinencia, tono y manejo de la ambigüedad. Un 
   - Una llamada real vía litellm a la pasarela se completó sin error, sin exportar trazas (sin `LANGWATCH_API_KEY`, `instrumentors=[]`).
   - Depende de un ajuste interno de Scenario 1.6 (`drop_temperature`); por eso queda acotado a esa serie.
 - **Personas** (commit `feca7f6`, de agy): 14 archivos `S01`–`S14` en `evals/scenarios/personas/`. El orquestador revisó que no revelan respuestas esperadas, precios ni SKUs.
+- **Harness** (commit `1de7448`, de Codex, auditado por el orquestador):
+  - El oráculo solo usa la biblioteca estándar y los JSON. Los fixtures tienen huella SHA-256 y la verificación pasa tras una copia limpia desde Git.
+  - El simulador real recibe únicamente la persona, el objetivo y los comportamientos.
+  - **Primera auditoría:** se corrigieron dos fallas del evaluador, sin relajar criterios. `no_completion_claims` confundía «política… aprobada» con un cierre, y `asks_clarification` en offline no podía observar preguntas del mock. Se agregó `no_false_scope_block` para cubrir el hueco E7/E8.
+  - **Offline final** `7b5801d3`: 12 PASS, 30 FAIL, 0 ERROR; todos los FAIL son de XEON. La suite tiene 176 aprobadas y 11 `xfail`.
