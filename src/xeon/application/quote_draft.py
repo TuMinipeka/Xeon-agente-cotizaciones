@@ -100,7 +100,7 @@ class CreateQuoteDraft:
                         or Decimal(str(requested.quantity)) != saved.quantity
                     ):
                         return IdempotencyConflict("request_id ya corresponde a otras lineas.")
-            except (CatalogUnavailableError, ValueError):
+            except CatalogUnavailableError, ValueError:
                 return IdempotencyConflict("No se puede comprobar el request_id existente.")
             return QuoteDraftReady(quote=existing, replayed=True)
 

@@ -40,7 +40,19 @@ class AgentService:
         conversation_key: str | None = None,
         request_id: str | None = None,
     ) -> LLMResponse:
-        scope = self._scope_policy.classify(user_message)
+        previous_sku = (
+            self._memory.last_sku(conversation_key)
+            if self._memory is not None and conversation_key is not None
+            else None
+        )
+        pending = (
+            self._memory.pending_candidates(conversation_key)
+            if self._memory is not None and conversation_key is not None
+            else None
+        )
+        scope = self._scope_policy.classify(
+            user_message, commercial_context=previous_sku is not None or pending is not None
+        )
         if scope.kind == "out_of_scope":
             return LLMResponse(
                 text=scope.customer_message or _SAFE_FALLBACK,
@@ -52,18 +64,18 @@ class AgentService:
         message_list: list[ChatMessage] = [
             ChatMessage(role="system", content=SYSTEM_PROMPT),
         ]
-        previous_sku = (
-            self._memory.last_sku(conversation_key)
-            if self._memory is not None and conversation_key is not None
-            else None
-        )
         selected_sku: str | None = None
         if self._tools is not None:
-            verified_context, selected_sku = self._tools.prepare_verified_context(
-                commercial_message, request_id=request_id, last_sku=previous_sku
+            verified_context, selected_sku, new_pending = self._tools.prepare_verified_context(
+                commercial_message,
+                request_id=request_id,
+                last_sku=previous_sku,
+                pending=pending,
             )
             if verified_context is not None:
                 message_list.append(ChatMessage(role="system", content=verified_context))
+            if self._memory is not None and conversation_key is not None:
+                self._memory.set_pending_candidates(conversation_key, new_pending)
         if self._memory is not None and conversation_key is not None:
             message_list.extend(self._memory.history(conversation_key))
         message_list.append(ChatMessage(role="user", content=commercial_message))

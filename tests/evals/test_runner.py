@@ -30,8 +30,8 @@ def test_call_budget_aborts_cleanly(tmp_path: Path) -> None:
         run(ids=["S01"], reps=2, max_calls=1, mode="offline", output_root=tmp_path)
     )
     assert report["calls"] == 1
-    assert report["cases"][0]["status"] in {"PASS", "FAIL"}
-    assert report["cases"][-1]["status"] == "ERROR"
+    assert [case["status"] for case in report["cases"]] == ["ERROR", "ERROR"]
+    assert all(case["origin"] == "infra" for case in report["cases"])
     assert report["cases"][-1]["origin"] == "infra"
 
 

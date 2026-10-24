@@ -121,7 +121,7 @@ def test_multiturn_chat_progressive_clarification_to_quote_draft() -> None:
     # Turno 4: consulta con producto y cantidad ejecuta las 3 herramientas y crea DRAFT v1
     assert r4.status_code == 200
     reply_t04 = r4.json()["reply"]
-    assert "[XEON_TOOL:search_products status=semantic_candidates]" in reply_t04
+    assert "[XEON_TOOL:search_products status=exact_match]" in reply_t04
     assert "SKU=CEM-50" in reply_t04
     assert "[XEON_TOOL:get_stock_by_branches sku=CEM-50 sede_solicitada=sede-norte" in reply_t04
     assert "[XEON_TOOL:create_quote_draft" in reply_t04
