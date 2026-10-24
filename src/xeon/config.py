@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = Field(default=2048, ge=1, le=32_000)
     llm_timeout_seconds: float = Field(default=120, gt=0, le=600)
     agent_max_steps: int = Field(default=6, ge=1, le=24)
+    conversation_max_turns: int = Field(default=6, ge=1)
+    conversation_max_conversations: int = Field(default=1000, ge=1)
 
     hermes_base_url: str = "http://127.0.0.1:8642/v1"
     hermes_model: str = "gpt-5.6-luna"

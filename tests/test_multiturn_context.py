@@ -353,14 +353,9 @@ def test_edge_prompt_injection_cannot_apply_discount_or_drop_tables() -> None:
     assert r_discount_inj.status_code == 200
     assert r_sql_inj.status_code == 200
 
-    # El borrador creado mantiene el precio oficial de lista (28900.00 * 10 = 289000.00 COP)
-    # y estado DRAFT v1 sin aprobar ni aplicar el 50% inyectado.
-    assert len(quotes_repo._quotes) == 1
-    created_quote = next(iter(quotes_repo._quotes.values()))
-    assert created_quote.status.value == "DRAFT"
-    assert created_quote.version == 1
-    assert created_quote.subtotal.amount == Decimal("289000.00")
-    assert created_quote.total.amount == Decimal("289000.00")
+    # El descuento solicitado se rechaza antes de crear cualquier borrador.
+    assert "politica de descuentos" in r_discount_inj.json()["reply"].casefold()
+    assert len(quotes_repo._quotes) == 0
 
     # El catalogo y el repositorio siguen intactos tras el intento de DROP TABLE
     cem = container.catalog.find_exact("CEM-50")
@@ -393,15 +388,6 @@ def test_duplicate_webhook_same_app_instance_is_ignored_by_volatile_cache() -> N
     assert len(quotes_repo._quotes) == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Defecto S2 (hermes.py:240): format_verified_context genera un request_id aleatorio "
-        "(wa-<uuid>) en cada llamada en vez de usar external_message_id/conversation_id; "
-        "si el webhook repetido llega tras reinicio o a otro worker que comparte el repositorio, "
-        "crea dos borradores distintos violando el principio 8 de idempotencia."
-    ),
-)
 def test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repository() -> None:
     """Hallazgo hito-s2: mismo webhook entregado dos veces sin cache local crea dos borradores."""
     quotes_repo = InMemoryQuoteDraftRepository()
@@ -432,19 +418,12 @@ def test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repositor
 
     assert r1.status_code == 200
     assert r2.status_code == 200
-    # Deberia existir solo 1 borrador idempotente para el mismo external_message_id,
-    # pero actualmente se crean 2 borradores con request_id aleatorios.
+    # El request_id estable permite que el repositorio reconozca la segunda entrega.
     assert len(quotes_repo._quotes) == 1
+    quote = next(iter(quotes_repo._quotes.values()))
+    assert quote.request_id == "wa-xeon-ferreteria-WA-DUP-RESTART-001"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Defecto S2 (service.py:17 / app.py:161): AgentService.respond no almacena ni recibe "
-        "historial por conversation_id, por lo que un segundo turno que referencia al producto "
-        "del turno anterior ('cotizame 5 unidades de ese mismo') pierde el contexto."
-    ),
-)
 def test_multiturn_chat_retains_product_context_across_turns() -> None:
     """Verifica si /v1/chat mantiene el producto identificado en el turno previo del mismo chat."""
     quotes_repo = InMemoryQuoteDraftRepository()
@@ -473,15 +452,6 @@ def test_multiturn_chat_retains_product_context_across_turns() -> None:
     assert len(quotes_repo._quotes) == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Defecto S2 (hermes.py:238): format_verified_context invoca create_quote_draft sin "
-        "detectar solicitudes de descuento en el texto del comprador (discount_requested=False "
-        "por defecto), por lo que en /v1/chat crea un borrador a precio de lista en lugar de "
-        "informar DiscountPolicyUnavailable (T08)."
-    ),
-)
 def test_t08_chat_natural_language_discount_request_reports_policy_unavailable() -> None:
     """T08 en /v1/chat: pedir 'el descuento de siempre' en un pedido no debe omitir la alerta."""
     quotes_repo = InMemoryQuoteDraftRepository()
