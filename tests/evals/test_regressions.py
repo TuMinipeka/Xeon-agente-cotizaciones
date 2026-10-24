@@ -69,7 +69,6 @@ def test_e3_surtido_does_not_select_south() -> None:
     asyncio.run(check())
 
 
-@pytest.mark.xfail(strict=True, reason="E4: idempotencia devuelve borrador previo con otras lineas")
 def test_e4_request_id_conflict() -> None:
     service = CreateQuoteDraft(InMemoryProductCatalog(), InMemoryQuoteDraftRepository())
     first = service.execute(
