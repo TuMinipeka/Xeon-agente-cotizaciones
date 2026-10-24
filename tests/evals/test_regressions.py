@@ -139,11 +139,18 @@ def test_e8_pickup_followup_remains_commercial() -> None:
     asyncio.run(check())
 
 
-def test_e9_multiple_products_create_multiline_draft() -> None:
+@pytest.mark.parametrize(
+    "message",
+    [
+        "cotice 10 bultos de cemento y 5 tubos PVC de 1/2 pulgada",
+        "cotice 10 bultos de cemento, 5 tubos PVC de 1/2 pulgada",
+    ],
+)
+def test_e9_multiple_products_create_multiline_draft(message: str) -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 10 bultos de cemento y 5 tubos PVC de 1/2 pulgada")
+            await sut.respond(message)
             assert any(len(draft["lines"]) >= 2 for draft in sut.drafts())
         finally:
             await sut.aclose()

@@ -224,7 +224,11 @@ class CommercialToolbelt:
         else:
             clauses = tuple(
                 (part.strip(), _extract_requested_quantity(part))
-                for part in re.split(r"\s+y\s+(?=\d+(?:[.,]\d+)?\s+)", normalized, flags=re.I)
+                for part in re.split(
+                    r"(?:\s+(?:y|mas)\s+|,\s+|;\s*)(?=\d+(?:[.,]\d+)?\s+)",
+                    normalized,
+                    flags=re.I,
+                )
             )
 
         contexts: list[str] = []
@@ -252,7 +256,9 @@ class CommercialToolbelt:
                 return (
                     "[XEON_TOOL:search_products status=clarification_required] "
                     "Hay varias referencias posibles. Pregunta cual opcion desea el cliente; "
-                    "no crees borrador antes de su eleccion.\n" + options,
+                    "no crees borrador antes de su eleccion.\n"
+                    + options
+                    + "\n¿Cual opcion eliges (1, 2 o 3)?",
                     None,
                     PendingCandidates(
                         tuple(item.sku for item in outcome.candidates),
