@@ -1,16 +1,81 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import os
+import sys
 from typing import Annotated
 
 import httpx
 import typer
+from rich.console import Console
 
-app = typer.Typer(help="Cliente minimo para operar la base de XEON.")
+from xeon.config import Settings, SettingsError
+from xeon.shell.app import run_shell
+from xeon.shell.session import HTTPEngine, InProcessEngine, Session, key_status
+
+app = typer.Typer(help="XEON Tactical Agent Shell.", invoke_without_command=True)
 quotes_app = typer.Typer(help="Revisar borradores sinteticos. No aprueba ni emite.")
 stock_app = typer.Typer(help="Consultar disponibilidad sintetica por sede. No reserva stock.")
 app.add_typer(quotes_app, name="quotes")
 app.add_typer(stock_app, name="stock")
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    api: Annotated[str | None, typer.Option("--api", help="Usar una API XEON remota.")] = None,
+) -> None:
+    """Abre el shell si no se invoca un subcomando."""
+    if ctx.invoked_subcommand is not None:
+        return
+    try:
+        settings = Settings()
+        engine = HTTPEngine(api, settings) if api is not None else InProcessEngine(settings)
+    except SettingsError as exc:
+        typer.echo(f"xeon: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    except Exception as exc:
+        typer.echo("xeon: no se pudo iniciar el motor.", err=True)
+        raise typer.Exit(code=1) from exc
+    session = Session(engine=engine, key_status=key_status(settings))
+    encoding = sys.stdout.encoding or "utf-8"
+    try:
+        "┌✓".encode(encoding)
+        unicode_ok = True
+    except LookupError, UnicodeEncodeError:
+        unicode_ok = False
+    if not unicode_ok and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    plain = (
+        "NO_COLOR" in os.environ
+        or os.environ.get("TERM") == "dumb"
+        or not sys.stdout.isatty()
+        or not unicode_ok
+    )
+    console = Console(
+        force_terminal=not plain,
+        no_color=plain,
+        color_system=None if plain else "truecolor",
+    )
+    try:
+
+        async def launch() -> int:
+            if isinstance(engine, HTTPEngine):
+                try:
+                    await engine.refresh()
+                except Exception:
+                    await engine.aclose()
+                    raise
+            return await run_shell(session, console=console)
+
+        code = asyncio.run(launch())
+    except KeyboardInterrupt as exc:
+        raise typer.Exit(code=130) from exc
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        typer.echo("xeon: no se pudo conectar con la API XEON.", err=True)
+        raise typer.Exit(code=1) from exc
+    raise typer.Exit(code=code)
 
 
 def _echo_json(payload: object) -> None:

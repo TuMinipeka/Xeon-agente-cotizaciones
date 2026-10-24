@@ -39,3 +39,7 @@ qr_whatsapp.png
 
 # Exclusión temporal para integrar la wiki desde varios agentes.
 wiki/.write-lock/
+
+# Skills de agentes: se reinstalan desde skills-lock.json; .claude/ es configuracion local.
+.agents/skills/
+.claude/
