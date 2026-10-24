@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "tui-design": {
+      "source": "diegomarino/tui-design",
+      "sourceType": "github",
+      "skillPath": "skills/tui-design/SKILL.md",
+      "computedHash": "d726e0487f125f19aa997d234b8ef9ed1c893ea6a669571bff8fcd08c6eb5805"
+    },
+    "tui-fundamentals": {
+      "source": "josiahsiegel/claude-plugin-marketplace",
+      "sourceType": "github",
+      "skillPath": "plugins/tui-master/skills/tui-fundamentals/SKILL.md",
+      "computedHash": "558e1245f0c38dccf6d8b605fbf9845dddbb0afe963183bd136e3f55f09d6bbc"
+    }
+  }
+}

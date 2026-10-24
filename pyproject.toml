@@ -8,6 +8,7 @@ dependencies = [
   "fastapi>=0.118,<1.0",
   "httpx>=0.28,<1.0",
   "pydantic-settings>=2.10,<3.0",
+  "rich>=14,<15",
   "typer>=0.19,<1.0",
   "uvicorn>=0.37,<1.0",
 ]
@@ -36,6 +37,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+extend-exclude = ["references/senior-architect-agent", ".agents", ".claude"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]

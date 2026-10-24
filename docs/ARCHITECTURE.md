@@ -16,7 +16,7 @@ POST /v1/chat   POST /v1/channels/whatsapp/webhook (Evolution API)
         v                               v
      LLMPort                    Herramientas comerciales autorizadas:
       /   \                     - search_products (Exacto + RAG semantico + JSONB specs)
-   Mock   Groq API              - get_stock_by_branches (SQL / Snapshots deterministas)
+   Grok   Mock/Groq/Hermes      - get_stock_by_branches (SQL / Snapshots deterministas)
                                 - create_quote_draft (Calculo Decimal ACID)
 
 POST /v1/quotes  GET /v1/quotes/{id}
@@ -46,13 +46,52 @@ GET /v1/stock  CLI stock show
          FulfillmentStatus(sufficient|partial|unknown)
 ```
 
-### 1. Orquestacion con Hermes y Groq API
-- `MockLLM` es el perfil predeterminado y garantiza cero llamadas externas.
+### 1. Orquestacion con Hermes, Groq y Grok API
+- `grok` es el perfil predeterminado. Reutiliza `OpenAICompatibleLLM` mediante `LLMPort` con
+  el modelo `grok-4.20-0309-non-reasoning` y la pasarela del reto `https://api.reto.pltk.mx/v1`.
+  La clave se toma por defecto del archivo local `secrets/grok_api_key.txt`; en Compose se monta
+  como `/run/secrets/grok_api_key`. Falta el smoke test real autorizado por el orquestador.
+- `MockLLM` se selecciona explicitamente en las pruebas y no realiza llamadas externas.
 - El perfil `groq` exige una credencial explicita (`GROQ_API_KEY` o `GROQ_API_KEY_FILE`) y consume
-  el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`).
+  el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`) como alternativa.
+- El perfil `hermes` sigue disponible como alternativa local. La fabrica rechaza un modelo Grok
+  vacio aun cuando existe un modelo predeterminado.
 - `HermesToolbelt` conecta el turno conversacional con las herramientas deterministas del backend:
   identifica referencias candidatas mediante busqueda hibrida (`search_products`), consulta stock
   por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
+- `CommercialScopePolicy` clasifica el alcance de la consulta antes del modelo. Las solicitudes
+  ajenas al comercio se bloquean sin llamar al LLM; las mixtas conservan solo la parte comercial
+  para la busqueda y explican el limite al cliente.
+- `CustomerResponsePolicy` revisa las respuestas de proveedores reales y sustituye salidas que
+  exponen codigos internos, marcadores tecnicos o enlaces no autorizados. El perfil `mock` conserva
+  sus marcadores de diagnostico para las pruebas locales.
+- `ConversationMemory` conserva un historial corto por conversacion, acotado por turnos y LRU;
+  el historial se entrega como mensajes `user`/`assistant` al modelo. No hay carrito persistente
+  ni seleccion confirmada de SKU por conversacion en este corte.
+
+### 1.1. Catalogo sintetico ampliado
+
+`SyntheticProductSeed` genera 2000 productos ficticios con procedencia explicita. El catalogo
+en memoria los indexa por SKU, alias y atributos; el inventario en memoria crea snapshots
+sinteticos correspondientes. Son datos de demostracion, no precios ni existencias empresariales.
+
+### 1.2. Memoria de conversacion e idempotencia
+- `ConversationMemory` (puerto en `application/ports/conversation_memory.py`) guarda por
+  conversacion los ultimos `conversation_max_turns` turnos y el ultimo SKU identificado;
+  `adapters/conversation/memory.py` la implementa en proceso con expulsion LRU.
+- `AgentService.respond(message, *, conversation_key, request_id)` envia ese historial al LLM y,
+  ante referencias como «ese mismo», usa el ultimo SKU de forma determinista.
+- El webhook deriva `request_id=wa-{instance}-{external_message_id}`: un mensaje repetido reutiliza
+  el mismo borrador gracias a la idempotencia `(tenant_id, request_id)`.
+- Un pedido de descuento detectado en el chat se propaga como `discount_requested=True`; sin
+  politica no se crea borrador.
+
+### 1.3. XEON CLI (Tactical Agent Shell)
+- `xeon` sin subcomando abre el shell (`src/xeon/shell/`): `theme` (tokens), `commands` (alias
+  puros), `session` (estado y motor en proceso o HTTP con `--api`), `render` (vistas Rich por
+  ancho) y `app` (bucle y ciclo de vida de la terminal).
+- Es una interfaz de entrada como FastAPI y Typer: delega en `build_container`/`AgentService` y no
+  contiene reglas comerciales. Degrada a texto plano con `NO_COLOR`, sin TTY o sin UTF-8.
 
 ### 2. Canal WhatsApp sin costo con Evolution API
 - `POST /v1/channels/whatsapp/webhook` recibe eventos `messages.upsert` desde una instancia local de
@@ -87,7 +126,8 @@ equivalente en memoria para pruebas):
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable`, `HermesToolbelt.search_products` |
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
-| T19 | Perfil mock: cero llamadas a Groq | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
+| T11 | Consulta fuera del alcance comercial o salida insegura | `CommercialScopePolicy`, `CustomerResponsePolicy` y pruebas del arnes |
+| T19 | Perfil mock: cero llamadas a proveedores LLM | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse
 
@@ -103,3 +143,4 @@ equivalente en memoria para pruebas):
 - Persistencia en PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic.
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
+- Registro y notificacion real al trabajador cuando un producto solicitado no figura en el catalogo.

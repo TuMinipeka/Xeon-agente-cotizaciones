@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280" role="img" aria-labelledby="title desc">
+  <title id="title">Paleta visual de XEON</title>
+  <desc id="desc">Seis colores derivados del logo oficial: negro jade 04110F, verde profundo 0D2823, verde elevado 134038, jade 00D9A3, menta 6FFFD3 y blanco menta EAFBF5.</desc>
+  <defs>
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#00B88A"/>
+      <stop offset="0.52" stop-color="#00D9A3"/>
+      <stop offset="1" stop-color="#6FFFD3"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="280" rx="20" fill="#04110F"/>
+  <text x="40" y="50" fill="#EAFBF5" font-size="24" font-family="Segoe UI, Arial, sans-serif" font-weight="700" letter-spacing="2">PALETA XEON</text>
+  <text x="1160" y="50" text-anchor="end" fill="#B6DCD1" font-size="16" font-family="Segoe UI, Arial, sans-serif">Derivada del logo oficial</text>
+
+  <rect x="40" y="80" width="168" height="104" rx="12" fill="#04110F" stroke="#6FFFD3" stroke-opacity="0.45"/>
+  <rect x="224" y="80" width="168" height="104" rx="12" fill="#0D2823" stroke="#6FFFD3" stroke-opacity="0.2"/>
+  <rect x="408" y="80" width="168" height="104" rx="12" fill="#134038" stroke="#6FFFD3" stroke-opacity="0.2"/>
+  <rect x="592" y="80" width="168" height="104" rx="12" fill="#00D9A3"/>
+  <rect x="776" y="80" width="168" height="104" rx="12" fill="#6FFFD3"/>
+  <rect x="960" y="80" width="168" height="104" rx="12" fill="#EAFBF5"/>
+
+  <g fill="#EAFBF5" font-size="15" font-family="Segoe UI, Arial, sans-serif" font-weight="700">
+    <text x="40" y="214">FONDO</text>
+    <text x="224" y="214">PANEL</text>
+    <text x="408" y="214">ELEVADO</text>
+    <text x="592" y="214">JADE</text>
+    <text x="776" y="214">MENTA</text>
+    <text x="960" y="214">TEXTO</text>
+  </g>
+  <g fill="#B6DCD1" font-size="15" font-family="Consolas, monospace">
+    <text x="40" y="238">#04110F</text>
+    <text x="224" y="238">#0D2823</text>
+    <text x="408" y="238">#134038</text>
+    <text x="592" y="238">#00D9A3</text>
+    <text x="776" y="238">#6FFFD3</text>
+    <text x="960" y="238">#EAFBF5</text>
+  </g>
+  <rect x="40" y="261" width="1088" height="3" rx="1.5" fill="url(#brand)"/>
+</svg>

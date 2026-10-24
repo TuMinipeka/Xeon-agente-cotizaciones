@@ -23,13 +23,23 @@ build/
 .DS_Store
 
 # Obsidian: la configuracion compartida se versiona; el estado personal no.
+.obsidian/
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
 .obsidian/cache/
 .obsidian/plugins/
 .obsidian/themes/
 .obsidian/snippets/
+wiki/.obsidian/workspace.json
+wiki/.obsidian/graph.json
 
 # Boveda local creada antes de usar la raiz del repositorio como vault.
 /Xeon/
 qr_whatsapp.png
+
+# Exclusión temporal para integrar la wiki desde varios agentes.
+wiki/.write-lock/
+
+# Skills de agentes: se reinstalan desde skills-lock.json; .claude/ es configuracion local.
+.agents/skills/
+.claude/

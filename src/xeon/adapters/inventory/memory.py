@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from xeon.adapters.catalog.synthetic_seed import SYNTHETIC_PRODUCTS
 from xeon.domain.inventory import StockChannel, StockSnapshot
 
 SYNTHETIC_INVENTORY_SOURCE = "synthetic-ferreteria-demo-xeon"
@@ -46,13 +47,39 @@ def _delivery(sku: str, quantity: str) -> StockSnapshot:
     )
 
 
-SYNTHETIC_SNAPSHOTS: tuple[StockSnapshot, ...] = (
+CORE_SYNTHETIC_SNAPSHOTS: tuple[StockSnapshot, ...] = (
     _on_hand("CEM-50", "sede-centro", "Ferreteria Demo XEON Centro", "80"),
     _on_hand("CEM-50", "sede-norte", "Ferreteria Demo XEON Norte", "20"),
     _delivery("CEM-50", "40"),
     _on_hand("TUB-PVC-20", "sede-norte", "Ferreteria Demo XEON Norte", "12"),
     _on_hand("ALA-14", "sede-sur", "Ferreteria Demo XEON Sur", "300", valid_until=None),
 )
+
+
+def _build_synthetic_snapshots() -> tuple[StockSnapshot, ...]:
+    snapshots = list(CORE_SYNTHETIC_SNAPSHOTS)
+    core_skus = {snapshot.sku for snapshot in snapshots}
+    branches = (
+        ("sede-centro", "Ferreteria Demo XEON Centro"),
+        ("sede-norte", "Ferreteria Demo XEON Norte"),
+        ("sede-sur", "Ferreteria Demo XEON Sur"),
+    )
+    for position, product in enumerate(SYNTHETIC_PRODUCTS, start=1):
+        if product.sku in core_skus:
+            continue
+        branch_id, branch_name = branches[position % len(branches)]
+        snapshots.append(
+            _on_hand(
+                product.sku,
+                branch_id,
+                branch_name,
+                str(5 + position % 96),
+            )
+        )
+    return tuple(snapshots)
+
+
+SYNTHETIC_SNAPSHOTS = _build_synthetic_snapshots()
 
 
 class InMemoryBranchInventory:

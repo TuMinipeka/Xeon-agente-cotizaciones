@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
+from xeon.adapters.catalog.synthetic_seed import (
+    SYNTHETIC_PRODUCTS as SEEDED_SYNTHETIC_PRODUCTS,
+)
 from xeon.application.ports.catalog import CatalogUnavailableError
 from xeon.domain.money import Money
 from xeon.domain.product import Product, ProductId
@@ -44,8 +48,26 @@ _STOPWORDS = frozenset(
 
 
 def _tokenize(text: str) -> set[str]:
-    tokens = re.findall(r"[a-z0-9/]+", text.casefold())
-    return {t for t in tokens if len(t) >= 2 and t not in _STOPWORDS}
+    decomposed = unicodedata.normalize("NFKD", text.casefold())
+    normalized = "".join(char for char in decomposed if not unicodedata.combining(char))
+    tokens = re.findall(r"[a-z0-9/]+", normalized)
+    return {
+        token[:-1] if token.endswith("s") and len(token) > 3 else token
+        for token in tokens
+        if len(token) >= 2 and token not in _STOPWORDS and not token.isdigit()
+    }
+
+
+_UNIT_HINTS = {
+    "bulto": "bulto",
+    "lamina": "lamina",
+    "metro": "metro",
+    "rollo": "rollo",
+    "caja": "caja",
+    "galon": "galon",
+    "libra": "libra",
+    "par": "par",
+}
 
 
 def _product(
@@ -123,6 +145,10 @@ SYNTHETIC_PRODUCTS: tuple[Product, ...] = (
     ),
 )
 
+# Keep the three original fixtures above readable for historical tests while the
+# active in-memory catalog uses the reproducible 2,000-reference demo seed.
+SYNTHETIC_PRODUCTS = SEEDED_SYNTHETIC_PRODUCTS
+
 
 class InMemoryProductCatalog:
     """Hybrid lookup over a synthetic catalog: exact SKU/alias + semantic/specs candidate search."""
@@ -139,6 +165,10 @@ class InMemoryProductCatalog:
 
     def mark_unavailable(self) -> None:
         self._available = False
+
+    @property
+    def products(self) -> tuple[Product, ...]:
+        return self._products
 
     def find_exact(self, query: str) -> Product | None:
         if not self._available:
@@ -163,9 +193,12 @@ class InMemoryProductCatalog:
         query_tokens = _tokenize(query)
         if not query_tokens:
             return ()
+        requested_units = {unit for token, unit in _UNIT_HINTS.items() if token in query_tokens}
 
         scored: list[tuple[int, Product]] = []
         for product in self._products:
+            if requested_units and product.unit.casefold() not in requested_units:
+                continue
             name_tokens = _tokenize(product.name)
             alias_tokens = _tokenize(" ".join(product.aliases))
             specs_tokens = _tokenize(" ".join(f"{key} {val}" for key, val in product.specs))
@@ -176,6 +209,8 @@ class InMemoryProductCatalog:
                 + 2 * len(query_tokens & specs_tokens)
                 + 1 * len(query_tokens & context_tokens)
             )
+            if "referencia_sintetica" in product.specs_dict:
+                score -= 2
             if score > 0:
                 scored.append((score, product))
 

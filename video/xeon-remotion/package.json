@@ -1,0 +1,22 @@
+{
+  "name": "xeon-mvp-remotion",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "demo": "node demo/server.mjs",
+    "studio": "remotion studio src/index.ts",
+    "compositions": "remotion compositions src/index.ts",
+    "render": "remotion render src/index.ts XeonDemo xeon-demo.mp4 --codec=h264 --crf=18 --concurrency=4",
+    "still": "remotion still src/index.ts XeonDemo"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.536"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}
