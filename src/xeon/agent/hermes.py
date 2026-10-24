@@ -76,6 +76,16 @@ class HermesToolbelt:
                 clarification_reason="missing_units",
                 message="Faltan unidades y contexto; esas medidas no determinan una referencia.",
             )
+        if re.search(r"\b(?:coso|cosa)\b", cleaned, re.IGNORECASE):
+            return SearchProductsOutcome(
+                status="clarification_required",
+                query=cleaned,
+                clarification_reason="ambiguous_reference",
+                message=(
+                    "La referencia es ambigua; se necesitan caracteristicas "
+                    "antes de seleccionar un SKU."
+                ),
+            )
 
         try:
             exact = self._catalog.find_exact(cleaned)

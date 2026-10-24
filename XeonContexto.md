@@ -82,6 +82,8 @@ El comprador envía su solicitud por WhatsApp. **Evolution API** entrega el even
 10. **Los datos de demostración se identifican como ficticios.** Nunca atribuirlos a Ferragro.
 11. **La intervención humana es funcionalidad del producto.**
 12. **Cotización PDF.** La versión aprobada se entrega en formato PDF.
+13. **La respuesta al cliente respeta el alcance comercial.** Bloquear solicitudes ajenas a la ferretería antes de consultar el modelo y mantener la parte comercial de solicitudes mixtas.
+14. **No exponer información interna.** Las respuestas de proveedores reales no deben revelar códigos internos, marcadores técnicos ni enlaces ajenos a los registrados.
 
 ## 5. Stack tecnológico vigente (Simplificado y de Costo \$0)
 

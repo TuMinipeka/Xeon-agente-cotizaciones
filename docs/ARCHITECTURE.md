@@ -59,6 +59,21 @@ GET /v1/stock  CLI stock show
 - `HermesToolbelt` conecta el turno conversacional con las herramientas deterministas del backend:
   identifica referencias candidatas mediante busqueda hibrida (`search_products`), consulta stock
   por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
+- `CommercialScopePolicy` clasifica el alcance de la consulta antes del modelo. Las solicitudes
+  ajenas al comercio se bloquean sin llamar al LLM; las mixtas conservan solo la parte comercial
+  para la busqueda y explican el limite al cliente.
+- `CustomerResponsePolicy` revisa las respuestas de proveedores reales y sustituye salidas que
+  exponen codigos internos, marcadores tecnicos o enlaces no autorizados. El perfil `mock` conserva
+  sus marcadores de diagnostico para las pruebas locales.
+- `ConversationMemory` conserva un historial corto por conversacion, acotado por turnos y LRU;
+  el historial se entrega como mensajes `user`/`assistant` al modelo. No hay carrito persistente
+  ni seleccion confirmada de SKU por conversacion en este corte.
+
+### 1.1. Catalogo sintetico ampliado
+
+`SyntheticProductSeed` genera 2000 productos ficticios con procedencia explicita. El catalogo
+en memoria los indexa por SKU, alias y atributos; el inventario en memoria crea snapshots
+sinteticos correspondientes. Son datos de demostracion, no precios ni existencias empresariales.
 
 ### 2. Canal WhatsApp sin costo con Evolution API
 - `POST /v1/channels/whatsapp/webhook` recibe eventos `messages.upsert` desde una instancia local de
@@ -93,6 +108,7 @@ equivalente en memoria para pruebas):
 | T06 | Catalogo caido no se reporta como agotado | `CatalogUnavailable`, `HermesToolbelt.search_products` |
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
+| T11 | Consulta fuera del alcance comercial o salida insegura | `CommercialScopePolicy`, `CustomerResponsePolicy` y pruebas del arnes |
 | T19 | Perfil mock: cero llamadas a proveedores LLM | `/health`, `/v1/chat`, `/v1/channels/whatsapp/webhook` y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse
@@ -109,3 +125,4 @@ equivalente en memoria para pruebas):
 - Persistencia en PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic.
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
+- Registro y notificacion real al trabajador cuando un producto solicitado no figura en el catalogo.

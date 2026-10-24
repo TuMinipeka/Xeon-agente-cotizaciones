@@ -139,6 +139,15 @@ inyectado. Una fuente caída o un SKU desconocido no equivalen a «agotado». El
 `LOCAL_ONLY` cuando no está habilitado el envío; una respuesta `ACCEPTED_BY_PROVIDER` indica
 aceptación por Evolution API, no entrega comprobada al teléfono.
 
+El catálogo de demostración incorpora 2000 productos sintéticos con procedencia explícita y
+snapshots de inventario ficticios. `CommercialScopePolicy` bloquea preguntas ajenas al comercio
+antes de llamar al modelo y separa la parte comercial de solicitudes mixtas.
+`CustomerResponsePolicy` filtra códigos internos, marcadores técnicos y enlaces no registrados
+en las respuestas de proveedores reales. El perfil `mock` conserva marcadores de diagnóstico
+para las pruebas. La memoria conversacional guarda un historial corto y el último SKU, con
+límite de turnos y de conversaciones; no implementa un carrito ni la confirmación de selección
+conversacional.
+
 ---
 
 ## 3. Estructura del Repositorio y Fronteras Hexagonales
@@ -347,6 +356,7 @@ Ninguna función de esta lista debe anunciarse como disponible en una demostraci
 |---|---|---|
 | Dominio y cotizador | `Money`, `Product`, `StockSnapshot`, `Quote` y casos de uso con pruebas. | Persistencia, concurrencia, precios y stock reales. |
 | Búsqueda | Exacta y puntuación léxica sobre datos sintéticos. | Índices JSONB, embeddings, pgvector y confirmación conversacional del SKU. |
+| Alcance y respuesta | Política de alcance comercial antes del LLM y filtro de salida en proveedores reales. | Pruebas con proveedor real y reglas empresariales configurables. |
 | IA | `AgentService`, `HermesToolbelt`, `LLMPort`, Grok predeterminado, Mock y adaptador OpenAI compatible. | Validar el flujo real de Grok mediante la pasarela y una orquestación de herramientas más controlada. |
 | WhatsApp | Parser, webhook, filtro por prefijo, deduplicación local y adaptador de envío. | Autenticación del webhook, deduplicación persistente y prueba de entrega real. |
 | Operación | CLI, API y Docker para entorno local. | Autenticación/autorización, auditoría, despliegue y monitoreo. |

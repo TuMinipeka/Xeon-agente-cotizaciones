@@ -32,7 +32,18 @@ class MockLLM:
             ),
             None,
         )
-        if "hola" in user_text.casefold():
+        customer_draft = next(
+            (
+                message.content.removeprefix("[XEON_CUSTOMER_DRAFT]\n")
+                for message in reversed(messages)
+                if message.role == "system"
+                and message.content.startswith("[XEON_CUSTOMER_DRAFT]\n")
+            ),
+            None,
+        )
+        if customer_draft is not None:
+            text = customer_draft
+        elif "hola" in user_text.casefold():
             text = (
                 "Hola, soy XEON. Esta base usa datos sinteticos y herramientas de Hermes "
                 "para identificar productos por busqueda hibrida (RAG + base de datos) "
