@@ -55,6 +55,10 @@ def parse_command(line: str) -> ParsedCommand | None:
     tail = parts[1] if len(parts) == 2 else ""
     name = ALIASES.get(head.casefold())
     if name is None:
+        if stripped.isdecimal() or (
+            len(parts) == 2 and head.casefold() in {"opcion", "opción", "la"} and tail.isdecimal()
+        ):
+            return ParsedCommand("run", stripped)
         if head.startswith(("/", ":")) or not tail:
             candidate = head.lstrip("/:").casefold()
             nearest = min(

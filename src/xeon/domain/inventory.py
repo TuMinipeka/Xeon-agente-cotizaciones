@@ -6,6 +6,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from xeon.domain.money import parse_decimal
+from xeon.domain.validation import require_text
 
 
 class InvalidInventoryError(ValueError):
@@ -35,15 +36,8 @@ class Freshness(StrEnum):
     UNKNOWN = "unknown"
 
 
-def _require_text(value: str, *, field: str) -> str:
-    text = value.strip()
-    if not text:
-        raise InvalidInventoryError(f"{field} es obligatorio.")
-    return text
-
-
 def _parse_utc_instant(value: str, *, field: str) -> datetime:
-    text = _require_text(value, field=field)
+    text = require_text(value, field=field, error=InvalidInventoryError)
     try:
         instant = datetime.fromisoformat(text)
     except ValueError as exc:
@@ -86,13 +80,25 @@ class StockSnapshot:
     valid_until: str | None = None
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "sku", _require_text(self.sku, field="sku").upper())
-        object.__setattr__(self, "origin_id", _require_text(self.origin_id, field="origin_id"))
         object.__setattr__(
-            self, "origin_name", _require_text(self.origin_name, field="origin_name")
+            self, "sku", require_text(self.sku, field="sku", error=InvalidInventoryError).upper()
         )
-        object.__setattr__(self, "source", _require_text(self.source, field="source"))
-        observed_at = _require_text(self.observed_at, field="observed_at")
+        object.__setattr__(
+            self,
+            "origin_id",
+            require_text(self.origin_id, field="origin_id", error=InvalidInventoryError),
+        )
+        object.__setattr__(
+            self,
+            "origin_name",
+            require_text(self.origin_name, field="origin_name", error=InvalidInventoryError),
+        )
+        object.__setattr__(
+            self, "source", require_text(self.source, field="source", error=InvalidInventoryError)
+        )
+        observed_at = require_text(
+            self.observed_at, field="observed_at", error=InvalidInventoryError
+        )
         _parse_utc_instant(observed_at, field="observed_at")
         object.__setattr__(self, "observed_at", observed_at)
         object.__setattr__(self, "quantity", as_non_negative_quantity(self.quantity))
@@ -113,7 +119,9 @@ class StockSnapshot:
 
 
 def classify_availability(snapshot: StockSnapshot, *, requested_branch_id: str) -> AvailabilityKind:
-    requested = _require_text(requested_branch_id, field="requested_branch_id")
+    requested = require_text(
+        requested_branch_id, field="requested_branch_id", error=InvalidInventoryError
+    )
     if snapshot.channel is StockChannel.DELIVERY:
         return AvailabilityKind.DELIVERY
     if snapshot.branch_id == requested:

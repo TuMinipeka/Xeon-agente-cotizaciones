@@ -53,6 +53,12 @@ def test_draft_quote_starts_at_version_one() -> None:
     assert quote.total == quote.subtotal == Money("57800.00", "COP")
 
 
+def test_quote_required_text_keeps_existing_error() -> None:
+    line = build_quote_line(_product(), 1)
+    with pytest.raises(InvalidQuoteError, match=r"^request_id es obligatorio\.$"):
+        build_draft_quote((line,), tenant_id="demo", request_id="  ")
+
+
 def test_quote_rejects_total_different_from_subtotal() -> None:
     line = build_quote_line(_product(), 1)
     with pytest.raises(InvalidQuoteError, match="total y subtotal"):

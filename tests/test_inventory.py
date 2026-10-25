@@ -53,6 +53,12 @@ def test_requested_branch_on_hand_is_local_and_keeps_origin() -> None:
     assert snapshot.origin_id == "sede-centro"
 
 
+def test_requested_branch_requires_text_with_existing_error() -> None:
+    snapshot = _on_hand(branch_id="sede-centro", quantity="1")
+    with pytest.raises(InvalidInventoryError, match=r"^requested_branch_id es obligatorio\.$"):
+        classify_availability(snapshot, requested_branch_id="  ")
+
+
 def test_delivery_snapshot_is_not_local_stock() -> None:
     snapshot = StockSnapshot(
         sku="ALA-14",
