@@ -210,3 +210,14 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - El PR #3 (`developer/daniel` → `develop`, 36 commits) se fusionó con el merge commit `349bb7b`, por pedido del usuario, con el CI en verde.
 - E15 y E16, y los tres falsos positivos del evaluador, siguen abiertos y están declarados en el PR.
+
+## [2026-10-24] preparación | Video del HITO #2
+
+- **Pedido del usuario:** video demostrativo por WhatsApp y CLI, con las 3 herramientas reales, solución gratuita y automatizable, delegando entre agentes y con mínima intervención suya.
+- **Decisiones:** FFmpeg, WhatsApp Web, narración de ElevenLabs y subtítulos, corregir E17 y E18 antes de grabar.
+- **El smoke del CLI que hizo el orquestador en mock** confirmó E1, E9, E13 y E14, y destapó E17 y E18.
+- **Codex:** E17, E18 y la traza de herramientas.
+- **Orquestador:** el guion `docs/VIDEO_HITO2.md`.
+- **En curso:** los scripts de video (Codex) y el ensayo del guion (agy).
+- **Nueva página:** [video HITO #2](pages/video-hito2.md).
+- **Inbox:** se integraron y retiraron las notas `codex-video-prep-a` y `claude-cli-smoke`.

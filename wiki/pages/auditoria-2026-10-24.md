@@ -92,3 +92,11 @@ Impuestos, semáforo y aprobación de descuentos, verificación de cuenta para e
   - S05: `asks_clarification` mide el total de borradores al final y no los de los turnos de aclaración;
   - S09: compara «15%» con «15 por ciento» como texto literal y no como valor;
   - S13: compara «$5.000» con «5000 pesos» del mismo modo.
+
+**Actualización (2026-10-24, noche):**
+
+- **E17** (alta): «necesito 10 tubos pvc» no ofrecía `TUB-PVC-20`; el ranking perdía el producto real con el plural. Se corrigió en `e36a5b3`: el plural se normaliza y, a igual puntuación, gana la referencia base.
+- **E18** (alta): un seguimiento sin cambios creaba un segundo `DRAFT`. Se corrigió en `6b07e7a`: el id idempotente se deriva de la conversación más las líneas.
+- Ambos aparecieron en el smoke del CLI que hizo el orquestador en mock.
+- `4b89f43` ajustó una regresión de E10 porque cambió el orden de los candidatos: ahora espera el SKU que corresponde al nombre elegido. Codex declara que el criterio no se relajó; pendiente de una revisión puntual del orquestador.
+- **Siguen abiertos** E15, E16 y los tres falsos positivos del evaluador.
