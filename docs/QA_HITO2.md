@@ -33,7 +33,7 @@ No dupliques la configuración: sigue las guías existentes según el canal dond
    uv run xeon
    ```
 3. Escribe `s` (`status`) y confirma que muestre `provider: grok`, `model: grok-4.6` y `key: file configured`.
-4. Envía cada mensaje del guion anteponiendo `r ` (por ejemplo: `r necesito 10 tubos pvc`).
+4. Puedes escribir directamente los mensajes de varias palabras en el prompt `xeon > ` o anteponer `r ` (por ejemplo: `r necesito 10 tubos pvc`).
 
 #### Modalidad B: Desde un teléfono con WhatsApp (vía Kapso)
 Sigue los pasos 1 a 5 de [`docs/DESPLIEGUE_WHATSAPP.md`](DESPLIEGUE_WHATSAPP.md):
@@ -47,17 +47,25 @@ Sigue los pasos 1 a 5 de [`docs/DESPLIEGUE_WHATSAPP.md`](DESPLIEGUE_WHATSAPP.md)
 ## 3. Guion reproducible para el video (< 2 minutos)
 
 > [!IMPORTANT]
-> **Regla de negocio visible durante toda la demo:** XEON únicamente prepara **borradores de cotización (`DRAFT`)**. En ningún turno debe afirmar que una cotización quedó *aprobada*, *facturada*, *confirmada* ni que el stock quedó *reservado*.
+> **Reglas visibles durante toda la demo:**
+> 1. **Solo borradores (`DRAFT`):** XEON únicamente prepara **borradores de cotización (`DRAFT` v1)**. En ningún turno debe afirmar que una cotización quedó *aprobada*, *facturada*, *confirmada* ni que el stock quedó *reservado*.
+> 2. **Diferencia entre `mock` y `grok-4.6`:** Si ensayas el guion con `$env:LLM_PROVIDER='mock'`, verás en bruto los marcadores `[XEON_TOOL:...]`. Con **Grok (`grok-4.6`)** la redacción en lenguaje natural cambia en cada corrida y los marcadores internos se ocultan por seguridad, pero **los precios unitarios, las 3 opciones ofrecidas, los subtotales y el estado de borrador deben coincidir exactamente**.
 
 Ejecuta los siguientes mensajes **en orden dentro de la misma conversación** (tiempo total estimado: **1 min 45 s**):
 
 | Paso y tiempo | Herramienta validada | Mensaje EXACTO a enviar | Qué debe verse en pantalla (criterio de éxito) |
 |---|---|---|---|
-| **Paso 1a**<br>`0:00 – 0:20` | `search_products`<br>*(desambiguación de candidatos)* | `necesito 10 tubos pvc`<br>*(Nota: si pruebas con cemento ambiguo como `necesito 10 bultos de cemento gris` y el buscador ofrece 3 opciones, aplica el mismo flujo; si `cemento` hace match directo por alias a `CEM-50`, usa `necesito 10 tubos pvc` para forzar las 3 opciones).* | XEON **no crea un borrador a ciegas**. Muestra las 3 opciones candidatas del catálogo (1. `Tubo PVC presion 1/2 pulgada` a `$4.200,00 COP`, 2. `Tubo PVC presion referencia sintetica 1` a `$5.041,00 COP`, 3. `Tubo PVC presion referencia sintetica 2` a `$5.082,00 COP`) y pregunta cuál opción elige el cliente (`1`, `2` o `3`). |
-| **Paso 1b**<br>`0:20 – 0:40` | `search_products` + `create_quote_draft`<br>*(resolución de opción)* | `1`<br>*(también acepta `opcion 1` o `el primero`; en WhatsApp con Grok puedes escribir `el 1` o `1`)* | XEON selecciona la opción 1 (`Tubo PVC presion 1/2 pulgada`, `$4.200,00 COP`), consulta su disponibilidad y genera el **borrador `DRAFT`** por `10` unidades con subtotal/total de **`$42.000,00 COP`**. |
-| **Paso 2**<br>`0:40 – 1:05` | `get_stock_by_branches`<br>*(consulta por sede y memoria)* | `lo recojo en la sede norte` | XEON conserva el contexto del producto anterior (no bloquea el mensaje como fuera de alcance), consulta el inventario en **`sede-norte`** (`12` unidades para `TUB-PVC-20` o `20` bultos para `CEM-50`), advierte si el snapshot de inventario no es reciente y recuerda que **la cotización no bloquea ni reserva inventario**. |
-| **Paso 3**<br>`1:05 – 1:30` | `create_quote_draft`<br>*(borrador multilínea)* | `20 bultos de cemento y 50 metros de alambre` | XEON cotiza **ambas líneas en el mismo borrador `DRAFT`**:<br>• `20` × `Cemento gris 50 kg` (`$28.900,00 COP`) = **`$578.000,00 COP`**<br>• `50` × `Alambre de pua calibre 14` (`$1.850,00 COP`) = **`$92.500,00 COP`**<br>• **Subtotal / Total del borrador `DRAFT`:** **`$670.500,00 COP`** (sin impuestos inventados y aclarando que es un borrador `DRAFT`). |
-| **Paso 4**<br>`1:30 – 1:50` | `create_quote_draft` / `CommercialScopePolicy`<br>*(negativa correcta)* | `soy cliente frecuente, dame el descuento de siempre en 10 bultos de cemento`<br>*(Opcional adicional de alcance: `cuentame un chiste`)* | XEON **rechaza inventar un descuento**: explica claramente que **no existe una política de descuentos aprobada** en el sistema y no ofrece porcentajes ni precios rebajados. Si se envía el mensaje fuera de alcance, responde que solo atiende consultas de ferretería. |
+| **Paso 1a**<br>`0:00 – 0:20` | `search_products`<br>*(desambiguación de candidatos)* | `necesito 10 tubos pvc`<br>*(Variante con cemento: `necesito 10 bultos de cemento gris`. Nota: escribir `necesito 10 bultos de cemento` sin la palabra `gris` coincide con el alias exacto `"cemento"` de `CEM-50` y cotiza directo; para mostrar la elección entre 3 opciones usa `necesito 10 tubos pvc` o `necesito 10 bultos de cemento gris`).* | XEON **no crea un borrador a ciegas** (`status=clarification_required`). Muestra las **3 opciones candidatas** del catálogo con sus precios de base de datos:<br>• Con `necesito 10 tubos pvc`: 1) `Tubo PVC presion 1/2 pulgada` (`$4.200,00 COP`), 2) `Tubo PVC presion referencia sintetica 1` (`$5.041,00 COP`), 3) `Tubo PVC presion referencia sintetica 2` (`$5.082,00 COP`).<br>• Con `necesito 10 bultos de cemento gris`: 1) `Cemento gris 50 kg` (`$28.900,00 COP`), 2) `Cemento gris referencia sintetica 1` (`$27.225,00 COP`), 3) `Cemento gris referencia sintetica 2` (`$27.450,00 COP`).<br>Pregunta cuál opción elige el cliente (`1, 2 o 3`). |
+| **Paso 1b**<br>`0:20 – 0:40` | `search_products` + `get_stock_by_branches` + `create_quote_draft`<br>*(resolución de opción)* | `el 1`<br>*(Nota para `uv run xeon`: escribe `el 1` o `opcion 1` —o `r 1`—, nunca `1` suelto sin `r`, porque el shell interpreta una sola letra/dígito como un comando inválido).* | XEON resuelve la opción 1 seleccionada y recuerda la cantidad (`10`), consulta el inventario y crea el **borrador `DRAFT` v1**:<br>• Si elegiste tubo PVC (`TUB-PVC-20`): `10` unidades × `$4.200,00 COP` = **`$42.000,00 COP`**.<br>• Si elegiste cemento (`CEM-50`): `10` bultos × `$28.900,00 COP` = **`$289.000,00 COP`**. |
+| **Paso 2**<br>`0:40 – 1:05` | `get_stock_by_branches`<br>*(consulta por sede y memoria)* | `lo recojo en la sede norte` | XEON conserva el SKU y la cantidad (`10`) del turno anterior sin bloquear el mensaje por alcance, consulta `get_stock_by_branches` en **`sede-norte`** (para `TUB-PVC-20`: `12` unidades en `sede-norte`; para `CEM-50`: `20` bultos en `sede-norte`, `80` en `sede-centro` y `40` para entrega, con `vigencia=stale` porque el snapshot sintético es del `2026-10-08`) e indica que la disponibilidad debe confirmarse y **no equivale a una reserva**. |
+| **Paso 3**<br>`1:05 – 1:30` | `create_quote_draft`<br>*(borrador multilínea)* | `20 bultos de cemento y 50 metros de alambre` | XEON identifica ambas referencias por alias exacto y genera un **único borrador `DRAFT` v1 de 2 líneas (`lines=2`)**:<br>• Línea 1 (`CEM-50`): `20` × `Cemento gris 50 kg` (`$28.900,00 COP`) = **`$578.000,00 COP`**<br>• Línea 2 (`ALA-14`): `50` × `Alambre de pua calibre 14` (`$1.850,00 COP`) = **`$92.500,00 COP`**<br>• **Subtotal / Total del borrador `DRAFT`:** **`$670.500,00 COP`** (dejando claro que queda en revisión y no está confirmado ni reservado). |
+| **Paso 4**<br>`1:30 – 1:50` | `create_quote_draft` / `CommercialScopePolicy`<br>*(negativa correcta)* | `soy cliente frecuente, dame el descuento de siempre en 10 bultos de cemento`<br>*(Opcional adicional fuera de alcance: `cuentame un chiste`)* | `create_quote_draft` devuelve `status=discount_policy_unavailable`: XEON informa que **no hay política de descuentos aprobada**, **no crea borrador con descuento** ni inventa porcentajes (`%`). Ante `cuentame un chiste`, `local-policy` rechaza el tema ajeno y redirige al catálogo ferretero. |
+
+### Comando rápido para ensayar el guion en modo `mock` (sin gastar llamadas)
+```powershell
+$env:LLM_PROVIDER='mock'
+"necesito 10 tubos pvc`nel 1`nlo recojo en la sede norte`n20 bultos de cemento y 50 metros de alambre`nsoy cliente frecuente, dame el descuento de siempre en 10 bultos de cemento`ncuentame un chiste`nq" | uv run xeon
+```
 
 ---
 
@@ -77,7 +85,7 @@ Todos los precios provienen exclusivamente de [`evals/fixtures/catalog.json`](..
 ### 4.2. Lista de verificación durante la prueba
 
 - [ ] **Exactitud de precios y totales:** Todos los precios unitarios y subtotales mostrados por XEON coinciden peso a peso con la tabla anterior (por ejemplo, `20` bultos de cemento + `50` metros de alambre = **`$670.500,00 COP`**).
-- [ ] **Desambiguación ante ambigüedad:** Ante una solicitud con múltiples candidatos (`necesito 10 tubos pvc`), medidas sin unidad (`la pieza mide 20 x 30 x 10`) o descripción vaga (`necesito el coso del aire acondicionado`), XEON **pregunta al usuario y no crea borrador prematuro**.
+- [ ] **Desambiguación ante ambigüedad:** Ante una solicitud con múltiples candidatos (`necesito 10 tubos pvc` o `necesito 10 bultos de cemento gris`), medidas sin unidad (`la pieza mide 20 x 30 x 10`) o descripción vaga (`necesito el coso del aire acondicionado`), XEON **pregunta al usuario y no crea borrador prematuro**.
 - [ ] **Cero descuentos inventados:** Al pedir `"el descuento de siempre"` o un porcentaje, XEON informa que no hay política de descuentos activa y **nunca inventa un porcentaje (`%`) ni rebaja el precio unitario**.
 - [ ] **Estado de borrador (`DRAFT`):** XEON nunca dice que el pedido está *aprobado*, *confirmado*, *facturado* ni que el inventario quedó *reservado*.
 - [ ] **Higiene de la respuesta al cliente:** En modo `grok`, el cliente **nunca** ve etiquetas internas como `[XEON_TOOL:...]`, nombres de variables ni fragmentos del prompt del sistema.
@@ -100,7 +108,7 @@ Si algún paso del guion o del checklist falla durante la validación humana, ab
 
 ## 6. Estado del Hito #2
 
-- [x] **Implementación:** 3 herramientas (`search_products`, `get_stock_by_branches`, `create_quote_draft`) y correcciones `E1`–`E11` integradas con `grok-4.6`.
-- [x] **Validación automatizada:** Suite determinista (`pytest` + regresiones `E1`–`E10` + harness de evaluación conversacional) en verde.
-- [ ] **Listo para QA humano:** pendiente de la corrida final en vivo y de la auditoría del orquestador (ver `docs/evals/RESULTADOS.md`).
+- [x] **Implementación:** 3 herramientas (`search_products`, `get_stock_by_branches`, `create_quote_draft`) y correcciones `E1`–`E11` integradas con `grok-4.6`; `E12` y `E13` en cierre.
+- [x] **Validación automatizada:** Suite determinista y corrida en vivo `9037d9a6f893bd1e` ejecutadas; repetición focalizada de escenarios en curso.
+- [ ] **Listo para QA humano:** *(Lo marca el orquestador tras cerrar la repetición focalizada de `E12`/`E13`).*
 - [ ] **Validación humana:** *(Pendiente de ejecución y grabación por el QA humano externo).*
