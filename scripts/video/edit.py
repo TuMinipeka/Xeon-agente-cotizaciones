@@ -289,9 +289,9 @@ def build_plan(base: Path = BASE) -> EditPlan:
                 )
                 pieces.append(target.name)
 
-        starts.append(timeline)
         sub_start = timeline + 0.25
         sub_end = timeline + min(length - 0.25, narration_duration + 0.25)
+        starts.append(sub_start)
         subtitles.append(
             f"{index}\n{timestamp(sub_start)} --> {timestamp(sub_end)}\n{script['text']}\n"
         )
@@ -323,7 +323,12 @@ def build_plan(base: Path = BASE) -> EditPlan:
     ]
     mix_inputs = "".join(f"[a{index}]" for index in range(1, len(SCENES) + 1))
     audio_filter = ";".join(
-        [*delayed, f"{mix_inputs}amix=inputs=6:duration=longest:normalize=0[a]"]
+        [
+            *delayed,
+            f"{mix_inputs}amix=inputs=6:duration=longest:normalize=0,"
+            "aformat=channel_layouts=mono,"
+            "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[a]",
+        ]
     )
     subtitle_path = _relative(srt, root).replace(":", r"\:")
     commands.append(
@@ -358,6 +363,10 @@ def build_plan(base: Path = BASE) -> EditPlan:
             "aac",
             "-b:a",
             "192k",
+            "-ar",
+            "48000",
+            "-ac",
+            "1",
             _relative(output, root),
         )
     )

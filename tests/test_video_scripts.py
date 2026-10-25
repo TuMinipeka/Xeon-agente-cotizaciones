@@ -231,6 +231,16 @@ def test_edit_plan_builds_speedups_titles_subtitles_and_dry_run(
     assert "00:00:10,250" in plan.subtitle
     assert "Narracion cierre" in plan.subtitle
     assert "amix=inputs=6" in " ".join(plan.commands[-1])
+    audio_command = plan.commands[-1]
+    audio_filter = audio_command[audio_command.index("-filter_complex") + 1]
+    assert "[1:a]adelay=250:all=1[a1]" in audio_filter
+    assert "[2:a]adelay=10250:all=1[a2]" in audio_filter
+    assert "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000[a]" in audio_filter
+    assert "aformat=channel_layouts=mono" in audio_filter
+    assert "[0:a]" not in audio_filter
+    assert audio_command[audio_command.index("-map") + 1] == "0:v:0"
+    assert audio_command[audio_command.index("-ac") + 1] == "1"
+    assert audio_command[audio_command.index("-ar") + 1] == "48000"
     assert "subtitles=" in " ".join(plan.commands[-1])
     assert "-c:v libx264" in " ".join(plan.commands[-1])
     edit.execute(plan, dry_run=True)
