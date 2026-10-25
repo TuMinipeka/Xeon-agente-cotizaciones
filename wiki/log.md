@@ -235,3 +235,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Codex:** E19 y la traza sin duplicados (`bd30ec0`); suite en verde y offline 42/42.
 - **agy:** `video/hito2/narration.json` con los 6 textos del guion (unos 46 s estimados). La generación se detuvo porque `secrets/elevenlabs_api_key.txt` está vacío. No se leyó el archivo; lo informó el script.
 - **Inbox:** se integraron y retiraron las notas `codex-e19` y `agy-narration`.
+
+## [2026-10-24] operación | Clave de ElevenLabs y entorno de grabación
+
+- **Clave de ElevenLabs:** el usuario la entregó por el chat con permiso expreso y se compromete a **rotarla al terminar el hito**. Se guardó en `secrets/elevenlabs_api_key.txt` (ignorado por Git) y no se registra su valor.
+- **Pendiente:** rotar las claves de Grok y de ElevenLabs al terminar el reto.
+- **Entorno:** el orquestador reinició la API con el código actual (con traza `TOOL` y E17–E19) en una ventana visible «XEON API - traza de herramientas», abrió la ventana «XEON CLI» y sincronizó el webhook de Kapso con el túnel activo, que se mantuvo para no cambiar la URL.
