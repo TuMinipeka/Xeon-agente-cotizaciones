@@ -157,6 +157,7 @@ def test_judge_timeout_retries_once_and_counts_each_completion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    pytest.importorskip("litellm", reason="requiere el grupo evals")
     from litellm.exceptions import Timeout
 
     judge = build_judge(
@@ -186,6 +187,7 @@ def test_judge_timeout_retries_once_and_counts_each_completion(
 
 def test_judge_does_not_retry_non_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    pytest.importorskip("litellm", reason="requiere el grupo evals")
     judge = build_judge(
         ["Responder con claridad"],
         model="openai/grok-4.6",
