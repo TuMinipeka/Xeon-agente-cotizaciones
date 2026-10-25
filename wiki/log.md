@@ -276,3 +276,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Documento técnico:** con la estructura de 10 secciones del Hito 1.
 - **Archivos:** versiones HTML y Markdown en `video/hito2/entrega/` (ignorado por Git). El usuario las sube a Drive junto con el video.
 - **Pendiente:** fusionar el PR #5 (abierto, con CI en verde) y poner el enlace del video en las notas.
+
+## [2026-10-25] entrega | Entregable integrado del Hito #2
+
+- **Archivo:** `video/hito2/entrega/Entregable_XEON_Hito2.{md,html}`, ignorado por Git.
+- **Contenido:** la estructura de 10 secciones del Hito 1, actualizada al Hito 2, más las notas de entrega y los anexos de reproducción y enlaces.
+- **Correcciones sobre el borrador mezclado que pegó el usuario:** se quitó el contenido obsoleto del Hito 1 (Evolution API, Hermes, 80 pruebas) y se marcó la tarifa de Grok como interpretación.
