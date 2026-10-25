@@ -145,7 +145,9 @@ def test_kapso_secrets_can_be_loaded_from_files(tmp_path: Path) -> None:
     webhook_file.write_text("test-webhook-secret", encoding="utf-8")
     settings = Settings(
         llm_provider="mock",
+        kapso_api_key=None,
         kapso_api_key_file=api_file,
+        kapso_webhook_secret=None,
         kapso_webhook_secret_file=webhook_file,
         _env_file=None,
     )
