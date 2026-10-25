@@ -44,11 +44,18 @@ def _text(value: str) -> str:
     return value.replace("\\", r"\\").replace(":", r"\:").replace("'", r"\'").replace("%", r"\%")
 
 
-def _drawtext(value: str, *, size: int, y: str) -> str:
+def _drawtext(
+    value: str,
+    *,
+    size: int,
+    y: str,
+    x: str = "(w-text_w)/2",
+    border: int = 16,
+) -> str:
     return (
         f"drawtext={FONT}:text='{_text(value)}':fontcolor={ACCENT}:"
-        f"fontsize={size}:box=1:boxcolor={BACKGROUND}@0.8:boxborderw=16:"
-        f"x=(w-text_w)/2:y={y}"
+        f"fontsize={size}:box=1:boxcolor={BACKGROUND}@0.8:boxborderw={border}:"
+        f"x={x}:y={y}"
     )
 
 
@@ -256,7 +263,15 @@ def build_plan(base: Path = BASE) -> EditPlan:
                 for label_index, label in enumerate(labels):
                     filters.append(_drawtext(str(label), size=42, y=str(35 + 72 * label_index)))
                 if speed == 8:
-                    filters.append(_drawtext("espera acortada", size=48, y="h-110"))
+                    filters.append(
+                        _drawtext(
+                            "espera acortada",
+                            size=30,
+                            x="w-text_w-40",
+                            y="190",
+                            border=10,
+                        )
+                    )
                 if part_index == len(parts) and padding:
                     filters.append(f"tpad=stop_mode=clone:stop_duration={padding:.3f}")
                 target = work / f"{identifier}-{part_index:02}.mp4"

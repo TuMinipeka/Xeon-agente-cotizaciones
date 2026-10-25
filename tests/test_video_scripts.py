@@ -239,6 +239,27 @@ def test_edit_plan_builds_speedups_titles_subtitles_and_dry_run(
     assert not plan.srt.exists()
 
 
+def test_wait_label_stays_above_subtitles_and_below_scene_titles(tmp_path: Path) -> None:
+    base = tmp_path / "video" / "hito2"
+    _edit_fixture(base)
+    narration_path = base / "narration.json"
+    narration = json.loads(narration_path.read_text(encoding="utf-8"))
+    narration["segments"][2]["labels"] = ["Herramienta 2", "Herramienta 3"]
+    narration_path.write_text(json.dumps(narration), encoding="utf-8")
+
+    plan = edit.build_plan(base)
+    accelerated = " ".join(plan.commands[5])
+    assert "text='Herramienta 2':fontcolor=" in accelerated
+    assert "x=(w-text_w)/2:y=35" in accelerated
+    assert "text='Herramienta 3':fontcolor=" in accelerated
+    assert "x=(w-text_w)/2:y=107" in accelerated
+    assert "text='espera acortada':fontcolor=" in accelerated
+    assert "fontsize=30:box=1:boxcolor=0x071B19@0.8:boxborderw=10:" in accelerated
+    assert "x=w-text_w-40:y=190" in accelerated
+    assert "h-110" not in accelerated
+    assert 190 + 30 + 10 < 1080 / 3
+
+
 def test_edit_rejects_unfilled_marks(tmp_path: Path) -> None:
     base = tmp_path / "video" / "hito2"
     _edit_fixture(base)
