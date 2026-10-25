@@ -100,3 +100,5 @@ Impuestos, semáforo y aprobación de descuentos, verificación de cuenta para e
 - Ambos aparecieron en el smoke del CLI que hizo el orquestador en mock.
 - `4b89f43` ajustó una regresión de E10 porque cambió el orden de los candidatos: ahora espera el SKU que corresponde al nombre elegido. Codex declara que el criterio no se relajó; pendiente de una revisión puntual del orquestador.
 - **Siguen abiertos** E15, E16 y los tres falsos positivos del evaluador.
+
+- **E19** (alta): en una misma conversación, un pedido de descuento sobre líneas ya cotizadas reutilizaba el borrador. Lo halló agy en el ensayo del video y se corrigió en `bd30ec0`: `CreateQuoteDraft` evalúa la falta de política antes de la idempotencia.

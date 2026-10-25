@@ -44,8 +44,8 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
 | Codex | E17, E18 y traza (`e36a5b3`, `6b07e7a`, `909d7ae`, `4b89f43`) | Hecho |
 | Codex | `scripts/video/record.py`, `narrate.py` y `edit.py` (`83d5bfe`, 10 pruebas sin red) | Hecho; falta validar FFmpeg real y la voz |
 | agy (QA) | Ensayo del guion en mock y en vivo: **5 llamadas**, las 4 escenas OK y 151 s en crudo | Hecho |
-| agy (QA) | Narración con ElevenLabs (6 clips) | En curso |
-| Codex | E19 y la traza `search_products` duplicada | En curso |
+| agy (QA) | Narración con ElevenLabs: `narration.json` con los 6 textos del guion (unos 46 s estimados) | **Bloqueada**: `secrets/elevenlabs_api_key.txt` existe pero está vacío; el usuario debe guardar la clave |
+| Codex | E19 y la traza `search_products` duplicada (`bd30ec0`) | Hecho: un descuento nunca reutiliza un borrador previo; una sola línea `TOOL` por búsqueda |
 | agy (QA) | Revisión del video final contra el guion | Pendiente |
 | Opus | Guion, auditoría, arranque de servicios y grabación, wiki | En curso |
 | Usuario | Clave de ElevenLabs, WhatsApp Web con QR, «No molestar», ventanas, mensajes del guion | Pendiente |

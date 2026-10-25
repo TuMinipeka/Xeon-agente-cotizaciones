@@ -229,3 +229,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **E19** (descuento en la misma conversación reutiliza el borrador) delegado a Codex.
 - **Narración con ElevenLabs** delegada a agy. La clave del usuario ya está en `secrets/`.
 - **Inbox:** se integraron y retiraron las notas `agy-video-rehearsal` y `codex-video-scripts`.
+
+## [2026-10-24] avance | E19 corregido y narración bloqueada por la clave
+
+- **Codex:** E19 y la traza sin duplicados (`bd30ec0`); suite en verde y offline 42/42.
+- **agy:** `video/hito2/narration.json` con los 6 textos del guion (unos 46 s estimados). La generación se detuvo porque `secrets/elevenlabs_api_key.txt` está vacío. No se leyó el archivo; lo informó el script.
+- **Inbox:** se integraron y retiraron las notas `codex-e19` y `agy-narration`.
