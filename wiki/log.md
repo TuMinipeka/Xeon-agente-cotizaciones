@@ -269,3 +269,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **Push y PR:** el usuario confirmó el push de `developer/daniel` y el PR [#5](https://github.com/TuMinipeka/Xeon-agente-cotizaciones/pull/5) hacia `develop`.
 - **Informe técnico:** el orquestador redactó el texto del Hito #2 con las 10 secciones del Google Doc del Hito 1, más las notas de entrega. El usuario lo pegará a mano porque el conector de Google Docs no está disponible. La fuente es `docs/ENTREGA_HITO2.md`.
+
+## [2026-10-25] entrega | Notas de entrega y documento técnico para Drive
+
+- **Notas de entrega separadas:** qué se logró, qué falló, costo por tarea (unas 810 llamadas a `grok-4.6`; costo en USD no medido), aprendizajes, pendientes y enlaces.
+- **Documento técnico:** con la estructura de 10 secciones del Hito 1.
+- **Archivos:** versiones HTML y Markdown en `video/hito2/entrega/` (ignorado por Git). El usuario las sube a Drive junto con el video.
+- **Pendiente:** fusionar el PR #5 (abierto, con CI en verde) y poner el enlace del video en las notas.
