@@ -23,7 +23,7 @@ import httpx
 import yaml
 
 from evals.checks import EvalView, run_check
-from evals.judge import build_judge, semantic_verdict
+from evals.judge import JUDGE_TIMEOUT_RETRY, build_judge, semantic_verdict
 from evals.reference.oracle import FIXTURES, FixtureMismatch, Oracle
 from evals.report import append_case, metrics, resume_report, write_manifest, write_report
 from evals.sut import XEONSUT
@@ -140,7 +140,7 @@ def _network_guard(mode: str, budget: CallBudget, *, instrument_live: bool = Tru
             try:
                 response = original_sync_send(client, request, **kwargs)
             except httpx.TimeoutException:
-                if attempt:
+                if attempt or JUDGE_TIMEOUT_RETRY.get():
                     raise
             else:
                 if response.status_code != 429 or attempt:
@@ -162,7 +162,7 @@ def _network_guard(mode: str, budget: CallBudget, *, instrument_live: bool = Tru
             try:
                 response = await original_async_send(client, request, **kwargs)
             except httpx.TimeoutException:
-                if attempt:
+                if attempt or JUDGE_TIMEOUT_RETRY.get():
                     raise
             else:
                 if response.status_code != 429 or attempt:

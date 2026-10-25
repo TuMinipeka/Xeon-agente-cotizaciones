@@ -10,6 +10,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from evals.judge import JUDGE_TIMEOUT_RETRY, build_judge
 from evals.report import append_case, resume_report, write_manifest
 from evals.runner import CallBudget, _network_guard, main, run
 from evals.sut import XEONSUT
@@ -150,6 +151,83 @@ def test_gateway_timeout_retries_once_and_respects_budget() -> None:
 
     asyncio.run(exercise())
     assert attempts == 2
+
+
+def test_judge_timeout_retries_once_and_counts_each_completion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    from litellm.exceptions import Timeout
+
+    judge = build_judge(
+        ["Responder con claridad"],
+        model="openai/grok-4.6",
+        api_base="https://api.reto.pltk.mx/v1",
+        api_key="fake",
+    )
+    assert judge._extra_params["timeout"] == 120
+    budget = CallBudget(2)
+    calls = 0
+
+    def failing_completion(**_kwargs: object) -> str:
+        nonlocal calls
+        budget.count()
+        calls += 1
+        if calls == 1:
+            raise Timeout(message="simulated", model="grok-4.6", llm_provider="openai")
+        return "judged"
+
+    monkeypatch.setattr(judge._provider_compat, "completion", failing_completion)
+    monkeypatch.setattr("evals.judge.time.sleep", lambda _seconds: None)
+    assert judge._completion() == "judged"
+    assert calls == budget.used == 2
+    assert JUDGE_TIMEOUT_RETRY.get() is False
+
+
+def test_judge_does_not_retry_non_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    judge = build_judge(
+        ["Responder con claridad"],
+        model="openai/grok-4.6",
+        api_base="https://api.reto.pltk.mx/v1",
+        api_key="fake",
+    )
+    calls = 0
+
+    def failing_completion(**_kwargs: object) -> None:
+        nonlocal calls
+        calls += 1
+        raise ValueError("simulated")
+
+    monkeypatch.setattr(judge._provider_compat, "completion", failing_completion)
+    with pytest.raises(ValueError, match="simulated"):
+        judge._completion()
+    assert calls == 1
+
+
+def test_judge_timeout_has_no_nested_transport_retry() -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.ReadTimeout("simulated", request=request)
+
+    async def exercise() -> None:
+        budget = CallBudget(2)
+        budget.count()
+        token = JUDGE_TIMEOUT_RETRY.set(True)
+        try:
+            with _network_guard("live", budget, instrument_live=False):
+                async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                    with pytest.raises(httpx.ReadTimeout):
+                        await client.get("https://api.reto.pltk.mx/v1/test")
+        finally:
+            JUDGE_TIMEOUT_RETRY.reset(token)
+        assert budget.used == 1
+
+    asyncio.run(exercise())
+    assert attempts == 1
 
 
 def test_offline_runner_isolated_and_reported(tmp_path: Path) -> None:
