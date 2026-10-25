@@ -264,3 +264,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Auditoría del orquestador:** se corrigieron la especificación de audio desactualizada, la afirmación «sincronizada con `develop`» y una referencia de commit.
 - **Pendiente:** volcar el contenido en el Google Doc del informe técnico, porque el conector de Google Docs no está cargado en la sesión.
 - **Inbox:** se integraron y retiraron las notas `codex-video-audio` y `agy-entrega-hito2`.
+
+## [2026-10-24] entrega | PR #5 y texto del informe técnico del Hito #2
+
+- **Push y PR:** el usuario confirmó el push de `developer/daniel` y el PR [#5](https://github.com/TuMinipeka/Xeon-agente-cotizaciones/pull/5) hacia `develop`.
+- **Informe técnico:** el orquestador redactó el texto del Hito #2 con las 10 secciones del Google Doc del Hito 1, más las notas de entrega. El usuario lo pegará a mano porque el conector de Google Docs no está disponible. La fuente es `docs/ENTREGA_HITO2.md`.
