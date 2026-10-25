@@ -63,6 +63,17 @@ def test_commercial_search_resolves_semantic_and_specs_queries_with_db_prices() 
     assert pipe.candidates[0].specs["presion_psi"] == "200"
 
 
+def test_plural_tubos_keeps_core_product_in_first_three_candidates() -> None:
+    container = build_container(Settings(llm_provider="mock", _env_file=None))
+
+    outcome = container.commercial_tools.search_products("necesito 10 tubos pvc")
+
+    assert outcome.status == "semantic_candidates"
+    assert outcome.candidates[0].sku == "TUB-PVC-20"
+    assert outcome.candidates[0].unit_price == "4200.00"
+    assert len(outcome.candidates) == 3
+
+
 def test_commercial_search_requires_clarification_on_ambiguous_or_unitless_input() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
 

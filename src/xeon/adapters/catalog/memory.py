@@ -52,10 +52,14 @@ def _tokenize(text: str) -> set[str]:
     normalized = "".join(char for char in decomposed if not unicodedata.combining(char))
     tokens = re.findall(r"[a-z0-9/]+", normalized)
     return {
-        token[:-1] if token.endswith("s") and len(token) > 3 else token
+        _singular_token(token)
         for token in tokens
         if len(token) >= 2 and token not in _STOPWORDS and not token.isdigit()
     }
+
+
+def _singular_token(token: str) -> str:
+    return token[:-1] if token.endswith("s") and len(token) > 3 else token
 
 
 _UNIT_HINTS = {
@@ -204,9 +208,10 @@ class InMemoryProductCatalog:
             specs_tokens = _tokenize(" ".join(f"{key} {val}" for key, val in product.specs))
             context_tokens = _tokenize(product.description_context)
 
+            primary_tokens = name_tokens | alias_tokens
             score = (
-                3 * len(query_tokens & (name_tokens | alias_tokens))
-                + 2 * len(query_tokens & specs_tokens)
+                3 * len(query_tokens & primary_tokens)
+                + 2 * len(query_tokens & (specs_tokens - primary_tokens))
                 + 1 * len(query_tokens & context_tokens)
             )
             if "referencia_sintetica" in product.specs_dict:
@@ -214,5 +219,11 @@ class InMemoryProductCatalog:
             if score > 0:
                 scored.append((score, product))
 
-        scored.sort(key=lambda item: (-item[0], item[1].sku))
+        scored.sort(
+            key=lambda item: (
+                -item[0],
+                "referencia_sintetica" in item[1].specs_dict,
+                item[1].sku,
+            )
+        )
         return tuple(product for _, product in scored[:limit])
