@@ -9,7 +9,7 @@ _ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
 _BOM = b"\xef\xbb\xbf"
 _TARGETS = {
     "LLM_PROVIDER": "grok",
-    "GROK_MODEL": "grok-4.20-0309-non-reasoning",
+    "GROK_MODEL": "grok-4.6",
     "GROK_BASE_URL": "https://api.reto.pltk.mx/v1",
     "GROK_API_KEY_FILE": "secrets/grok_api_key.txt",
 }

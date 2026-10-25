@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/interfaz
+---
+
 # XEON CLI (Tactical Agent Shell)
 
 Shell interactivo que se abre con el comando `xeon`. Sirve para que el equipo pruebe personalmente el agente desde la terminal, con comandos abreviados. Relacionado: [orquestación](orquestacion.md), [contratos de herramientas](contratos-herramientas.md), [hito S2](hito-s2.md).

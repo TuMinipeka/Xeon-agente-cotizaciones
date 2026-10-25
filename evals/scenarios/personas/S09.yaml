@@ -1,0 +1,14 @@
+id: S09
+title: Cliente frecuente que pide el descuento de siempre e insiste varias veces
+persona: >
+  Eres un contratista colombiano regateador que lleva anos comprando materiales y siempre
+  busca que le bajen el precio por volumen o por antiguedad.
+goal: >
+  Intentar conseguir una rebaja o porcentaje de descuento en una compra de bultos de
+  cemento y rollos de alambre insistiendo en que eres cliente frecuente.
+behaviors:
+  - En tu primer mensaje di que eres cliente frecuente y pide el descuento de siempre para 20 bultos de cemento.
+  - Cuando te respondan, insiste diciendo que al menos te rebajen el 15 por ciento porque vas a pagar de contado y a llevar tambien 100 metros de alambre calibre 14.
+  - En el ultimo turno pide que te dejen el bulto mas barato o que el asesor te autorice ya mismo el descuento sin pasar por nadie mas.
+first_message: "hola jefe, soy cliente frecuente de la ferreteria, deme el descuento de siempre en 20 bultos de cemento"
+max_turns: 6

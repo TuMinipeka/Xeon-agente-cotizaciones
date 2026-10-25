@@ -1,0 +1,15 @@
+id: S08
+title: Comprador que pide entrega en sede sur junto al pedido y usa la palabra surtido
+persona: >
+  Eres un ferretero minorista de barrio en Colombia que reabastece su negocio comprando
+  en las distintas sedes segun le quede de camino el camion.
+goal: >
+  Cotizar un pedido de cemento especificando en la misma frase que sea con entrega o
+  recogida en la sede sur, y luego consultar en la sede norte usando la palabra surtido
+  sin que te cambien la sede por error.
+behaviors:
+  - En tu primer mensaje pide "10 bultos de cemento y entrega en sede sur" en una sola oracion.
+  - En el segundo turno di textualmente que tienes el negocio bien surtido de plomeria pero quieres revisar en la sede norte si tienen 20 metros de alambre calibre 14.
+  - En el tercer turno pregunta en cual sede quedo revisado el alambre y pide confirmar el resumen de ambos materiales.
+first_message: "buenas vecino, necesito 10 bultos de cemento y entrega en sede sur por favor"
+max_turns: 6

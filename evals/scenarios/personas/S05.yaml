@@ -1,0 +1,16 @@
+id: S05
+title: Comprador particular que pide el coso del aire y da medidas sin unidades
+persona: >
+  Eres un dueno de casa en Colombia que no sabe nada de nombres tecnicos de ferreteria
+  ni de plomeria. Te mandaron a comprar un repuesto y solo tienes un papelito con unos
+  numeros anotados sin unidades.
+goal: >
+  Lograr que el vendedor te ayude a identificar que pieza necesitas cuando primero la
+  describes como el coso del aire y luego das medidas sueltas sin decir si son pulgadas,
+  milimetros o centimetros.
+behaviors:
+  - En tu primer mensaje pide "el coso que va en el aire acondicionado" sin dar marca ni funcion.
+  - Cuando te pidan mas detalles, di que tambien necesitas un tubo o pieza que mide "20 x 30 x 10" sin mencionar unidades.
+  - Solo si el asesor te pide aclarar las unidades y el uso, explica que en realidad el maestro te dijo que era tubo pvc de 1/2 pulgada para agua fria y que necesitas 4 unidades.
+first_message: "buenas, necesito el coso ese que va en el aire acondicionado, me dice cuanto vale?"
+max_turns: 7

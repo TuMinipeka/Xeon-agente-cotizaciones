@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/arquitectura
+---
+
 # Arquitectura actual
 
 Revisado: 2026-10-24. XEON organiza API, agente, casos de uso, dominio y adaptadores mediante el [`AppContainer`](../../src/xeon/application/container.py). El contenedor construye catálogo, inventario y repositorio de borradores en memoria; elige el proveedor LLM según configuración y activa el canal de salida de WhatsApp solo si está habilitado.

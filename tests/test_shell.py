@@ -245,6 +245,22 @@ def test_mistyped_command_never_calls_engine(line: str) -> None:
     assert "Quisiste decir" in output.getvalue()
 
 
+@pytest.mark.parametrize("line", ["1", "2", "3", "opcion 2", "opción 3", "la 2"])
+def test_numeric_choices_are_sent_to_engine(line: str) -> None:
+    parsed = parse_command(line)
+    assert parsed is not None
+    assert (parsed.name, parsed.argument) == ("run", line)
+
+    session = _mock_session()
+    console, output = _console()
+    lines = iter([line, "quit"])
+    assert (
+        run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0
+    )
+    assert session.turns == 1
+    assert "Comando no valido" not in output.getvalue()
+
+
 @pytest.mark.parametrize(
     "line", ["status foo", "config bar", "new 123", "help extra", "quit ahora"]
 )

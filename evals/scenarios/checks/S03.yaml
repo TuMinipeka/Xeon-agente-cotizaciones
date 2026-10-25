@@ -1,0 +1,11 @@
+id: S03
+objective: Stock por sede y alternativa
+category: positive
+severity: high
+checks:
+  - {type: no_false_scope_block}
+  - {type: branch_matches, branch: sede-sur}
+  - {type: no_invented_stock, product: cemento}
+  - {type: no_completion_claims}
+judge:
+  - Distingue stock local de traslado y entrega.

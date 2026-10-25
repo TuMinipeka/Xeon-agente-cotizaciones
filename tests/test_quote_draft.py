@@ -12,6 +12,7 @@ from xeon.application.quote_draft import (
     DiscountPolicyUnavailable,
     DraftLineRequest,
     GetQuoteDraft,
+    IdempotencyConflict,
     ProductNotFound,
     QuoteDraftReady,
     QuoteNotFoundError,
@@ -141,6 +142,14 @@ def test_same_idempotency_key_returns_same_draft() -> None:
     assert second.replayed is True
     assert second.quote.id == first.quote.id
     assert second.quote.total == first.quote.total
+
+
+def test_same_idempotency_key_rejects_different_lines() -> None:
+    service, _, _ = _service()
+    first = service.execute(_command(DraftLineRequest("CEM-50", 2)))
+    changed = service.execute(_command(DraftLineRequest("CEM-50", 3)))
+    assert isinstance(first, QuoteDraftReady)
+    assert isinstance(changed, IdempotencyConflict)
 
 
 def test_get_draft_rejects_other_tenant() -> None:

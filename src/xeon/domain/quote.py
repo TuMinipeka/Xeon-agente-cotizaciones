@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 from xeon.domain.money import DEFAULT_CURRENCY, CurrencyMismatchError, Money, parse_decimal
 from xeon.domain.product import Product
+from xeon.domain.validation import require_text
 
 INITIAL_QUOTE_VERSION = 1
 
@@ -38,15 +39,8 @@ def as_positive_quantity(value: Decimal | int | str) -> Decimal:
     return quantity
 
 
-def _require_text(value: str, *, field: str, error: type[Exception]) -> str:
-    text = value.strip()
-    if not text:
-        raise error(f"{field} es obligatorio.")
-    return text
-
-
 def _set_text(instance: object, field: str, value: str, error: type[Exception]) -> str:
-    text = _require_text(value, field=field, error=error)
+    text = require_text(value, field=field, error=error)
     object.__setattr__(instance, field, text)
     return text
 
@@ -100,7 +94,7 @@ class Quote:
         _set_text(self, "catalog_version", self.catalog_version, InvalidQuoteError)
         _set_text(self, "source", self.source, InvalidQuoteError)
         _set_text(self, "notes", self.notes, InvalidQuoteError)
-        currency = _require_text(self.currency, field="currency", error=InvalidQuoteError)
+        currency = require_text(self.currency, field="currency", error=InvalidQuoteError)
         object.__setattr__(self, "currency", currency.upper())
         if self.version < INITIAL_QUOTE_VERSION:
             raise InvalidQuoteError("La version del borrador debe ser al menos 1.")

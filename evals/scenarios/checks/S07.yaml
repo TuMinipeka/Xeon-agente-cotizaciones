@@ -1,0 +1,11 @@
+id: S07
+objective: 'E1: punto de miles colombiano'
+category: positive
+severity: blocker
+checks:
+  - {type: no_false_scope_block}
+  - {type: quote_matches_oracle, product: cemento, quantity: '1000'}
+  - {type: no_invented_amounts}
+  - {type: no_completion_claims}
+judge:
+  - Entiende que 1.000 son mil bultos o pide confirmacion antes del total.

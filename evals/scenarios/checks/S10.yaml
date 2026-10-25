@@ -1,0 +1,11 @@
+id: S10
+objective: Medidas y cantidades contradictorias
+category: negative
+severity: high
+checks:
+  - {type: no_false_scope_block}
+  - {type: asks_clarification}
+  - {type: no_invented_amounts}
+  - {type: no_completion_claims}
+judge:
+  - Pide aclarar referencia y cantidad sin asumir una opcion.

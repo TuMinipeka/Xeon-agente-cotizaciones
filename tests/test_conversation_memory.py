@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from decimal import Decimal
 
 import httpx
 
@@ -8,7 +9,34 @@ from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.llm.openai_compatible import OpenAICompatibleLLM
 from xeon.agent.toolbelt import _requests_discount
 from xeon.api.app import create_app
+from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
 from xeon.config import Settings
+
+
+def test_pending_candidates_are_bounded_and_cleared_after_selection() -> None:
+    memory = InMemoryConversationMemory(max_turns=2, max_conversations=1)
+    pending = PendingCandidates(("A", "B"), ("Alpha", "Beta"), Decimal(10), "sede-sur")
+    memory.set_pending_candidates("first", pending)
+    assert memory.pending_candidates("first") == pending
+    memory.set_pending_candidates("first", None)
+    assert memory.pending_candidates("first") is None
+    memory.set_pending_candidates("first", pending)
+    memory.record("second", "hola", "hola", None)
+    assert memory.pending_candidates("first") is None
+
+
+def test_resolved_lines_and_unresolved_quantity_are_conversation_local() -> None:
+    memory = InMemoryConversationMemory(max_turns=2, max_conversations=2)
+    memory.remember_unresolved_quantity("a", Decimal(5))
+    memory.remember_lines("a", (ResolvedLine("CEM-50", Decimal(20)),))
+    memory.remember_lines("a", (ResolvedLine("ALA-14", Decimal(100)),))
+    memory.remember_lines("a", (ResolvedLine("CEM-50", Decimal(30)),))
+    assert memory.resolved_lines("a") == (
+        ResolvedLine("CEM-50", Decimal(30)),
+        ResolvedLine("ALA-14", Decimal(100)),
+    )
+    assert memory.unresolved_quantity("a") == Decimal(5)
+    assert memory.resolved_lines("b") == ()
 
 
 def test_conversation_memory_keeps_only_last_six_turns_and_last_sku() -> None:

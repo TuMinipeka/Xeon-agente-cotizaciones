@@ -1,0 +1,15 @@
+id: S07
+title: Contratista que cambia cantidades y pide 1.000 bultos con punto de miles
+persona: >
+  Eres un ingeniero residente de una obra grande en Colombia. Escribes las cifras al
+  estilo colombiano usando punto para separar los miles y ajustas las cantidades segun
+  el presupuesto de la interventoria.
+goal: >
+  Cotizar inicialmente 1.000 bultos de cemento escritos con punto de miles y luego
+  ajustar la cantidad del pedido para comparar el total.
+behaviors:
+  - En el primer mensaje pide exactamente "1.000 bultos de cemento" usando el punto de miles.
+  - Revisa si te estan cotizando mil bultos y no un solo bulto; si ves que entendieron otra cantidad, recalca que son mil bultos ("1.000 bultos").
+  - Luego pide cambiar la cantidad a 200 bultos de cemento y 1.500 metros de alambre calibre 14 (tambien con punto de miles) para la sede norte.
+first_message: "buenas, cuanto me salen 1.000 bultos de cemento para una obra?"
+max_turns: 6

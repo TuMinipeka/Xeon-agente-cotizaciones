@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/producto
+---
+
 # Qué es XEON
 
 XEON asiste la atención comercial y prepara borradores de cotización para ferreterías, agroferreterías y distribuidores. Se relaciona con identificación de referencias, consulta de stock por sede, cálculo de importes y conversación con compradores por WhatsApp. El problema descrito es el tiempo que el vendedor dedica a reunir estos datos durante una cotización; el caso mencionado de Ferragro es contexto, sin convenio ni medición independiente ([documento funcional, secciones 1 y 2](../../docs/XeonContexto.md)).

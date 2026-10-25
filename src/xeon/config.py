@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     grok_api_key: SecretStr | None = None
     grok_api_key_file: Path | None = Path("secrets/grok_api_key.txt")
     grok_base_url: str = "https://api.reto.pltk.mx/v1"
-    grok_model: str = "grok-4.20-0309-non-reasoning"
+    grok_model: str = "grok-4.6"
 
     whatsapp_send_enabled: bool = False
     kapso_api_base_url: str = "https://api.kapso.ai"

@@ -149,3 +149,59 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Sincronización:** `developer/daniel` se actualizó con `develop` (merge `8e01b02`).
 - **Script de Codex:** `scripts/kapso_webhook.py` con pruebas sin red. Validado por el orquestador contra Kapso real con `list` y `update-url` sobre la misma URL, sin cambios efectivos.
 - **Guía del orquestador:** `docs/DESPLIEGUE_WHATSAPP.md` cubre requisitos, secretos, `.env`, skills, `phone_number_id`, las tres terminales (API, túnel, webhook), verificación, guion de prueba desde el teléfono, diagnóstico, apagado y paso a un número propio. Está enlazada desde el README, `docs/README.md` y [canal Kapso](pages/canal-kapso.md).
+
+## [2026-10-24] operación | Terminal 3 de la guía de WhatsApp
+
+- **Ambigüedad reportada por el usuario:** el paso 3 de `docs/DESPLIEGUE_WHATSAPP.md` no dejaba claro qué ejecutar. La API y el túnel del orquestador habían terminado con la sesión anterior; el usuario los tenía corriendo en su terminal y el webhook seguía apuntando a la URL vieja.
+- **Configuración aplicada por el orquestador:** leyó el host actual desde `cloudflared` (`/quicktunnel` en el puerto 20241), comprobó `/health` (Grok) y actualizó el webhook `86b37b90…`. Una petición sin firma dio 401.
+- **Codex:** añadió `kapso_webhook.py sync-tunnel`, que detecta el túnel y el webhook y actualiza o crea el webhook. Validado en real (HTTP 200); suite en verde.
+- **Guía:** el paso 3 se reescribió con un solo comando (`sync-tunnel`) y su salida esperada.
+
+## [2026-10-24] mantenimiento | Clasificación por colores en el grafo de Obsidian
+
+- **Pedido del usuario:** clasificar la wiki por colores para que el grafo muestre más información.
+- **Etiquetas:** 15 páginas recibieron encabezado YAML con una etiqueta de tipo (`xeon/decision`, `xeon/estado`, `xeon/arquitectura`, `xeon/interfaz`, `xeon/producto`, `xeon/operacion`, `xeon/fuente`, `xeon/hub`). `raw/` y `log.md` se clasifican por ruta, sin modificarlos.
+- **Colores:** 8 grupos en `wiki/.obsidian/graph.json` y 10 en `.obsidian/graph.json`; la bóveda de la raíz añade `docs/` y los archivos de instrucciones. Ambos archivos son locales e ignorados por Git.
+- **Documentación:** la convención quedó en [SCHEMA](SCHEMA.md) y la leyenda en [index](index.md).
+
+## [2026-10-24] corrección | Colores del grafo sobrescritos por Obsidian
+
+- **Problema:** el usuario no veía los colores. La causa no era el tema oscuro: con la bóveda `wiki` abierta, Obsidian reescribió `wiki/.obsidian/graph.json` desde memoria y dejó `colorGroups` vacío.
+- **Solución:** el orquestador creó `scripts/apply_obsidian_graph_colors.py`, que se niega a correr con Obsidian abierto salvo con `--force`. Con Obsidian cerrado lo aplicó: 8 grupos en la bóveda `wiki` y 10 en la raíz.
+- **Documentación:** la leyenda de [index](index.md) explica cómo reproducirlos.
+
+## [2026-10-24] inicio | Evaluación conversacional (D11)
+
+- **Rama:** `feature/conversational-evals` desde `developer/daniel`.
+- **Auditoría** de solo lectura registrada en [auditoría 2026-10-24](pages/auditoria-2026-10-24.md), con los defectos E1–E6.
+- **Contrato** en [evaluación conversacional](pages/evaluacion-conversacional.md); decisión D11.
+- **Skills:** `scenarios` (descargada con `gh`), `ai-system-testing`, `agent-evals` y `promptfoo-evaluation`, revisadas.
+
+## [2026-10-24] avance | Evaluación conversacional: modelo, spike y personas
+
+- **Codex:** cambio de modelo a `grok-4.6` (`2a7d098`) y spike de Scenario válido tras un diagnóstico (`b5d573c`).
+- **agy:** 14 personas (`feca7f6`).
+- **Orquestador:** llamada real de verificación de `grok-4.6` y revisión de la ceguera de las personas.
+- **Inbox:** se integraron y retiraron las notas `codex-model-and-spike` y `agy-personas`.
+- **Siguiente:** el harness `evals/`, de Codex.
+
+## [2026-10-24] integración | E11, evaluador, CI y guía del QA humano (HITO #2)
+
+- **Definición del HITO #2**, tomada de la única fuente documentada (`raw/orquestacion-original`, línea 12): 3 herramientas conectadas a Grok y un flujo de demo de 2 minutos. Criterios H1–H4 en el plan del orquestador.
+- **Codex:** E11 (`4def4fa`) y el evaluador con reporte incremental (`30386ad`); 216 pruebas en verde y offline 42/42.
+- **agy:** `docs/QA_HITO2.md` y la sección de la línea base cancelada en `docs/evals/RESULTADOS.md`.
+- **Orquestador:**
+  - CI con `develop` como disparador (`6972dc7`).
+  - Guía revisada; «Listo para QA humano» queda pendiente hasta la corrida final (`1059538`).
+  - Canal de Gmail verificado con un borrador de prueba, ya eliminado. **Discrepancia:** la cuenta conectada (`danielsantiagomayorga03`) difiere del correo del perfil (`danielsantiagomayorgatellez03`); falta que el usuario confirme el destinatario.
+- **Inbox:** se integraron y retiraron las notas `agy-baseline-live`, `codex-defect-fixes`, `codex-e11-evaluator` y `agy-qa-guide`.
+
+## [2026-10-24] integración | E12–E14, verificación en vivo y PR hacia develop
+
+- **Codex:** E12 (`1c4fc8b`), E13 (`5dfef42`), evaluador para cifras rechazadas (`90da4f6`), reintento del juez (`85a2638`), E14 (`3dda3d3`) y la deduplicación de `require_text` (`3538cb7`, criterio H3).
+- **agy (QA):**
+  - Validó la guía contra el comportamiento real (`1e73bcd`) y encontró E14 y el aviso de stock `stale` en la demo, que es correcto porque el snapshot sintético es del 2026-10-08.
+  - Verificación en vivo `ccc15515` (109 llamadas): 3 PASS, 5 FAIL y 0 ERROR. De los 5 FAIL, 3 son falsos positivos del evaluador y 2 son defectos nuevos de XEON (E15, E16).
+- **Orquestador:** auditoría de los diffs (ningún criterio relajado; el evaluador ignora cifras rechazadas solo si son literales del cliente y van en una negativa), integración de las ramas, sincronización con `develop` y PR por pedido del usuario.
+- **Estado del HITO #2:** implementación terminada para H1–H4. La validación automatizada **no** está aprobada del todo (E15 y E16 abiertos, con 3 falsos positivos del evaluador pendientes). **No** se declara LISTO PARA QA HUMANO.
+- **Inbox:** se integraron y retiraron las notas `agy-qa-validation`, `agy-verify-e12-e13`, `codex-e12-e13` y `codex-e14-dedup`.

@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/fuente
+---
+
 # Fuentes registradas
 
 Revisión: 2026-10-24. Las huellas SHA-256 fijan el contenido observado al crear la wiki. Si cambian, reingestar las páginas afectadas. Los enlaces apuntan a archivos vivos, que pueden tener contenido posterior a esta revisión.

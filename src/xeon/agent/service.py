@@ -40,7 +40,25 @@ class AgentService:
         conversation_key: str | None = None,
         request_id: str | None = None,
     ) -> LLMResponse:
-        scope = self._scope_policy.classify(user_message)
+        previous_sku = (
+            self._memory.last_sku(conversation_key)
+            if self._memory is not None and conversation_key is not None
+            else None
+        )
+        pending = (
+            self._memory.pending_candidates(conversation_key)
+            if self._memory is not None and conversation_key is not None
+            else None
+        )
+        active = (
+            self._memory.commercial_active(conversation_key)
+            if self._memory is not None and conversation_key is not None
+            else False
+        )
+        scope = self._scope_policy.classify(
+            user_message,
+            commercial_context=active or previous_sku is not None or pending is not None,
+        )
         if scope.kind == "out_of_scope":
             return LLMResponse(
                 text=scope.customer_message or _SAFE_FALLBACK,
@@ -48,22 +66,52 @@ class AgentService:
                 model="commercial-scope-v1",
             )
 
+        if (
+            self._memory is not None
+            and conversation_key is not None
+            and scope.kind in {"commercial", "mixed"}
+        ):
+            self._memory.mark_commercial(conversation_key)
+
         commercial_message = scope.commercial_query or user_message
         message_list: list[ChatMessage] = [
             ChatMessage(role="system", content=SYSTEM_PROMPT),
         ]
-        previous_sku = (
-            self._memory.last_sku(conversation_key)
-            if self._memory is not None and conversation_key is not None
-            else None
-        )
         selected_sku: str | None = None
         if self._tools is not None:
-            verified_context, selected_sku = self._tools.prepare_verified_context(
-                commercial_message, request_id=request_id, last_sku=previous_sku
+            known_lines = (
+                self._memory.resolved_lines(conversation_key)
+                if self._memory is not None and conversation_key is not None
+                else ()
+            )
+            fallback_quantity = (
+                self._memory.unresolved_quantity(conversation_key)
+                if self._memory is not None and conversation_key is not None
+                else None
+            )
+            verified_context, selected_sku, new_pending, resolved_lines = (
+                self._tools.prepare_verified_context(
+                    commercial_message,
+                    request_id=request_id,
+                    last_sku=previous_sku,
+                    pending=pending,
+                    known_lines=known_lines,
+                    fallback_quantity=fallback_quantity,
+                )
             )
             if verified_context is not None:
                 message_list.append(ChatMessage(role="system", content=verified_context))
+            if self._memory is not None and conversation_key is not None:
+                if new_pending is not None:
+                    self._memory.set_pending_candidates(conversation_key, new_pending)
+                    if new_pending.quantity is not None:
+                        self._memory.remember_unresolved_quantity(
+                            conversation_key, new_pending.quantity
+                        )
+                elif selected_sku is not None:
+                    self._memory.set_pending_candidates(conversation_key, None)
+                if resolved_lines:
+                    self._memory.remember_lines(conversation_key, resolved_lines)
         if self._memory is not None and conversation_key is not None:
             message_list.extend(self._memory.history(conversation_key))
         message_list.append(ChatMessage(role="user", content=commercial_message))

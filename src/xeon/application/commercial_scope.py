@@ -95,12 +95,15 @@ _COMMERCIAL_TERMS = frozenset(
 _OUT_OF_SCOPE_TERMS = frozenset(
     {
         "celular",
+        "chiste",
         "computador",
         "criptomoneda",
+        "ensayo",
         "gpu",
         "laptop",
         "noticias",
         "pelicula",
+        "poema",
         "politica",
         "programacion",
         "receta",
@@ -113,6 +116,11 @@ _OUT_OF_SCOPE_TERMS = frozenset(
 _SEGMENT_SEPARATOR = re.compile(r"\s*(?:,|;|\by\b|\bademas\b|\btambien\b)\s*")
 _WORD_RE = re.compile(r"[a-z0-9]+")
 _SKU_LIKE_RE = re.compile(r"\b[a-z0-9]+(?:-[a-z0-9]+)+\b", re.IGNORECASE)
+_FOLLOWUP_RE = re.compile(
+    r"(?i)^(?:si|claro|confirmo|ese|esa|el primero|la primera|"
+    r"(?:lo |la )?(?:recojo|retiro|recibo)|(?:entrega|recogida|retiro)|"
+    r"[1-3]|\d+(?:[.,]\d+)?\s+(?:unidades?|bultos?|metros?|tubos?))\b"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +137,7 @@ class ScopeDecision:
 class CommercialScopePolicy:
     """Deterministic customer-facing scope gate executed before any LLM call."""
 
-    def classify(self, message: str) -> ScopeDecision:
+    def classify(self, message: str, *, commercial_context: bool = False) -> ScopeDecision:
         cleaned = " ".join(message.split())
         normalized = _normalize(cleaned)
         if normalized in _COURTESY_MESSAGES:
@@ -150,7 +158,15 @@ class CommercialScopePolicy:
                 ),
             )
 
+        if commercial_context:
+            segments = tuple(part for part in _SEGMENT_SEPARATOR.split(cleaned) if part)
+            if not any(_is_out_of_scope(part) for part in segments):
+                return ScopeDecision(kind="commercial", commercial_query=cleaned)
+
         if any(phrase in normalized for phrase in _SELECTION_PHRASES):
+            return ScopeDecision(kind="commercial", commercial_query=cleaned)
+
+        if commercial_context and _FOLLOWUP_RE.search(normalized):
             return ScopeDecision(kind="commercial", commercial_query=cleaned)
 
         if _SKU_LIKE_RE.search(cleaned) is not None:
@@ -204,4 +220,4 @@ def _is_commercial(value: str) -> bool:
 
 
 def _is_out_of_scope(value: str) -> bool:
-    return _contains_term(value, _OUT_OF_SCOPE_TERMS) or not _is_commercial(value)
+    return _contains_term(value, _OUT_OF_SCOPE_TERMS)

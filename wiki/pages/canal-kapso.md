@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/interfaz
+---
+
 # Canal WhatsApp con Kapso
 
 Integración de WhatsApp a través de Kapso (API oficial de WhatsApp Cloud) como canal predeterminado de XEON, siguiendo `whatsapp.pdf` (guía NodeStudio) y las skills `gokapso/agent-skills`. Relacionado: [orquestación](orquestacion.md), [decisiones pendientes](decisiones-pendientes.md) (D8), [estado del corte](estado-del-corte.md).
@@ -66,5 +71,6 @@ Revisado: 2026-10-24. Estado: **`implementado`** y **verificado en vivo**. El us
 ## Guía operativa (2026-10-24)
 
 - **Paso a paso** de despliegue y pruebas: [`docs/DESPLIEGUE_WHATSAPP.md`](../../docs/DESPLIEGUE_WHATSAPP.md).
-- **Webhook:** `scripts/kapso_webhook.py` (`create`, `update-url`, `list`) reemplaza el script temporal del orquestador. Genera y envía el `secret_key` que el `create.js` de la skill omite.
+- **Webhook:** `scripts/kapso_webhook.py` (`sync-tunnel`, `create`, `update-url`, `list`) reemplaza el script temporal del orquestador. Genera y envía el `secret_key` que el `create.js` de la skill omite.
   - Validado contra la API real el 2026-10-24: `list` y `update-url` respondieron HTTP 200.
+- **Uso habitual:** `uv run python scripts/kapso_webhook.py sync-tunnel` tras arrancar la API y el túnel. Detecta la URL de `cloudflared` y actualiza o crea el webhook del `KAPSO_PHONE_NUMBER_ID`.

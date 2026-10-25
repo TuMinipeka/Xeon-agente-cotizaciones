@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/arquitectura
+---
+
 # Contratos de las herramientas comerciales
 
 Equivale al `tools_spec` del protocolo original. Define las entradas, salidas y reglas de las tres herramientas comerciales de `CommercialToolbelt` (llamado `HermesToolbelt` hasta la limpieza D9). Relacionado: [hito S2](hito-s2.md), [arquitectura actual](arquitectura-actual.md), [orquestación](orquestacion.md).

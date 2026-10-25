@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/hub
+---
+
 # Esquema de mantenimiento de la wiki
 
 ## Capas y autoridad
@@ -15,6 +20,7 @@ Orden de lectura obligatorio para XEON: `docs/XeonContexto.md`, `docs/ARCHITECTU
 - Estado explícito: `implementado`, `planificado`, `inferido` o `desconocido`.
 - Fecha de revisión y puntos que requieren nueva verificación.
 - Enlaces Markdown relativos para funcionar en GitHub y Obsidian.
+- Encabezado YAML con **una** etiqueta de tipo: `xeon/decision`, `xeon/estado`, `xeon/arquitectura`, `xeon/interfaz`, `xeon/producto`, `xeon/operacion`, `xeon/fuente` o `xeon/hub`. Determina el color en el grafo de Obsidian (leyenda en [index.md](index.md)). Las fuentes de `raw/` y `log.md` no se etiquetan: se clasifican por ruta para no alterarlos.
 
 ## Operaciones
 

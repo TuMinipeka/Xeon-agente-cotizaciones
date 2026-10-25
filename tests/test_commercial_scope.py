@@ -62,3 +62,31 @@ def test_scope_allows_natural_selection_and_existing_product_code_as_follow_up()
 
     assert natural_selection.kind == "commercial"
     assert product_code.kind == "commercial"
+
+
+def test_scope_keeps_logistics_and_courtesy_in_commercial_request() -> None:
+    policy = CommercialScopePolicy()
+    for message in (
+        "10 bultos de cemento y entrega en sede sur",
+        "buenas vecino, me regala cotizacion de 10 bultos de cemento",
+        "soy cliente frecuente, dame el descuento de siempre en 20 bultos de cemento",
+    ):
+        decision = policy.classify(message)
+        assert decision.kind == "commercial"
+        assert decision.commercial_query == message
+
+
+def test_followup_requires_existing_commercial_context() -> None:
+    policy = CommercialScopePolicy()
+    assert policy.classify("Lo recojo en la sede norte.").kind == "out_of_scope"
+    for message in ("Lo recojo en la sede norte.", "Entrega en sede sur", "Si", "20 unidades"):
+        assert policy.classify(message, commercial_context=True).kind == "commercial"
+
+
+def test_poem_and_cement_request_keeps_only_commercial_clause() -> None:
+    message = "escribieme un poema de la lluvia y cuanto valen 4 bultos de cemento"
+    for active in (False, True):
+        decision = CommercialScopePolicy().classify(message, commercial_context=active)
+        assert decision.kind == "mixed"
+        assert decision.commercial_query == "cuanto valen 4 bultos de cemento"
+        assert decision.customer_message is not None

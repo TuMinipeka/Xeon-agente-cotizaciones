@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "agent-evals": {
+      "source": "quegenx/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-agents/agent-evals/SKILL.md",
+      "computedHash": "dc7a94d47aec2c7a624180790526760a235eb35b649ed90fde1eecf0999b7183"
+    },
+    "ai-system-testing": {
+      "source": "petrkindlmann/qa-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-system-testing/SKILL.md",
+      "computedHash": "3bed0c95a0ba74577673ab4acf63abeab20362f5cb04b114e79d0a237e6e957f"
+    },
     "automate-whatsapp": {
       "source": "gokapso/agent-skills",
       "sourceType": "github",
@@ -19,6 +31,12 @@
       "skillPath": "skills/observe-whatsapp/SKILL.md",
       "computedHash": "60a26e9f47de4bac922b58343aeae4f704a1b0b1e9fb546e66b7e47635f4ce38"
     },
+    "promptfoo-evaluation": {
+      "source": "daymade/claude-code-skills",
+      "sourceType": "github",
+      "skillPath": "promptfoo-evaluation/SKILL.md",
+      "computedHash": "9a3d373ebf0b7b61ac073d91c1069a520ee0c067415f1038ad38b8854ac88d95"
+    },
     "tui-design": {
       "source": "diegomarino/tui-design",
       "sourceType": "github",
@@ -30,6 +48,13 @@
       "sourceType": "github",
       "skillPath": "plugins/tui-master/skills/tui-fundamentals/SKILL.md",
       "computedHash": "558e1245f0c38dccf6d8b605fbf9845dddbb0afe963183bd136e3f55f09d6bbc"
+    },
+    "scenarios": {
+      "source": "langwatch/langwatch",
+      "sourceType": "github",
+      "skillPath": "skills/_compiled/native/scenarios/SKILL.md",
+      "computedHash": "992a66efe9cf5fbf0495c4aa283dd2448938abea1e011cd9ee777c4bd292d33a",
+      "note": "Descargada con gh: el instalador falla en Windows por rutas largas del monorepo"
     }
   }
 }

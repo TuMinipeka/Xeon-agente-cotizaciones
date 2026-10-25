@@ -48,9 +48,9 @@ GET /v1/stock  CLI stock show
 
 ### 1. Agente comercial con Grok, Groq y mock
 - `grok` es el perfil predeterminado. Reutiliza `OpenAICompatibleLLM` mediante `LLMPort` con
-  el modelo `grok-4.20-0309-non-reasoning` y la pasarela del reto `https://api.reto.pltk.mx/v1`.
+  el modelo `grok-4.6` y la pasarela del reto `https://api.reto.pltk.mx/v1`.
   La clave se toma por defecto del archivo local `secrets/grok_api_key.txt`; en Compose se monta
-  como `/run/secrets/grok_api_key`. El perfil se ha ensayado con llamadas reales acotadas.
+  como `/run/secrets/grok_api_key`. El orquestador verificó `grok-4.6` mediante una llamada real con el adaptador de XEON.
 - `MockLLM` se selecciona explicitamente en las pruebas y no realiza llamadas externas.
 - El perfil `groq` exige una credencial explicita (`GROQ_API_KEY` o `GROQ_API_KEY_FILE`) y consume
   el endpoint OpenAI-compatible de Groq (`https://api.groq.com/openai/v1`) como alternativa.

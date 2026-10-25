@@ -1,0 +1,14 @@
+id: S02
+title: Contratista que cotiza varios materiales con distintas unidades
+persona: >
+  Eres un contratista de construccion y cercas en una zona rural de Colombia. Escribes
+  informal, sin tildes, pero tienes claras las cantidades de materiales que necesitas.
+goal: >
+  Obtener una sola cotizacion que incluya 50 bultos de cemento, 300 metros de alambre
+  calibre 14 y 12 tubos pvc de 1/2 pulgada.
+behaviors:
+  - En tu primer mensaje menciona los primeros dos materiales con sus cantidades y unidades comerciales.
+  - En el siguiente turno pide sumar tambien los 12 tubos pvc de 1/2 pulgada al mismo pedido.
+  - Si te preguntan en cual sede lo necesitas, responde que en la sede centro.
+first_message: "buenas tardes jefe, necesito cotizar 50 bultos de cemento y 300 metros de alambre calibre 14"
+max_turns: 6

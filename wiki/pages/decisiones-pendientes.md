@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/decision
+---
+
 # Decisiones pendientes
 
 ## D1 — Cómo expresar el alcance técnico vigente
@@ -143,3 +148,18 @@ El usuario pidió el 2026-10-24 ordenar los archivos sueltos aplicando buenas pr
     - `XeonCli.png` → `assets/readme/xeon-cli.png`.
   - **Nuevo:** `docs/README.md` como índice de la documentación.
 - **Efecto:** la fuente de verdad pasa a `docs/XeonContexto.md`. El orden de lectura no cambia: `docs/XeonContexto.md` → `docs/ARCHITECTURE.md` → `CONTRIBUTING.md`.
+
+## D11: Evaluación conversacional y cambio de modelo
+
+El usuario pidió el 2026-10-24 un sistema de pruebas conversacionales con cliente simulado, un harness independiente y regresiones permanentes.
+
+- **Resolución (usuario):**
+  - **Modelo `grok-4.6`** para XEON, el cliente simulado y el juez. Era el que pidió como el más cercano en razonamiento a «gpt-5.6 Luna». La pasarela no publica comparativas; `grok-4.6` es de agosto de 2026 y cuesta unas 2,4 veces más por token de salida que `grok-4.20-0309-non-reasoning`.
+  - **Presupuesto:** tope de 600 llamadas por corrida.
+  - **Correcciones:** E1 a E6 se corrigen con una regresión cada uno.
+  - **Framework:** `langwatch-scenario`, sujeto a un spike.
+- **Contrato:** [evaluación conversacional](evaluacion-conversacional.md). Auditoría: [auditoría 2026-10-24](auditoria-2026-10-24.md).
+- **Skills:**
+  - `scenarios` se descargó con `gh`, porque el instalador falla en Windows por rutas largas del monorepo de LangWatch.
+  - `ai-system-testing`, `agent-evals` y `promptfoo-evaluation` se instalaron con `npx skills add`.
+  - Las cuatro fueron revisadas por el orquestador sin hallar comandos peligrosos.

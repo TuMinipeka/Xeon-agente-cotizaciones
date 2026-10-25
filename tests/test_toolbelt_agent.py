@@ -1,12 +1,48 @@
 import asyncio
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import httpx
+import pytest
 
+from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity
 from xeon.api.app import create_app
 from xeon.application.container import build_container
 from xeon.application.quote_draft import DraftLineRequest, QuoteDraftReady
 from xeon.config import Settings
+
+
+def test_colombian_quantities_and_branch_word_boundaries() -> None:
+    assert _extract_requested_quantity("quiero 1.000 bultos") == Decimal(1000)
+    assert _extract_requested_quantity("quiero 1.500 bultos") == Decimal(1500)
+    assert _extract_requested_quantity("quiero 2,5 metros") == Decimal("2.5")
+    assert _extract_requested_quantity("quiero 2.5 metros") == Decimal("2.5")
+    assert _extract_requested_branch("surtido en sede norte") == "sede-norte"
+    assert _extract_requested_branch("entrega en sede sur") == "sede-sur"
+
+
+def test_injected_clock_controls_stock_freshness() -> None:
+    settings = Settings(llm_provider="mock", _env_file=None)
+    fresh = build_container(settings, clock=lambda: datetime(2026, 10, 8, 15, 0, tzinfo=UTC))
+    stale = build_container(settings, clock=lambda: datetime(2026, 10, 24, 15, 0, tzinfo=UTC))
+    fresh_context, _, _, _ = fresh.commercial_tools.prepare_verified_context("10 bultos de cemento")
+    stale_context, _, _, _ = stale.commercial_tools.prepare_verified_context("10 bultos de cemento")
+    assert fresh_context is not None and "vigencia=fresh" in fresh_context
+    assert stale_context is not None and "vigencia=stale" in stale_context
+
+
+def test_quote_failure_is_visible_without_exception_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    container = build_container(Settings(llm_provider="mock", _env_file=None))
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("private detail")
+
+    monkeypatch.setattr(container.create_quote_draft, "execute", fail)
+    context, _, _, _ = container.commercial_tools.prepare_verified_context("10 bultos de cemento")
+    assert context is not None and "status=quote_unavailable" in context
+    assert "private detail" not in context
 
 
 def test_commercial_search_resolves_semantic_and_specs_queries_with_db_prices() -> None:

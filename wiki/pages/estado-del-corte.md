@@ -1,3 +1,8 @@
+---
+tags:
+  - xeon/estado
+---
+
 # Estado del corte
 
 Revisado: 2026-10-24. La fuente funcional mezcla MVP deseado y componentes existentes. Esta página contrasta la visión con el [README](../../README.md), la [arquitectura](../../docs/ARCHITECTURE.md) y el código.

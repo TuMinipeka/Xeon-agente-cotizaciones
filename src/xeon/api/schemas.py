@@ -100,6 +100,7 @@ class QuoteOutcomeResponse(BaseModel):
         "product_not_found",
         "catalog_unavailable",
         "discount_policy_unavailable",
+        "idempotency_conflict",
     ]
     message: str | None = None
     query: str | None = None
