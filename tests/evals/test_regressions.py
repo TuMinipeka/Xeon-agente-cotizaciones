@@ -185,7 +185,12 @@ def test_e10_pending_choice_creates_one_draft(selection: str) -> None:
             assert not sut.drafts()
             await sut.respond(selection)
             assert len(sut.drafts()) == 1
-            assert sut.drafts()[0]["lines"][0]["sku"] == pending.skus[0]
+            expected_sku = (
+                pending.skus[pending.names.index(selection)]
+                if selection in pending.names
+                else pending.skus[0]
+            )
+            assert sut.drafts()[0]["lines"][0]["sku"] == expected_sku
         finally:
             await sut.aclose()
 
