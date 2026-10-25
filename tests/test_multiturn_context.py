@@ -176,7 +176,7 @@ def test_multiturn_kapso_webhook_flow_and_non_customer_events_ignored() -> None:
     assert all(response.json()["status"] == "processed" for response in (ambiguous, units, order))
     assert len(quotes_repo._quotes) == 1
     quote = next(iter(quotes_repo._quotes.values()))
-    assert quote.request_id == "kapso-K-TURN-3"
+    assert quote.request_id.startswith("xeon-")
     assert str(quote.total.amount) == "21000.00"
 
 
@@ -397,7 +397,35 @@ def test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repositor
     # El request_id estable permite que el repositorio reconozca la segunda entrega.
     assert len(quotes_repo._quotes) == 1
     quote = next(iter(quotes_repo._quotes.values()))
-    assert quote.request_id == "kapso-K-DUP-RESTART-001"
+    assert quote.request_id.startswith("xeon-")
+
+
+def test_followup_reuses_draft_until_lines_change() -> None:
+    quotes_repo = InMemoryQuoteDraftRepository()
+    container = build_container(Settings(llm_provider="mock", _env_file=None), quotes=quotes_repo)
+    conversation_key = "demo-draft-reuse"
+
+    async def run() -> tuple[str, str, str]:
+        await container.agent.respond("necesito 10 tubos pvc", conversation_key=conversation_key)
+        selected = await container.agent.respond("1", conversation_key=conversation_key)
+        pickup = await container.agent.respond(
+            "lo recojo en la sede norte", conversation_key=conversation_key
+        )
+        assert len(quotes_repo._quotes) == 1
+        changed = await container.agent.respond(
+            "cotizame 12 unidades de ese mismo", conversation_key=conversation_key
+        )
+        return selected.text, pickup.text, changed.text
+
+    selected, pickup, changed = asyncio.run(run())
+    assert "create_quote_draft" in selected
+    assert "create_quote_draft" in pickup
+    assert "create_quote_draft" in changed
+    assert len(quotes_repo._quotes) == 2
+    assert {quote.lines[0].quantity for quote in quotes_repo._quotes.values()} == {
+        Decimal("10"),
+        Decimal("12"),
+    }
 
 
 def test_multiturn_chat_retains_product_context_across_turns() -> None:

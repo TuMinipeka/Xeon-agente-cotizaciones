@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import uuid
@@ -209,6 +210,7 @@ class CommercialToolbelt:
         user_message: str,
         *,
         request_id: str | None = None,
+        conversation_key: str | None = None,
         last_sku: str | None = None,
         pending: PendingCandidates | None = None,
         known_lines: tuple[ResolvedLine, ...] = (),
@@ -226,7 +228,11 @@ class CommercialToolbelt:
             try:
                 summary = self.create_quote_draft(
                     tenant_id="whatsapp",
-                    request_id=request_id or f"wa-{uuid.uuid4().hex[:12]}",
+                    request_id=_draft_request_id(
+                        conversation_key,
+                        tuple(DraftLineRequest(line.sku, line.quantity) for line in known_lines),
+                        request_id,
+                    ),
                     lines=tuple(DraftLineRequest(line.sku, line.quantity) for line in known_lines),
                 )
                 if isinstance(summary, QuoteDraftReady):
@@ -355,7 +361,7 @@ class CommercialToolbelt:
             try:
                 result = self.create_quote_draft(
                     tenant_id="whatsapp",
-                    request_id=request_id or f"wa-{uuid.uuid4().hex[:12]}",
+                    request_id=_draft_request_id(conversation_key, tuple(draft_lines), request_id),
                     lines=tuple(draft_lines),
                     discount_requested=_requests_discount(normalized),
                 )
@@ -412,6 +418,21 @@ def _format_draft(quote: Quote) -> str:
         for line in quote.lines
     ]
     return "\n".join((header, *details))
+
+
+def _draft_request_id(
+    conversation_key: str | None,
+    lines: tuple[DraftLineRequest, ...],
+    fallback_request_id: str | None,
+) -> str:
+    if conversation_key is None:
+        return fallback_request_id or f"wa-{uuid.uuid4().hex[:12]}"
+    signature = "\n".join(
+        f"{line.query}\t{Decimal(str(line.quantity)).normalize()}"
+        for line in sorted(lines, key=lambda line: (line.query, Decimal(str(line.quantity))))
+    )
+    digest = hashlib.sha256(f"{conversation_key}\n{signature}".encode()).hexdigest()[:32]
+    return f"xeon-{digest}"
 
 
 def _requests_quote_summary(text: str) -> bool:
