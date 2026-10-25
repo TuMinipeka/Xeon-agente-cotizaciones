@@ -1,0 +1,8 @@
+{
+  "scenes": [
+    {"id": "escena1", "file": "hito2.mp4", "start": 0, "end": null, "speedups": []},
+    {"id": "escena2", "file": "hito2.mp4", "start": 0, "end": null, "speedups": []},
+    {"id": "escena3", "file": "hito2.mp4", "start": 0, "end": null, "speedups": []},
+    {"id": "escena4", "file": "hito2.mp4", "start": 0, "end": null, "speedups": []}
+  ]
+}

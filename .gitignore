@@ -9,6 +9,9 @@ __pycache__/
 .coverage
 htmlcov/
 /reports/
+/video/hito2/*
+!/video/hito2/marks.json
+!/video/hito2/narration.json
 dist/
 build/
 *.egg-info/
