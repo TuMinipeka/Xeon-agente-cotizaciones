@@ -42,8 +42,28 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
 | Agente | Tarea | Estado |
 |---|---|---|
 | Codex | E17, E18 y traza (`e36a5b3`, `6b07e7a`, `909d7ae`, `4b89f43`) | Hecho |
-| Codex | `scripts/video/record.py`, `narrate.py` y `edit.py` | En curso |
-| agy (QA) | Ensayo del guion en mock y en vivo (como máximo 30 llamadas, puerto 8013) y medición de tiempos | En curso |
+| Codex | `scripts/video/record.py`, `narrate.py` y `edit.py` (`83d5bfe`, 10 pruebas sin red) | Hecho; falta validar FFmpeg real y la voz |
+| agy (QA) | Ensayo del guion en mock y en vivo: **5 llamadas**, las 4 escenas OK y 151 s en crudo | Hecho |
+| agy (QA) | Narración con ElevenLabs (6 clips) | En curso |
+| Codex | E19 y la traza `search_products` duplicada | En curso |
 | agy (QA) | Revisión del video final contra el guion | Pendiente |
 | Opus | Guion, auditoría, arranque de servicios y grabación, wiki | En curso |
 | Usuario | Clave de ElevenLabs, WhatsApp Web con QR, «No molestar», ventanas, mensajes del guion | Pendiente |
+
+## Ensayo en vivo (agy, 2026-10-24)
+
+`grok-4.6` en la API del puerto 8013, con 5 llamadas en total:
+
+| Paso | Respuesta | Resultado |
+|---|---|---|
+| Paso 1 (opciones de cemento) | 21,2 s | 3 opciones; sin borrador |
+| Paso 3 («1») | 22,2 s | `DRAFT` $289.000 |
+| Paso 5 (sede norte) | 28,4 s | Mismo `quote_id`, `replayed=true` |
+| Paso 7 (dos productos) | 42,7 s | `DRAFT` de 2 líneas, $670.500 |
+| Escena 4 (descuento) | 36,8 s | `DiscountPolicyUnavailable`; `t` y `s` correctos |
+
+- Ninguna respuesta afirmó «aprobado», «reservado» ni «facturado».
+- agy ajustó el guion a la traza real (`status=semantic_candidates` en la escena 1, `replayed=true` en el paso 5; commit de alineación).
+- **Defectos hallados:**
+  - **E19 (alta):** en una misma conversación, un pedido de descuento sobre líneas ya cotizadas reutiliza el borrador anterior en vez de informar que no hay política. No bloquea el video porque la escena 4 usa otra sesión.
+  - **Cosmético:** `search_products` aparece dos veces en la traza de un mismo turno.

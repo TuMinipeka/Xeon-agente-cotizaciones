@@ -221,3 +221,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **En curso:** los scripts de video (Codex) y el ensayo del guion (agy).
 - **Nueva página:** [video HITO #2](pages/video-hito2.md).
 - **Inbox:** se integraron y retiraron las notas `codex-video-prep-a` y `claude-cli-smoke`.
+
+## [2026-10-24] avance | Video del HITO #2: ensayo, scripts y E19
+
+- **Ensayo en vivo de agy:** 5 llamadas y las 4 escenas OK, con tiempos registrados en [video HITO #2](pages/video-hito2.md). agy ajustó el guion a la traza real.
+- **Scripts de video de Codex** (`83d5bfe`).
+- **E19** (descuento en la misma conversación reutiliza el borrador) delegado a Codex.
+- **Narración con ElevenLabs** delegada a agy. La clave del usuario ya está en `secrets/`.
+- **Inbox:** se integraron y retiraron las notas `agy-video-rehearsal` y `codex-video-scripts`.
