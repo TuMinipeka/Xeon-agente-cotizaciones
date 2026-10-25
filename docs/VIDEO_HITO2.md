@@ -111,10 +111,19 @@ Ensayo ejecutado sobre `developer/daniel` (`dacd1c3`, con `e36a5b3`, `6b07e7a` y
 2. **Doble registro de `TOOL search_products` en un mismo turno:**
    - En los Pasos 1 y 5, `prepare_verified_context` invoca `search_products` tanto al intentar resolver líneas como en la búsqueda principal del turno, por lo que aparecen dos líneas `TOOL search_products ...` seguidas en la consola/traza. No afecta los montos ni las respuestas de Grok.
 
+## F. Resultado
+
+- **Archivos generados:** `video/hito2/XEON_HITO2_demo.mp4` y `video/hito2/XEON_HITO2_demo.srt`
+- **Duración final:** `01:53,50` (`113,50 s`, `1920×1080`, `30 fps`, audio `AAC 44,1 kHz mono` con `mean_volume: -27,6 dB` y `max_volume: -4,5 dB`).
+- **Dictamen QA automatizado (`agy`):** **APROBADO** (6 tramos con sus rótulos en orden, 3 herramientas reales verificadas con `grok-4.6`, rótulos `espera acortada` sin tapar respuestas ni subtítulos, subtítulos sincronizados, difuminado de barra de pestañas y stickers previos, sin secretos ni datos sensibles expuestos).
+- **Desviaciones respecto al guion escrito (documentadas, sin alterar respuestas):**
+  1. **Cantidad en Escenas 1 y 2 (`3` bultos en lugar de `10`):** en el Paso 1 se escribió `Necesito 3 bultos de cemento gris`, por lo que en la Escena 2 el backend calculó `3 × $28.900 = $86.700` (`subtotal=86700.00 COP replayed=false` en el Paso 3 y mismo `quote_id` con `replayed=true` en el Paso 5 al indicar `Lo recojo en la sede norte`). La narración no menciona la cantidad `10` ni `$289.000`, por lo que el audio y los subtítulos coinciden con lo mostrado.
+  2. **Visibilidad de la traza `TOOL` de las Escenas 1–3:** durante las Escenas 1 a 3 (`0:10–1:07`) el navegador con WhatsApp Web estuvo maximizado; la ventana `XEON API — traza de herramientas` se muestra completa y legible en la mitad derecha durante toda la Escena 4 (`1:07–1:47`), donde se observan íntegras las líneas `TOOL ...` de las Escenas 1, 2 y 3 junto con la ejecución en vivo de `XEON CLI` en la mitad izquierda.
+
 ## Estado
 
 - [x] Correcciones E17 y E18 y traza de herramientas (Codex)
 - [x] Ensayo del guion (agy)
-- [ ] Grabación (tú + agente)
-- [ ] Edición y revisión del video (agentes)
+- [x] Grabación (tú + agente)
+- [x] Edición y revisión del video (agentes)
 - [ ] Validación del QA humano

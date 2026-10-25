@@ -7,7 +7,7 @@ tags:
 
 Preparación del video que evidencia las 3 herramientas reales de XEON (`search_products`, `get_stock_by_branches` y `create_quote_draft`) con `grok-4.6`, por WhatsApp (Kapso) y por el CLI `xeon`. Relacionado: [hito S2](hito-s2.md), [canal Kapso](canal-kapso.md), [XEON CLI](xeon-cli.md), [evaluación conversacional](evaluacion-conversacional.md), [auditoría](auditoria-2026-10-24.md).
 
-Revisado: 2026-10-24. Estado: **`planificado` / en preparación**. No hay grabación todavía.
+Revisado: 2026-10-24. Estado: **`implementado`**. Video editado y **aprobado por QA (agy)**. La validación del QA humano está pendiente.
 
 ## Decisiones del usuario (2026-10-24)
 
@@ -77,3 +77,15 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
   2. En las escenas 1–3, WhatsApp estuvo a pantalla completa y la traza no se veía al lado. En la escena 4, en cambio, la traza completa de las escenas 1–3 se ve legible.
 - **Decisión del orquestador:** se edita **sin regrabar**, porque nada se simula y las 3 herramientas quedan evidenciadas. Por privacidad se difuminan la barra de pestañas del navegador (títulos de otras pestañas del usuario) y unos stickers con la cara de un niño en el historial del chat.
 - **Marcas** en `video/hito2/marks.json`: escenas y esperas aceleradas ×8, para una duración estimada de 1:52.
+
+## Resultado (2026-10-24)
+
+- **Archivo:** `video/hito2/XEON_HITO2_demo.mp4` (ignorado por Git), de 1:53,5, 1920×1080, H.264, con audio AAC de la narración de ElevenLabs y subtítulos quemados.
+- **Subtítulos:** `video/hito2/XEON_HITO2_demo.srt`.
+- **Edición de Codex** con `scripts/video/edit.py`:
+  - portada, rótulos por herramienta y cierre «Validación humana pendiente»;
+  - esperas de Grok aceleradas ×8 y rotuladas «espera acortada» (arriba a la derecha, tras corregir su choque con los subtítulos);
+  - difuminado de privacidad sobre la barra de pestañas y los stickers.
+- **Auditoría del orquestador** sobre los fotogramas de control: detectó el choque del rótulo con los subtítulos y pidió la corrección.
+- **Revisión final de agy:** **APROBADO**, con 57 fotogramas revisados. Las 3 herramientas quedan evidenciadas con contenido real legible, no hay recortes ni alteraciones de las respuestas y no aparecen datos sensibles. Observación menor no bloqueante: el subtítulo 5 cubre parcialmente la última línea inferior de la terminal entre 1:07 y 1:15.
+- **Desviaciones respecto al guion:** 3 bultos en lugar de 10, y la traza visible en la escena 4. Están documentadas en la sección F de `docs/VIDEO_HITO2.md`.

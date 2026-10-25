@@ -249,3 +249,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Revisión de agy:** 7 de 7 pasos y las 3 herramientas en la traza. Dos diferencias de ejecución real (3 bultos en lugar de 10, y la traza visible solo en la escena 4).
 - **Decisión:** editar sin regrabar, con difuminado por privacidad. Edición delegada a Codex. Detalle en [video HITO #2](pages/video-hito2.md).
 - **Inbox:** se integraron y retiraron las notas `agy-narration` y `agy-raw-review`.
+
+## [2026-10-24] entrega | Video del HITO #2 aprobado por QA
+
+- **Codex:** edición con difuminado de privacidad y corrección de la posición del rótulo «espera acortada».
+- **agy (QA):** dictamen APROBADO del video `video/hito2/XEON_HITO2_demo.mp4` (1:53,5) y sección «Resultado» en `docs/VIDEO_HITO2.md`.
+- **Pendiente:** la validación del QA humano, y rotar las claves de Grok y ElevenLabs al terminar el hito.
+- **Inbox:** se integraron y retiraron las notas `codex-video-edit` y `agy-final-video-review`.
