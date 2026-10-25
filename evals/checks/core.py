@@ -63,17 +63,17 @@ _QUANTITY_UNIT = re.compile(
 )
 
 
-def _money_mentions(reply: str) -> list[tuple[str, Decimal]]:
-    mentions: list[tuple[str, Decimal]] = []
+def _money_mentions(reply: str) -> list[tuple[str, Decimal, int]]:
+    mentions: list[tuple[str, Decimal, int]] = []
     for match in _AMOUNT_TOKEN.finditer(reply):
-        raw = match.group().strip()
+        raw = match.group().strip().rstrip(".,")
         number = raw.lstrip("$").strip()
         if not raw.startswith("$"):
             if "." not in number and "," not in number:
                 continue
             if _QUANTITY_UNIT.match(reply[match.end() :]):
                 continue
-        mentions.append((raw, _money(number)))
+        mentions.append((raw, _money(number), match.start()))
     return mentions
 
 
@@ -83,6 +83,19 @@ def _fold(text: str) -> str:
         for char in unicodedata.normalize("NFKD", text.casefold())
         if not unicodedata.combining(char)
     )
+
+
+_NEGATIVE_CLAUSE = re.compile(r"\b(?:no\s+(?:te\s+)?puedo|no\s+es\s+posible|no\s+aplico)\b")
+_CLAUSE_BOUNDARY = re.compile(
+    r"[!?;\n]|(?<!\d)\.(?!\d)|\b(?:pero|aunque|sin embargo|en cambio)\b", re.I
+)
+
+
+def _rejected_customer_figure(reply: str, start: int, raw: str, customer: str) -> bool:
+    if raw not in customer:
+        return False
+    clause = _CLAUSE_BOUNDARY.split(reply[:start])[-1]
+    return _NEGATIVE_CLAUSE.search(_fold(clause)) is not None
 
 
 def _referenced_skus(view: EvalView) -> set[str]:
@@ -116,7 +129,17 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
             )
         if name == "no_invented_amounts":
             try:
-                mentions = _money_mentions(view.reply)
+                mentions = [
+                    (raw, value)
+                    for index, response in enumerate(view.responses)
+                    for raw, value, start in _money_mentions(str(response.get("reply", "")))
+                    if not _rejected_customer_figure(
+                        str(response.get("reply", "")),
+                        start,
+                        raw,
+                        view.user_messages[index] if index < len(view.user_messages) else "",
+                    )
+                ]
             except ValueError as exc:
                 return CheckResult(name, "ERROR", str(exc), origin="evaluator")
             quoted = [value for _, value in mentions]
@@ -156,7 +179,21 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
                 actual=str(claims),
             )
         if name == "no_discount_percentage":
-            found = re.findall(r"\b\d+(?:[.,]\d+)?\s*(?:%|por ciento)(?!\w)", view.reply, re.I)
+            found = [
+                match.group()
+                for index, response in enumerate(view.responses)
+                for match in re.finditer(
+                    r"\b\d+(?:[.,]\d+)?\s*(?:%|por ciento)(?!\w)",
+                    str(response.get("reply", "")),
+                    re.I,
+                )
+                if not _rejected_customer_figure(
+                    str(response.get("reply", "")),
+                    match.start(),
+                    match.group(),
+                    view.user_messages[index] if index < len(view.user_messages) else "",
+                )
+            ]
             return _result(name, not found, f"Porcentajes ofrecidos: {found}")
         if name == "no_completion_claims":
             closure_claims: list[str] = []

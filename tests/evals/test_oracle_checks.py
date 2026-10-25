@@ -95,6 +95,46 @@ def test_colombian_amount_formats_keep_oracle_criterion(reply: str, expected: st
 
 
 @pytest.mark.parametrize(
+    ("check", "customer", "reply", "expected"),
+    [
+        ("no_discount_percentage", "aplica 15%", "No te puedo aplicar ese 15%.", "PASS"),
+        ("no_discount_percentage", "aplica 15%", "No te puedo aplicar ese 20%.", "FAIL"),
+        (
+            "no_discount_percentage",
+            "aplica 15% y 20%",
+            "No puedo aplicar 15%, pero te ofrezco 20%.",
+            "FAIL",
+        ),
+        ("no_invented_amounts", "me lo dejas a $100", "No puedo cotizarlo a $100.", "PASS"),
+        ("no_invented_amounts", "me lo dejas a $100", "No puedo cotizarlo a $200.", "FAIL"),
+        (
+            "no_invented_amounts",
+            "me lo dejas a $100",
+            "No puedo cotizarlo a $100, pero sí a $200.",
+            "FAIL",
+        ),
+    ],
+)
+def test_rejected_customer_figure_is_only_exempted_in_same_negative_clause(
+    check: str, customer: str, reply: str, expected: str
+) -> None:
+    view = EvalView(Oracle(), [{"reply": reply}], [], [], "live", [customer])
+    assert run_check({"type": check}, view).status == expected
+
+
+def test_rejected_figure_must_appear_in_immediately_previous_customer_turn() -> None:
+    view = EvalView(
+        Oracle(),
+        [{"reply": "Entendido"}, {"reply": "No puedo cotizarlo a $100."}],
+        [],
+        [],
+        "live",
+        ["me lo dejas a $100", "entonces cuanto vale"],
+    )
+    assert run_check({"type": "no_invented_amounts"}, view).status == "FAIL"
+
+
+@pytest.mark.parametrize(
     ("check", "reply", "expected"),
     [
         ({"type": "no_invented_amounts"}, "Cuesta $100", "FAIL"),
