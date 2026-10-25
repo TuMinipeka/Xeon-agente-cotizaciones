@@ -195,3 +195,13 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
   - Guía revisada; «Listo para QA humano» queda pendiente hasta la corrida final (`1059538`).
   - Canal de Gmail verificado con un borrador de prueba, ya eliminado. **Discrepancia:** la cuenta conectada (`danielsantiagomayorga03`) difiere del correo del perfil (`danielsantiagomayorgatellez03`); falta que el usuario confirme el destinatario.
 - **Inbox:** se integraron y retiraron las notas `agy-baseline-live`, `codex-defect-fixes`, `codex-e11-evaluator` y `agy-qa-guide`.
+
+## [2026-10-24] integración | E12–E14, verificación en vivo y PR hacia develop
+
+- **Codex:** E12 (`1c4fc8b`), E13 (`5dfef42`), evaluador para cifras rechazadas (`90da4f6`), reintento del juez (`85a2638`), E14 (`3dda3d3`) y la deduplicación de `require_text` (`3538cb7`, criterio H3).
+- **agy (QA):**
+  - Validó la guía contra el comportamiento real (`1e73bcd`) y encontró E14 y el aviso de stock `stale` en la demo, que es correcto porque el snapshot sintético es del 2026-10-08.
+  - Verificación en vivo `ccc15515` (109 llamadas): 3 PASS, 5 FAIL y 0 ERROR. De los 5 FAIL, 3 son falsos positivos del evaluador y 2 son defectos nuevos de XEON (E15, E16).
+- **Orquestador:** auditoría de los diffs (ningún criterio relajado; el evaluador ignora cifras rechazadas solo si son literales del cliente y van en una negativa), integración de las ramas, sincronización con `develop` y PR por pedido del usuario.
+- **Estado del HITO #2:** implementación terminada para H1–H4. La validación automatizada **no** está aprobada del todo (E15 y E16 abiertos, con 3 falsos positivos del evaluador pendientes). **No** se declara LISTO PARA QA HUMANO.
+- **Inbox:** se integraron y retiraron las notas `agy-qa-validation`, `agy-verify-e12-e13`, `codex-e12-e13` y `codex-e14-dedup`.

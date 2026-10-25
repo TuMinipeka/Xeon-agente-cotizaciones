@@ -11,12 +11,12 @@ Revisado: 2026-10-24.
 
 ## Hoja de ruta
 
-| Hito | Objetivo | Estado | Evidencia |
-|---|---|---|---|
-| S1 | Agente funcionando de punta a punta | `implementado` (entregado) | commit `90ecbfe DeliverDocHito1`; [estado del corte](estado-del-corte.md) |
-| S2 | 3 herramientas funcionales y flujo de demo de 2 min | Herramientas `implementado`; demo verificada en vivo por WhatsApp (Kapso) y en el shell `xeon` | `src/xeon/agent/hermes.py:60,153,170`; `tests/test_multiturn_context.py` |
-| S3 | Datos reales, autoevaluación y telemetría de costo por tarea | `planificado` | [fuente](../raw/orquestacion-original-2026-10-24.md) |
-| S4 | Carga de 1.000 unidades en 12 h | `planificado` | [fuente](../raw/orquestacion-original-2026-10-24.md) |
+| Hito | Objetivo                                                     | Estado                                                                                         | Evidencia                                                                 |
+| ---- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| S1   | Agente funcionando de punta a punta                          | `implementado` (entregado)                                                                     | commit `90ecbfe DeliverDocHito1`; [estado del corte](estado-del-corte.md) |
+| S2   | 3 herramientas funcionales y flujo de demo de 2 min          | Herramientas `implementado`; demo verificada en vivo por WhatsApp (Kapso) y en el shell `xeon` | `src/xeon/agent/hermes.py:60,153,170`; `tests/test_multiturn_context.py`  |
+| S3   | Datos reales, autoevaluación y telemetría de costo por tarea | `planificado`                                                                                  | [fuente](../raw/orquestacion-original-2026-10-24.md)                      |
+| S4   | Carga de 1.000 unidades en 12 h                              | `planificado`                                                                                  | [fuente](../raw/orquestacion-original-2026-10-24.md)                      |
 
 ## Trabajo delegado (2026-10-24)
 

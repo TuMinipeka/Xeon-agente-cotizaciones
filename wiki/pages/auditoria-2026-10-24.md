@@ -51,6 +51,12 @@ Pasan a ser escenarios y regresiones.
 
 | E11 | Con Grok, los seguimientos libres («el 1 el normal», «recojo sede norte, mándame el total») se bloquean como fuera de alcance aunque haya una elección o un pedido pendiente | Corrida en vivo de S01 (`acaa9704`) y de S02 (`f92718ed`) | Alta |
 
+| E12 | Grok calculaba totales que el backend no había verificado («20 bultos… $578.000», «Total: $763.000») | Corrida en vivo `9037d9a6`: S09, S11 | Alta |
+| E13 | En una solicitud mixta («escríbeme un poema… y cuánto valen 4 bultos») XEON escribía el poema | Corrida en vivo `9037d9a6`: S12 | Alta |
+| E14 | En el shell, escribir `1` para elegir una opción se rechazaba como comando mal escrito | Validación de la guía por agy (QA) | Media |
+| E15 | Cantidades contradictorias en una misma cláusula («20 unidades pero solo 4») crean un borrador con la primera, sin aclarar | Verificación en vivo `ccc15515`: S10 | Alta (abierto) |
+| E16 | «cemento 1, agrega 15 tubos…» no resuelve la elección pendiente cuando en el mismo turno se agregan productos; la conversación larga termina sin borrador | Verificación en vivo `ccc15515`: S14 | Alta (abierto) |
+
 **Estado de las correcciones (2026-10-24):**
 
 - **E1–E10** se corrigieron en `fix/eval-defects` (commits `7a14fc8`, `3ca80c0`, `c84aacd`, `2695fa0`) y se integraron con el merge `fe1b317`.
@@ -75,3 +81,14 @@ Impuestos, semáforo y aprobación de descuentos, verificación de cuenta para e
 - Tenant único `"whatsapp"` para todo el chat y para todas las instancias de Kapso.
 - La deduplicación del webhook solo dura lo que vive el proceso.
 - Las páginas `hito-s2.md:72` y `contratos-herramientas.md` describen la traza `XEON_TOOL` en la respuesta, algo que solo ocurre con `mock`.
+
+**Actualización (2026-10-24, tarde):**
+
+- **E12** (`1c4fc8b`) y **E13** (`5dfef42`) quedaron corregidos y confirmados en vivo (`ccc15515`): S09 creó en el backend un `DRAFT` de dos líneas por $763.000; S11 y S12 dieron PASS.
+- **E14** (`3dda3d3`) y la deduplicación de `require_text` (`3538cb7`) quedaron corregidos.
+- **El juez dejó de dar timeouts** (`85a2638`): 0 ERROR en la verificación.
+- **E15 y E16 siguen abiertos.**
+- **Falsos positivos pendientes del evaluador** (no son fallas de XEON):
+  - S05: `asks_clarification` mide el total de borradores al final y no los de los turnos de aclaración;
+  - S09: compara «15%» con «15 por ciento» como texto literal y no como valor;
+  - S13: compara «$5.000» con «5000 pesos» del mismo modo.
