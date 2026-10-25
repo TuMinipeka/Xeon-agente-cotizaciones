@@ -205,3 +205,74 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Orquestador:** auditoría de los diffs (ningún criterio relajado; el evaluador ignora cifras rechazadas solo si son literales del cliente y van en una negativa), integración de las ramas, sincronización con `develop` y PR por pedido del usuario.
 - **Estado del HITO #2:** implementación terminada para H1–H4. La validación automatizada **no** está aprobada del todo (E15 y E16 abiertos, con 3 falsos positivos del evaluador pendientes). **No** se declara LISTO PARA QA HUMANO.
 - **Inbox:** se integraron y retiraron las notas `agy-qa-validation`, `agy-verify-e12-e13`, `codex-e12-e13` y `codex-e14-dedup`.
+
+## [2026-10-24] integración | PR #3 fusionado en develop
+
+- El PR #3 (`developer/daniel` → `develop`, 36 commits) se fusionó con el merge commit `349bb7b`, por pedido del usuario, con el CI en verde.
+- E15 y E16, y los tres falsos positivos del evaluador, siguen abiertos y están declarados en el PR.
+
+## [2026-10-24] preparación | Video del HITO #2
+
+- **Pedido del usuario:** video demostrativo por WhatsApp y CLI, con las 3 herramientas reales, solución gratuita y automatizable, delegando entre agentes y con mínima intervención suya.
+- **Decisiones:** FFmpeg, WhatsApp Web, narración de ElevenLabs y subtítulos, corregir E17 y E18 antes de grabar.
+- **El smoke del CLI que hizo el orquestador en mock** confirmó E1, E9, E13 y E14, y destapó E17 y E18.
+- **Codex:** E17, E18 y la traza de herramientas.
+- **Orquestador:** el guion `docs/VIDEO_HITO2.md`.
+- **En curso:** los scripts de video (Codex) y el ensayo del guion (agy).
+- **Nueva página:** [video HITO #2](pages/video-hito2.md).
+- **Inbox:** se integraron y retiraron las notas `codex-video-prep-a` y `claude-cli-smoke`.
+
+## [2026-10-24] avance | Video del HITO #2: ensayo, scripts y E19
+
+- **Ensayo en vivo de agy:** 5 llamadas y las 4 escenas OK, con tiempos registrados en [video HITO #2](pages/video-hito2.md). agy ajustó el guion a la traza real.
+- **Scripts de video de Codex** (`83d5bfe`).
+- **E19** (descuento en la misma conversación reutiliza el borrador) delegado a Codex.
+- **Narración con ElevenLabs** delegada a agy. La clave del usuario ya está en `secrets/`.
+- **Inbox:** se integraron y retiraron las notas `agy-video-rehearsal` y `codex-video-scripts`.
+
+## [2026-10-24] avance | E19 corregido y narración bloqueada por la clave
+
+- **Codex:** E19 y la traza sin duplicados (`bd30ec0`); suite en verde y offline 42/42.
+- **agy:** `video/hito2/narration.json` con los 6 textos del guion (unos 46 s estimados). La generación se detuvo porque `secrets/elevenlabs_api_key.txt` está vacío. No se leyó el archivo; lo informó el script.
+- **Inbox:** se integraron y retiraron las notas `codex-e19` y `agy-narration`.
+
+## [2026-10-24] operación | Clave de ElevenLabs y entorno de grabación
+
+- **Clave de ElevenLabs:** el usuario la entregó por el chat con permiso expreso y se compromete a **rotarla al terminar el hito**. Se guardó en `secrets/elevenlabs_api_key.txt` (ignorado por Git) y no se registra su valor.
+- **Pendiente:** rotar las claves de Grok y de ElevenLabs al terminar el reto.
+- **Entorno:** el orquestador reinició la API con el código actual (con traza `TOOL` y E17–E19) en una ventana visible «XEON API - traza de herramientas», abrió la ventana «XEON CLI» y sincronizó el webhook de Kapso con el túnel activo, que se mantuvo para no cambiar la URL.
+
+## [2026-10-24] grabación | Video del HITO #2
+
+- **Narración:** agy generó la narración con ElevenLabs (6 clips, 41,6 s).
+- **Grabación:** el orquestador grabó la pantalla con FFmpeg (281 s) mientras el usuario hacía los pasos.
+- **Revisión de agy:** 7 de 7 pasos y las 3 herramientas en la traza. Dos diferencias de ejecución real (3 bultos en lugar de 10, y la traza visible solo en la escena 4).
+- **Decisión:** editar sin regrabar, con difuminado por privacidad. Edición delegada a Codex. Detalle en [video HITO #2](pages/video-hito2.md).
+- **Inbox:** se integraron y retiraron las notas `agy-narration` y `agy-raw-review`.
+
+## [2026-10-24] entrega | Video del HITO #2 aprobado por QA
+
+- **Codex:** edición con difuminado de privacidad y corrección de la posición del rótulo «espera acortada».
+- **agy (QA):** dictamen APROBADO del video `video/hito2/XEON_HITO2_demo.mp4` (1:53,5) y sección «Resultado» en `docs/VIDEO_HITO2.md`.
+- **Pendiente:** la validación del QA humano, y rotar las claves de Grok y ElevenLabs al terminar el hito.
+- **Inbox:** se integraron y retiraron las notas `codex-video-edit` y `agy-final-video-review`.
+
+## [2026-10-24] entrega | Voz del video y notas de entrega del HITO #2
+
+- **Codex (`2a9c429`):** narración sincronizada con los subtítulos y normalizada a −16,2 LUFS. El orquestador lo verificó con `ffprobe` y `ebur128`. Detalle en [video HITO #2](pages/video-hito2.md).
+- **agy:** `docs/ENTREGA_HITO2.md`, con lo logrado, lo que falló, el costo por tarea (solo lo medido; el costo en USD no está medido), la calidad y cómo reproducir.
+- **Auditoría del orquestador:** se corrigieron la especificación de audio desactualizada, la afirmación «sincronizada con `develop`» y una referencia de commit.
+- **Pendiente:** volcar el contenido en el Google Doc del informe técnico, porque el conector de Google Docs no está cargado en la sesión.
+- **Inbox:** se integraron y retiraron las notas `codex-video-audio` y `agy-entrega-hito2`.
+
+## [2026-10-24] entrega | PR #5 y texto del informe técnico del Hito #2
+
+- **Push y PR:** el usuario confirmó el push de `developer/daniel` y el PR [#5](https://github.com/TuMinipeka/Xeon-agente-cotizaciones/pull/5) hacia `develop`.
+- **Informe técnico:** el orquestador redactó el texto del Hito #2 con las 10 secciones del Google Doc del Hito 1, más las notas de entrega. El usuario lo pegará a mano porque el conector de Google Docs no está disponible. La fuente es `docs/ENTREGA_HITO2.md`.
+
+## [2026-10-25] entrega | Notas de entrega y documento técnico para Drive
+
+- **Notas de entrega separadas:** qué se logró, qué falló, costo por tarea (unas 810 llamadas a `grok-4.6`; costo en USD no medido), aprendizajes, pendientes y enlaces.
+- **Documento técnico:** con la estructura de 10 secciones del Hito 1.
+- **Archivos:** versiones HTML y Markdown en `video/hito2/entrega/` (ignorado por Git). El usuario las sube a Drive junto con el video.
+- **Pendiente:** fusionar el PR #5 (abierto, con CI en verde) y poner el enlace del video en las notas.

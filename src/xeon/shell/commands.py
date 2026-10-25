@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-CommandName = Literal["run", "status", "config", "logs", "new", "help", "quit", "invalid", "usage"]
+CommandName = Literal[
+    "run", "status", "config", "logs", "tools", "new", "help", "quit", "invalid", "usage"
+]
 
 ALIASES: dict[str, CommandName] = {
     "run": "run",
@@ -14,6 +16,8 @@ ALIASES: dict[str, CommandName] = {
     "c": "config",
     "logs": "logs",
     "l": "logs",
+    "tools": "tools",
+    "t": "tools",
     "new": "new",
     "n": "new",
     "help": "help",
@@ -31,7 +35,7 @@ class ParsedCommand:
     argument: str = ""
 
 
-_NO_ARGUMENTS = frozenset({"status", "config", "new", "help", "quit"})
+_NO_ARGUMENTS = frozenset({"status", "config", "tools", "new", "help", "quit"})
 
 
 def _edit_distance(left: str, right: str) -> int:

@@ -1,0 +1,38 @@
+{
+  "segments": [
+    {
+      "id": "portada",
+      "title": "XEON - HITO #2: 3 herramientas con Grok",
+      "text": "XEON es un agente de cotizaciones para ferreterías. En este hito demostramos sus tres herramientas reales conectadas a Grok."
+    },
+    {
+      "id": "escena1",
+      "title": "Herramienta 1: search_products",
+      "labels": ["Herramienta 1: search_products"],
+      "text": "Ante un pedido ambiguo, XEON busca en el catálogo y pide elegir en lugar de adivinar."
+    },
+    {
+      "id": "escena2",
+      "title": "Herramientas 2 y 3: stock y borrador",
+      "labels": ["Herramienta 2: get_stock_by_branches", "Herramienta 3: create_quote_draft"],
+      "text": "Al elegir, consulta el inventario por sede y crea un borrador calculado por el backend, no por el modelo. El seguimiento reutiliza el mismo borrador."
+    },
+    {
+      "id": "escena3",
+      "title": "Borrador con varias líneas",
+      "labels": ["Borrador con varias líneas"],
+      "text": "Varios productos en un mensaje generan un solo borrador con todas las líneas y el total verificado."
+    },
+    {
+      "id": "escena4",
+      "title": "CLI y límites de seguridad",
+      "labels": ["CLI y límites de seguridad"],
+      "text": "Desde la terminal, XEON rechaza descuentos sin política y muestra la traza de las herramientas que ejecutó con grok-4.6."
+    },
+    {
+      "id": "cierre",
+      "title": "Validación humana pendiente - QA externo",
+      "text": "Todo lo mostrado es la ejecución real. La aprobación final la realiza el QA humano."
+    }
+  ]
+}

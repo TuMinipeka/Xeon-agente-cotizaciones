@@ -35,6 +35,7 @@ En la bóveda de la raíz del repositorio también se colorean `docs/` (verde az
 - [Canal Kapso](pages/canal-kapso.md) — WhatsApp oficial vía Kapso: decisiones, contrato del webhook y paso a paso.
 - [XEON CLI](pages/xeon-cli.md) — shell interactivo `xeon`: comandos, alias, diseño neón y criterios.
 - [Evaluación conversacional](pages/evaluacion-conversacional.md) — cliente simulado, oráculo, checks deterministas y regresiones (contrato).
+- [Video HITO #2](pages/video-hito2.md) — decisiones, evidencia de herramientas, guion y reparto del video demostrativo.
 - [Auditoría 2026-10-24](pages/auditoria-2026-10-24.md) — comportamiento real confirmado, defectos E1–E6, incompleto, hipótesis y riesgos.
 - [Contratos de herramientas](pages/contratos-herramientas.md) — `search_products`, `get_stock_by_branches`, `create_quote_draft`.
 

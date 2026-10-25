@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import uuid
@@ -8,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from xeon.agent.tool_trace import record_tool
 from xeon.application.ports.catalog import CatalogUnavailableError, ProductCatalog
 from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
 from xeon.application.quote_draft import (
@@ -68,6 +70,19 @@ class CommercialToolbelt:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
+        outcome = self._search_products(query, limit=limit)
+        self._record_search(outcome)
+        return outcome
+
+    @staticmethod
+    def _record_search(outcome: SearchProductsOutcome) -> None:
+        record_tool(
+            "search_products",
+            status=outcome.status,
+            sku=outcome.candidates[0].sku if outcome.candidates else "none",
+        )
+
+    def _search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
         cleaned = query.strip()
         if not cleaned:
             return SearchProductsOutcome(
@@ -178,14 +193,34 @@ class CommercialToolbelt:
         evaluated_at: str,
         requested_quantity: Decimal | None = None,
     ) -> StockByBranches:
-        return self._get_stock_by_branches.execute(
-            GetStockByBranchesQuery(
-                sku=sku,
-                requested_branch_id=requested_branch_id,
-                evaluated_at=evaluated_at,
-                requested_quantity=requested_quantity,
+        try:
+            result = self._get_stock_by_branches.execute(
+                GetStockByBranchesQuery(
+                    sku=sku,
+                    requested_branch_id=requested_branch_id,
+                    evaluated_at=evaluated_at,
+                    requested_quantity=requested_quantity,
+                )
             )
+        except Exception:
+            record_tool("get_stock_by_branches", status="unavailable")
+            raise
+        local = next(
+            (item for item in result.items if item.branch_id == result.requested_branch_id),
+            None,
         )
+        record_tool(
+            "get_stock_by_branches",
+            sku=result.sku,
+            sede=result.requested_branch_id
+            if result.requested_branch_id.startswith("sede-")
+            else "unknown",
+            disponible=str(result.local_available)
+            if result.local_available is not None
+            else "unknown",
+            vigencia=local.freshness.value if local is not None else "unknown",
+        )
+        return result
 
     def create_quote_draft(
         self,
@@ -195,20 +230,36 @@ class CommercialToolbelt:
         lines: Sequence[DraftLineRequest],
         discount_requested: bool = False,
     ) -> CreateQuoteResult:
-        return self._create_quote_draft.execute(
-            CreateQuoteDraftCommand(
-                tenant_id=tenant_id,
-                request_id=request_id,
-                lines=tuple(lines),
-                discount_requested=discount_requested,
+        try:
+            result = self._create_quote_draft.execute(
+                CreateQuoteDraftCommand(
+                    tenant_id=tenant_id,
+                    request_id=request_id,
+                    lines=tuple(lines),
+                    discount_requested=discount_requested,
+                )
             )
-        )
+        except Exception:
+            record_tool("create_quote_draft", status="unavailable")
+            raise
+        if isinstance(result, QuoteDraftReady):
+            record_tool(
+                "create_quote_draft",
+                quote_id=str(result.quote.id),
+                lineas=len(result.quote.lines),
+                subtotal=f"{result.quote.subtotal.amount} {result.quote.currency}",
+                replayed=str(result.replayed).lower(),
+            )
+        else:
+            record_tool("create_quote_draft", status=type(result).__name__)
+        return result
 
     def prepare_verified_context(
         self,
         user_message: str,
         *,
         request_id: str | None = None,
+        conversation_key: str | None = None,
         last_sku: str | None = None,
         pending: PendingCandidates | None = None,
         known_lines: tuple[ResolvedLine, ...] = (),
@@ -218,19 +269,29 @@ class CommercialToolbelt:
         if not normalized or normalized.casefold() in {"hola", "buenas", "buenos dias"}:
             return None, None, None, ()
 
-        if (
-            _requests_quote_summary(normalized)
-            and known_lines
-            and not _requests_discount(normalized)
-        ):
+        discount_requested = _requests_discount(normalized)
+        if _requests_quote_summary(normalized) and known_lines:
             try:
                 summary = self.create_quote_draft(
                     tenant_id="whatsapp",
-                    request_id=request_id or f"wa-{uuid.uuid4().hex[:12]}",
+                    request_id=_draft_request_id(
+                        conversation_key,
+                        tuple(DraftLineRequest(line.sku, line.quantity) for line in known_lines),
+                        request_id,
+                    ),
                     lines=tuple(DraftLineRequest(line.sku, line.quantity) for line in known_lines),
+                    discount_requested=discount_requested,
                 )
                 if isinstance(summary, QuoteDraftReady):
                     return _format_draft(summary.quote), last_sku, None, ()
+                if isinstance(summary, DiscountPolicyUnavailable):
+                    return (
+                        "[XEON_TOOL:create_quote_draft status=discount_policy_unavailable] "
+                        "No hay politica de descuentos aprobada; no se creo un borrador.",
+                        last_sku,
+                        None,
+                        (),
+                    )
             except Exception as exc:
                 _LOG.error("Quote draft source unavailable: %s", type(exc).__name__)
                 return (
@@ -270,11 +331,12 @@ class CommercialToolbelt:
         selected_sku: str | None = None
         for clause, quantity in clauses:
             exact_query = _explicit_product_query(clause)
-            outcome = self.search_products(exact_query or clause, limit=3)
+            outcome = self._search_products(exact_query or clause, limit=3)
             if exact_query is not None and outcome.status == "semantic_candidates":
-                outcome = self.search_products(clause, limit=3)
+                outcome = self._search_products(clause, limit=3)
             if last_sku is not None and outcome.status in {"not_found", "clarification_required"}:
-                outcome = self.search_products(last_sku, limit=1)
+                outcome = self._search_products(last_sku, limit=1)
+            self._record_search(outcome)
             if outcome.status in {"clarification_required", "catalog_unavailable", "not_found"}:
                 return (
                     f"[XEON_TOOL:search_products status={outcome.status}] {outcome.message}",
@@ -355,9 +417,9 @@ class CommercialToolbelt:
             try:
                 result = self.create_quote_draft(
                     tenant_id="whatsapp",
-                    request_id=request_id or f"wa-{uuid.uuid4().hex[:12]}",
+                    request_id=_draft_request_id(conversation_key, tuple(draft_lines), request_id),
                     lines=tuple(draft_lines),
-                    discount_requested=_requests_discount(normalized),
+                    discount_requested=discount_requested,
                 )
                 if isinstance(result, QuoteDraftReady):
                     contexts.append(_format_draft(result.quote))
@@ -412,6 +474,21 @@ def _format_draft(quote: Quote) -> str:
         for line in quote.lines
     ]
     return "\n".join((header, *details))
+
+
+def _draft_request_id(
+    conversation_key: str | None,
+    lines: tuple[DraftLineRequest, ...],
+    fallback_request_id: str | None,
+) -> str:
+    if conversation_key is None:
+        return fallback_request_id or f"wa-{uuid.uuid4().hex[:12]}"
+    signature = "\n".join(
+        f"{line.query}\t{Decimal(str(line.quantity)).normalize()}"
+        for line in sorted(lines, key=lambda line: (line.query, Decimal(str(line.quantity))))
+    )
+    digest = hashlib.sha256(f"{conversation_key}\n{signature}".encode()).hexdigest()[:32]
+    return f"xeon-{digest}"
 
 
 def _requests_quote_summary(text: str) -> bool:

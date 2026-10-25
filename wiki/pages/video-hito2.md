@@ -1,0 +1,92 @@
+---
+tags:
+  - xeon/estado
+---
+
+# Video demostrativo del HITO #2
+
+Preparación del video que evidencia las 3 herramientas reales de XEON (`search_products`, `get_stock_by_branches` y `create_quote_draft`) con `grok-4.6`, por WhatsApp (Kapso) y por el CLI `xeon`. Relacionado: [hito S2](hito-s2.md), [canal Kapso](canal-kapso.md), [XEON CLI](xeon-cli.md), [evaluación conversacional](evaluacion-conversacional.md), [auditoría](auditoria-2026-10-24.md).
+
+Revisado: 2026-10-24. Estado: **`implementado`**. Video editado y **aprobado por QA (agy)**. La validación del QA humano está pendiente.
+
+## Decisiones del usuario (2026-10-24)
+
+- **Grabación y edición con FFmpeg** (ya instalado, `Gyan.FFmpeg` 9.0.1). Es gratuito y automatizable por los agentes. No se usa OBS.
+- **WhatsApp Web** en el PC: la conversación con el sandbox de Kapso y las terminales quedan en una sola pantalla.
+- **Narración** con voz sintética de **ElevenLabs** y subtítulos. La clave la pega el usuario a mano en `secrets/elevenlabs_api_key.txt`; nunca va al chat.
+- **E17 y E18 se corrigen antes de grabar** (hecho). El guion evita E15 y E16, que no hacen falta para mostrar las 3 herramientas.
+- **Mínima intervención del usuario:** solo hace las acciones manuales marcadas con 🖐 en el guion.
+
+## Evidencia de herramientas reales
+
+Con Grok, el cliente no ve los marcadores `XEON_TOOL`. Para mostrar el funcionamiento real sin simular, Codex agregó una **traza** (`909d7ae`):
+
+- el logger `xeon.tools` imprime una línea `TOOL …` por invocación en la consola de la API (estado, SKU, sede, disponibilidad o subtotal, sin teléfonos ni secretos);
+- el comando `tools`/`t` del shell muestra las herramientas del último turno.
+
+**Límite:** con `xeon --api` el comando `t` no recibe la traza del servidor; la traza de WhatsApp se ve en la consola de la API.
+
+## Guion
+
+[`docs/VIDEO_HITO2.md`](../../docs/VIDEO_HITO2.md), commit `dacd1c3` en `developer/daniel`. Escenas:
+
+1. Ambigüedad con `search_products`.
+2. Elección, stock por sede y borrador reutilizado.
+3. Borrador de varias líneas por $670.500.
+4. Negativa de descuento en el CLI, más `t` y `s`.
+
+La edición acelera las esperas de Grok y las rotula «espera acortada». No se altera ninguna respuesta. Si algo no coincide con el guion durante la grabación, se registra y se vuelve a grabar; no se oculta en la edición.
+
+## Reparto
+
+| Agente | Tarea | Estado |
+|---|---|---|
+| Codex | E17, E18 y traza (`e36a5b3`, `6b07e7a`, `909d7ae`, `4b89f43`) | Hecho |
+| Codex | `scripts/video/record.py`, `narrate.py` y `edit.py` (`83d5bfe`, 10 pruebas sin red) | Hecho; falta validar FFmpeg real y la voz |
+| agy (QA) | Ensayo del guion en mock y en vivo: **5 llamadas**, las 4 escenas OK y 151 s en crudo | Hecho |
+| agy (QA) | Narración con ElevenLabs: 6 clips, 41,6 s en total, `narration_durations.json` | Hecho |
+| Codex | E19 y la traza `search_products` duplicada (`bd30ec0`) | Hecho: un descuento nunca reutiliza un borrador previo; una sola línea `TOOL` por búsqueda |
+| agy (QA) | Revisión del video final contra el guion | Pendiente |
+| Opus | Guion, auditoría, arranque de servicios y grabación, wiki | En curso |
+| Usuario | Clave de ElevenLabs, WhatsApp Web con QR, «No molestar», ventanas, mensajes del guion | Pendiente |
+
+## Ensayo en vivo (agy, 2026-10-24)
+
+`grok-4.6` en la API del puerto 8013, con 5 llamadas en total:
+
+| Paso | Respuesta | Resultado |
+|---|---|---|
+| Paso 1 (opciones de cemento) | 21,2 s | 3 opciones; sin borrador |
+| Paso 3 («1») | 22,2 s | `DRAFT` $289.000 |
+| Paso 5 (sede norte) | 28,4 s | Mismo `quote_id`, `replayed=true` |
+| Paso 7 (dos productos) | 42,7 s | `DRAFT` de 2 líneas, $670.500 |
+| Escena 4 (descuento) | 36,8 s | `DiscountPolicyUnavailable`; `t` y `s` correctos |
+
+- Ninguna respuesta afirmó «aprobado», «reservado» ni «facturado».
+- agy ajustó el guion a la traza real (`status=semantic_candidates` en la escena 1, `replayed=true` en el paso 5; commit de alineación).
+- **Defectos hallados:**
+  - **E19 (alta):** en una misma conversación, un pedido de descuento sobre líneas ya cotizadas reutiliza el borrador anterior en vez de informar que no hay política. No bloquea el video porque la escena 4 usa otra sesión.
+  - **Cosmético:** `search_products` aparece dos veces en la traza de un mismo turno.
+
+## Grabación (2026-10-24, 22:54)
+
+- **Archivo:** `video/hito2/raw/hito2.mp4`, de 281 s, 1920×1080 a 30 fps. Lo grabó FFmpeg con `scripts/video/record.py`, que inició y detuvo el orquestador. El usuario hizo los pasos.
+- **Revisión cuadro por cuadro de agy (QA):** los **7 pasos ocurrieron**, con las 3 herramientas en la traza `TOOL`, montos exactos y `grok-4.6`. No aparecen secretos ni notificaciones.
+- **Diferencias con el guion**, todas de ejecución real y correcta:
+  1. El usuario pidió **3 bultos** en lugar de 10, así que el borrador es de $86.700 (3 × $28.900) y no de $289.000. El paso de la sede norte reutiliza el mismo `quote_id` (`replayed=true`).
+  2. En las escenas 1–3, WhatsApp estuvo a pantalla completa y la traza no se veía al lado. En la escena 4, en cambio, la traza completa de las escenas 1–3 se ve legible.
+- **Decisión del orquestador:** se edita **sin regrabar**, porque nada se simula y las 3 herramientas quedan evidenciadas. Por privacidad se difuminan la barra de pestañas del navegador (títulos de otras pestañas del usuario) y unos stickers con la cara de un niño en el historial del chat.
+- **Marcas** en `video/hito2/marks.json`: escenas y esperas aceleradas ×8, para una duración estimada de 1:52.
+
+## Resultado (2026-10-24)
+
+- **Archivo:** `video/hito2/XEON_HITO2_demo.mp4` (ignorado por Git), de 1:53,5, 1920×1080, H.264, con audio AAC de la narración de ElevenLabs y subtítulos quemados.
+- **Voz audible (`2a9c429`, Codex):** la mezcla anterior quedaba en −23,6 LUFS y adelantaba cada clip 250 ms al subtítulo. Ahora cada clip arranca con su bloque `.srt` y la pista única es AAC mono de 48 kHz con `loudnorm`. El orquestador lo verificó con `ebur128`: −16,2 LUFS integrados y −1,5 dBTP. No se volvieron a generar clips en ElevenLabs.
+- **Subtítulos:** `video/hito2/XEON_HITO2_demo.srt`.
+- **Edición de Codex** con `scripts/video/edit.py`:
+  - portada, rótulos por herramienta y cierre «Validación humana pendiente»;
+  - esperas de Grok aceleradas ×8 y rotuladas «espera acortada» (arriba a la derecha, tras corregir su choque con los subtítulos);
+  - difuminado de privacidad sobre la barra de pestañas y los stickers.
+- **Auditoría del orquestador** sobre los fotogramas de control: detectó el choque del rótulo con los subtítulos y pidió la corrección.
+- **Revisión final de agy:** **APROBADO**, con 57 fotogramas revisados. Las 3 herramientas quedan evidenciadas con contenido real legible, no hay recortes ni alteraciones de las respuestas y no aparecen datos sensibles. Observación menor no bloqueante: el subtítulo 5 cubre parcialmente la última línea inferior de la terminal entre 1:07 y 1:15.
+- **Desviaciones respecto al guion:** 3 bultos en lugar de 10, y la traza visible en la escena 4. Están documentadas en la sección F de `docs/VIDEO_HITO2.md`.

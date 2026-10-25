@@ -38,6 +38,7 @@ _COMMANDS = (
     ("status", "s", "View agent status"),
     ("config", "c", "View safe configuration"),
     ("logs", "l", "View session logs"),
+    ("tools", "t", "View last turn tools"),
     ("new", "n", "Start new conversation"),
     ("help", "h, ?", "Show available commands"),
     ("quit", "q, exit", "Exit shell"),
@@ -113,12 +114,14 @@ def _turtle_logo() -> Text:
     return logo
 
 
-def _commands_table() -> Table:
+def _commands_table(*, include_tools: bool = True) -> Table:
     table = Table.grid(padding=(0, 1))
     table.add_column(width=8, no_wrap=True)
     table.add_column(width=10, no_wrap=True)
     table.add_column(width=38, no_wrap=True)
     for name, aliases, description in _COMMANDS:
+        if name == "tools" and not include_tools:
+            continue
         table.add_row(
             Text(name, style=f"bold {theme.ACCENT}"),
             Text(f"/ {aliases}", style=theme.ACCENT_DIM),
@@ -127,17 +130,20 @@ def _commands_table() -> Table:
     return table
 
 
-def render_commands(width: int, *, plain: bool = False) -> RenderableType:
+def render_commands(
+    width: int, *, plain: bool = False, include_tools: bool = True
+) -> RenderableType:
+    commands = tuple(item for item in _COMMANDS if include_tools or item[0] != "tools")
     if plain:
         return Text(
             "\n".join(
-                f"{name} / {aliases}  {description}" for name, aliases, description in _COMMANDS
+                f"{name} / {aliases}  {description}" for name, aliases, description in commands
             )
         )
     if width < 60:
-        return Text("  ".join(name for name, _, _ in _COMMANDS), style=theme.ACCENT)
+        return Text("  ".join(name for name, _, _ in commands), style=theme.ACCENT)
     return Panel(
-        _commands_table(),
+        _commands_table(include_tools=include_tools),
         title="// AVAILABLE COMMANDS",
         title_align="left",
         border_style=theme.BORDER,
@@ -170,7 +176,7 @@ def render_banner(session: Session, width: int, *, plain: bool = False) -> Rende
         return Group(
             Text("XEON CLI  |  Tactical Agent Shell", style=theme.ACCENT),
             Text(f"● ready  |  {_version()}  |  {profile}", style=theme.FG_MUTED),
-            render_commands(width),
+            render_commands(width, include_tools=False),
         )
     ready = Text("● system ready", style=theme.STATUS_OK)
     details = Table.grid(padding=(0, 1))
@@ -200,10 +206,12 @@ def render_banner(session: Session, width: int, *, plain: bool = False) -> Rende
     )
     if width < 100:
         frame_width = min(width, 74)
-        body: RenderableType = Group(title, system, render_commands(frame_width - 2))
+        body: RenderableType = Group(
+            title, system, render_commands(frame_width - 2, include_tools=False)
+        )
     else:
         frame_width = min(width, 100)
-        right = Group(title, system, render_commands(72))
+        right = Group(title, system, render_commands(72, include_tools=False))
         grid = Table.grid(padding=(0, 1), expand=False)
         grid.add_column(width=24, vertical="middle")
         grid.add_column(width=72)
@@ -222,6 +230,7 @@ def render_footer(width: int, *, plain: bool = False) -> Text:
         ("s", "status"),
         ("c", "config"),
         ("l", "logs"),
+        ("t", "tools"),
         ("h", "help"),
         ("q", "quit"),
     )

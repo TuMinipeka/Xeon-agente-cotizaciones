@@ -1,0 +1,65 @@
+{
+  "blur": [
+    {"x": 0, "y": 0, "w": 1920, "h": 60, "start": 34, "end": 192},
+    {"x": 1580, "y": 170, "w": 265, "h": 645, "start": 34, "end": 102}
+  ],
+  "scenes": [
+    {
+      "id": "escena1",
+      "file": "hito2.mp4",
+      "start": 34.0,
+      "end": 70.0,
+      "speedups": [
+        {
+          "start": 38.0,
+          "end": 57.0,
+          "factor": 8
+        }
+      ]
+    },
+    {
+      "id": "escena2",
+      "file": "hito2.mp4",
+      "start": 70.0,
+      "end": 129.5,
+      "speedups": [
+        {
+          "start": 74.0,
+          "end": 97.0,
+          "factor": 8
+        },
+        {
+          "start": 104.0,
+          "end": 127.0,
+          "factor": 8
+        }
+      ]
+    },
+    {
+      "id": "escena3",
+      "file": "hito2.mp4",
+      "start": 129.5,
+      "end": 192.0,
+      "speedups": [
+        {
+          "start": 133.0,
+          "end": 183.0,
+          "factor": 8
+        }
+      ]
+    },
+    {
+      "id": "escena4",
+      "file": "hito2.mp4",
+      "start": 204.0,
+      "end": 269.5,
+      "speedups": [
+        {
+          "start": 220.0,
+          "end": 249.0,
+          "factor": 8
+        }
+      ]
+    }
+  ]
+}

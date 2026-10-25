@@ -93,6 +93,7 @@ class AgentService:
                 self._tools.prepare_verified_context(
                     commercial_message,
                     request_id=request_id,
+                    conversation_key=conversation_key,
                     last_sku=previous_sku,
                     pending=pending,
                     known_lines=known_lines,

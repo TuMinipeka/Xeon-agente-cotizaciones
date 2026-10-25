@@ -151,3 +151,13 @@ async def _execute(command: ParsedCommand, session: Session, console: Console) -
             count = 20
         session.record("logs", "ok", started)
         console.print(render_logs(session, count, plain=plain))
+    elif command.name == "tools":
+        session.record("tools", "ok", started)
+        console.print(
+            render_reply(
+                "\n".join(session.last_tools)
+                if session.last_tools
+                else "Sin herramientas en el ultimo turno.",
+                plain=plain,
+            )
+        )

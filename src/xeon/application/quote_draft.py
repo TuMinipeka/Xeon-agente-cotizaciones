@@ -87,6 +87,11 @@ class CreateQuoteDraft:
     def execute(self, command: CreateQuoteDraftCommand) -> CreateQuoteResult:
         tenant_id = _require_key_part(command.tenant_id, name="tenant_id")
         request_id = _require_key_part(command.request_id, name="request_id")
+        if command.discount_requested:
+            return DiscountPolicyUnavailable(
+                "No hay una politica de descuentos sintetica aprobada; "
+                "el backend no inventa el porcentaje."
+            )
         existing = self._quotes.get_by_idempotency_key(tenant_id, request_id)
         if existing is not None:
             if len(existing.lines) != len(command.lines):
@@ -104,11 +109,6 @@ class CreateQuoteDraft:
                 return IdempotencyConflict("No se puede comprobar el request_id existente.")
             return QuoteDraftReady(quote=existing, replayed=True)
 
-        if command.discount_requested:
-            return DiscountPolicyUnavailable(
-                "No hay una politica de descuentos sintetica aprobada; "
-                "el backend no inventa el porcentaje."
-            )
         if not command.lines:
             raise EmptyQuoteError("Un borrador requiere al menos una linea.")
 

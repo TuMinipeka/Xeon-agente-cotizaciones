@@ -20,5 +20,5 @@ T a c t i c a l   A g e n t   S h e l l
 │ quit     / q, exit  Exit shell                                       │        
 ╰──────────────────────────────────────────────────────────────────────╯        
 └────────────────────────────────────────────────────────────────────────┘      
-r run  s status  c config  l logs  h help  q quit
+r run  s status  c config  l logs  t tools  h help  q quit
 xeon > 
