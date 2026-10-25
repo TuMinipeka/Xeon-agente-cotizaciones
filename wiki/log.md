@@ -256,3 +256,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **agy (QA):** dictamen APROBADO del video `video/hito2/XEON_HITO2_demo.mp4` (1:53,5) y sección «Resultado» en `docs/VIDEO_HITO2.md`.
 - **Pendiente:** la validación del QA humano, y rotar las claves de Grok y ElevenLabs al terminar el hito.
 - **Inbox:** se integraron y retiraron las notas `codex-video-edit` y `agy-final-video-review`.
+
+## [2026-10-24] entrega | Voz del video y notas de entrega del HITO #2
+
+- **Codex (`2a9c429`):** narración sincronizada con los subtítulos y normalizada a −16,2 LUFS. El orquestador lo verificó con `ffprobe` y `ebur128`. Detalle en [video HITO #2](pages/video-hito2.md).
+- **agy:** `docs/ENTREGA_HITO2.md`, con lo logrado, lo que falló, el costo por tarea (solo lo medido; el costo en USD no está medido), la calidad y cómo reproducir.
+- **Auditoría del orquestador:** se corrigieron la especificación de audio desactualizada, la afirmación «sincronizada con `develop`» y una referencia de commit.
+- **Pendiente:** volcar el contenido en el Google Doc del informe técnico, porque el conector de Google Docs no está cargado en la sesión.
+- **Inbox:** se integraron y retiraron las notas `codex-video-audio` y `agy-entrega-hito2`.

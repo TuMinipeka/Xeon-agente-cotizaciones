@@ -81,6 +81,7 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
 ## Resultado (2026-10-24)
 
 - **Archivo:** `video/hito2/XEON_HITO2_demo.mp4` (ignorado por Git), de 1:53,5, 1920×1080, H.264, con audio AAC de la narración de ElevenLabs y subtítulos quemados.
+- **Voz audible (`2a9c429`, Codex):** la mezcla anterior quedaba en −23,6 LUFS y adelantaba cada clip 250 ms al subtítulo. Ahora cada clip arranca con su bloque `.srt` y la pista única es AAC mono de 48 kHz con `loudnorm`. El orquestador lo verificó con `ebur128`: −16,2 LUFS integrados y −1,5 dBTP. No se volvieron a generar clips en ElevenLabs.
 - **Subtítulos:** `video/hito2/XEON_HITO2_demo.srt`.
 - **Edición de Codex** con `scripts/video/edit.py`:
   - portada, rótulos por herramienta y cierre «Validación humana pendiente»;
