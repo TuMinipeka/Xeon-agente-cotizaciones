@@ -15,6 +15,11 @@ OUTPUT_NAME = "XEON_HITO2_demo"
 SCENES = ("portada", "escena1", "escena2", "escena3", "escena4", "cierre")
 BACKGROUND = "0x071B19"
 ACCENT = "0x00D9A3"
+FONT = (
+    r"fontfile='C\:/Windows/Fonts/arial.ttf'"
+    if Path("C:/Windows/Fonts/arial.ttf").exists()
+    else "font=Arial"
+)
 
 
 @dataclass(frozen=True)
@@ -41,7 +46,7 @@ def _text(value: str) -> str:
 
 def _drawtext(value: str, *, size: int, y: str) -> str:
     return (
-        f"drawtext=font=Arial:text='{_text(value)}':fontcolor={ACCENT}:"
+        f"drawtext={FONT}:text='{_text(value)}':fontcolor={ACCENT}:"
         f"fontsize={size}:box=1:boxcolor={BACKGROUND}@0.8:boxborderw=16:"
         f"x=(w-text_w)/2:y={y}"
     )
@@ -52,8 +57,35 @@ def _relative(path: Path, root: Path) -> str:
 
 
 def _clip_command(
-    source: str, target: str, start: float, duration: float, filters: str
+    source: str,
+    target: str,
+    start: float,
+    duration: float,
+    filters: list[str],
+    blurs: list[tuple[int, int, int, int, float, float]],
 ) -> tuple[str, ...]:
+    filter_args: tuple[str, ...]
+    if blurs:
+        base_filters = ",".join(filters[:5])
+        overlays = ",".join(filters[5:])
+        graph = [f"[0:v]{base_filters},split=2[base0][crop0]"]
+        for index, (x, y, width, height, blur_start, blur_end) in enumerate(blurs):
+            graph.append(
+                f"[crop{index}]crop={width}:{height}:{x}:{y},boxblur=20:2:10:2[blur{index}]"
+            )
+            graph.append(
+                f"[base{index}][blur{index}]overlay={x}:{y}:"
+                f"enable='between(t,{blur_start:.3f},{blur_end:.3f})'[out{index}]"
+            )
+            if index + 1 < len(blurs):
+                graph.append(f"[out{index}]split=2[base{index + 1}][crop{index + 1}]")
+        if overlays:
+            graph.append(f"[out{len(blurs) - 1}]{overlays}[v]")
+        else:
+            graph.append(f"[out{len(blurs) - 1}]null[v]")
+        filter_args = ("-filter_complex", ";".join(graph), "-map", "[v]")
+    else:
+        filter_args = ("-vf", ",".join(filters))
     return (
         "ffmpeg",
         "-hide_banner",
@@ -66,8 +98,7 @@ def _clip_command(
         f"{duration:.3f}",
         "-i",
         source,
-        "-vf",
-        filters,
+        *filter_args,
         "-an",
         "-r",
         "30",
@@ -130,6 +161,41 @@ def _scene_parts(mark: dict[str, Any]) -> list[tuple[float, float, float]]:
     if cursor < end:
         parts.append((cursor, float(end), 1))
     return parts
+
+
+def _part_blurs(
+    marks: list[dict[str, Any]], start: float, end: float, speed: float
+) -> list[tuple[int, int, int, int, float, float]]:
+    active: list[tuple[int, int, int, int, float, float]] = []
+    for mark in marks:
+        try:
+            x, y, width, height = (int(mark[key]) for key in ("x", "y", "w", "h"))
+            blur_start, blur_end = float(mark["start"]), float(mark["end"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("Difuminado invalido en marks.json.") from exc
+        if (
+            x < 0
+            or y < 0
+            or width <= 0
+            or height <= 0
+            or x + width > 1920
+            or y + height > 1080
+            or blur_end <= blur_start
+        ):
+            raise ValueError("Difuminado fuera de la imagen o con tiempo invalido.")
+        overlap_start, overlap_end = max(start, blur_start), min(end, blur_end)
+        if overlap_end > overlap_start:
+            active.append(
+                (
+                    x,
+                    y,
+                    width,
+                    height,
+                    (overlap_start - start) / speed,
+                    (overlap_end - start) / speed,
+                )
+            )
+    return active
 
 
 def build_plan(base: Path = BASE) -> EditPlan:
@@ -200,7 +266,10 @@ def build_plan(base: Path = BASE) -> EditPlan:
                         _relative(target, root),
                         start,
                         end - start,
-                        ",".join(filters),
+                        filters,
+                        _part_blurs(
+                            [*marks.get("blur", []), *mark.get("blur", [])], start, end, speed
+                        ),
                     )
                 )
                 pieces.append(target.name)

@@ -250,6 +250,48 @@ def test_edit_rejects_unfilled_marks(tmp_path: Path) -> None:
         edit.build_plan(base)
 
 
+def test_edit_blurs_absolute_raw_intervals_across_speedups(tmp_path: Path) -> None:
+    base = tmp_path / "video" / "hito2"
+    _edit_fixture(base)
+    marks_path = base / "marks.json"
+    marks = json.loads(marks_path.read_text(encoding="utf-8"))
+    marks["blur"] = [
+        {"x": 0, "y": 0, "w": 1920, "h": 60, "start": 4, "end": 12},
+        {"x": 1580, "y": 170, "w": 265, "h": 645, "start": 7, "end": 9},
+    ]
+    marks_path.write_text(json.dumps(marks), encoding="utf-8")
+    plan = edit.build_plan(base)
+    normal = " ".join(plan.commands[1])
+    accelerated = " ".join(plan.commands[2])
+    final = " ".join(plan.commands[3])
+    assert "-filter_complex" in normal
+    assert "crop=1920:60:0:0,boxblur=20:2:10:2" in normal
+    assert "crop=265:645:1580:170,boxblur=20:2:10:2" in normal
+    assert "between(t,4.000,8.000)" in normal
+    assert "between(t,7.000,8.000)" in normal
+    assert "between(t,0.000,0.500)" in accelerated
+    assert "between(t,0.000,0.125)" in accelerated
+    assert "-vf" in final and "boxblur" not in final
+
+
+@pytest.mark.parametrize(
+    "blur",
+    [
+        {"x": 1900, "y": 0, "w": 30, "h": 60, "start": 1, "end": 2},
+        {"x": 0, "y": 0, "w": 20, "h": 20, "start": 3, "end": 2},
+    ],
+)
+def test_edit_rejects_invalid_blur(tmp_path: Path, blur: dict[str, int]) -> None:
+    base = tmp_path / "video" / "hito2"
+    _edit_fixture(base)
+    marks_path = base / "marks.json"
+    marks = json.loads(marks_path.read_text(encoding="utf-8"))
+    marks["blur"] = [blur]
+    marks_path.write_text(json.dumps(marks), encoding="utf-8")
+    with pytest.raises(ValueError, match="Difuminado fuera"):
+        edit.build_plan(base)
+
+
 def test_edit_execute_writes_srt_and_runs_commands_without_real_ffmpeg(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
