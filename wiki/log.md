@@ -241,3 +241,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Clave de ElevenLabs:** el usuario la entregó por el chat con permiso expreso y se compromete a **rotarla al terminar el hito**. Se guardó en `secrets/elevenlabs_api_key.txt` (ignorado por Git) y no se registra su valor.
 - **Pendiente:** rotar las claves de Grok y de ElevenLabs al terminar el reto.
 - **Entorno:** el orquestador reinició la API con el código actual (con traza `TOOL` y E17–E19) en una ventana visible «XEON API - traza de herramientas», abrió la ventana «XEON CLI» y sincronizó el webhook de Kapso con el túnel activo, que se mantuvo para no cambiar la URL.
+
+## [2026-10-24] grabación | Video del HITO #2
+
+- **Narración:** agy generó la narración con ElevenLabs (6 clips, 41,6 s).
+- **Grabación:** el orquestador grabó la pantalla con FFmpeg (281 s) mientras el usuario hacía los pasos.
+- **Revisión de agy:** 7 de 7 pasos y las 3 herramientas en la traza. Dos diferencias de ejecución real (3 bultos en lugar de 10, y la traza visible solo en la escena 4).
+- **Decisión:** editar sin regrabar, con difuminado por privacidad. Edición delegada a Codex. Detalle en [video HITO #2](pages/video-hito2.md).
+- **Inbox:** se integraron y retiraron las notas `agy-narration` y `agy-raw-review`.

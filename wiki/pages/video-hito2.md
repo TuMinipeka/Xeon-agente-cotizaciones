@@ -44,7 +44,7 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
 | Codex | E17, E18 y traza (`e36a5b3`, `6b07e7a`, `909d7ae`, `4b89f43`) | Hecho |
 | Codex | `scripts/video/record.py`, `narrate.py` y `edit.py` (`83d5bfe`, 10 pruebas sin red) | Hecho; falta validar FFmpeg real y la voz |
 | agy (QA) | Ensayo del guion en mock y en vivo: **5 llamadas**, las 4 escenas OK y 151 s en crudo | Hecho |
-| agy (QA) | Narración con ElevenLabs: `narration.json` con los 6 textos del guion (unos 46 s estimados) | **Bloqueada**: `secrets/elevenlabs_api_key.txt` existe pero está vacío; el usuario debe guardar la clave |
+| agy (QA) | Narración con ElevenLabs: 6 clips, 41,6 s en total, `narration_durations.json` | Hecho |
 | Codex | E19 y la traza `search_products` duplicada (`bd30ec0`) | Hecho: un descuento nunca reutiliza un borrador previo; una sola línea `TOOL` por búsqueda |
 | agy (QA) | Revisión del video final contra el guion | Pendiente |
 | Opus | Guion, auditoría, arranque de servicios y grabación, wiki | En curso |
@@ -67,3 +67,13 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
 - **Defectos hallados:**
   - **E19 (alta):** en una misma conversación, un pedido de descuento sobre líneas ya cotizadas reutiliza el borrador anterior en vez de informar que no hay política. No bloquea el video porque la escena 4 usa otra sesión.
   - **Cosmético:** `search_products` aparece dos veces en la traza de un mismo turno.
+
+## Grabación (2026-10-24, 22:54)
+
+- **Archivo:** `video/hito2/raw/hito2.mp4`, de 281 s, 1920×1080 a 30 fps. Lo grabó FFmpeg con `scripts/video/record.py`, que inició y detuvo el orquestador. El usuario hizo los pasos.
+- **Revisión cuadro por cuadro de agy (QA):** los **7 pasos ocurrieron**, con las 3 herramientas en la traza `TOOL`, montos exactos y `grok-4.6`. No aparecen secretos ni notificaciones.
+- **Diferencias con el guion**, todas de ejecución real y correcta:
+  1. El usuario pidió **3 bultos** en lugar de 10, así que el borrador es de $86.700 (3 × $28.900) y no de $289.000. El paso de la sede norte reutiliza el mismo `quote_id` (`replayed=true`).
+  2. En las escenas 1–3, WhatsApp estuvo a pantalla completa y la traza no se veía al lado. En la escena 4, en cambio, la traza completa de las escenas 1–3 se ve legible.
+- **Decisión del orquestador:** se edita **sin regrabar**, porque nada se simula y las 3 herramientas quedan evidenciadas. Por privacidad se difuminan la barra de pestañas del navegador (títulos de otras pestañas del usuario) y unos stickers con la cara de un niño en el historial del chat.
+- **Marcas** en `video/hito2/marks.json`: escenas y esperas aceleradas ×8, para una duración estimada de 1:52.
