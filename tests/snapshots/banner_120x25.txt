@@ -21,5 +21,5 @@
                          │ quit     / q, exit  Exit shell                                       │                       
                          ╰──────────────────────────────────────────────────────────────────────╯                       
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘                    
-r run  s status  c config  l logs  h help  q quit
+r run  s status  c config  l logs  t tools  h help  q quit
 xeon > 

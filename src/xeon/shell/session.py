@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import httpx
 from pydantic import SecretStr
 
+from xeon.agent.tool_trace import capture_tool_events
 from xeon.application.container import AppContainer, build_container
 from xeon.config import Settings
 
@@ -18,6 +19,9 @@ LogResult = Literal["ok", "warn", "error"]
 
 
 class Engine(Protocol):
+    @property
+    def last_tools(self) -> tuple[str, ...]: ...
+
     @property
     def provider(self) -> str: ...
 
@@ -35,6 +39,11 @@ class Engine(Protocol):
 class InProcessEngine:
     def __init__(self, settings: Settings) -> None:
         self._container: AppContainer = build_container(settings)
+        self._last_tools: tuple[str, ...] = ()
+
+    @property
+    def last_tools(self) -> tuple[str, ...]:
+        return self._last_tools
 
     @property
     def provider(self) -> str:
@@ -54,9 +63,13 @@ class InProcessEngine:
         return "local"
 
     async def run(self, message: str, conversation_id: UUID) -> str:
-        response = await self._container.agent.respond(
-            message, conversation_key=str(conversation_id)
-        )
+        with capture_tool_events() as events:
+            try:
+                response = await self._container.agent.respond(
+                    message, conversation_key=str(conversation_id)
+                )
+            finally:
+                self._last_tools = tuple(events)
         return response.text
 
     async def aclose(self) -> None:
@@ -71,6 +84,10 @@ class HTTPEngine:
         self._provider: str = settings.llm_provider
         self._model = settings.grok_model if self._provider == "grok" else settings.llm_model
         self._client = client or httpx.AsyncClient(timeout=130)
+
+    @property
+    def last_tools(self) -> tuple[str, ...]:
+        return ()
 
     @property
     def provider(self) -> str:
@@ -122,10 +139,12 @@ class Session:
     conversation_id: UUID = field(default_factory=uuid4)
     turns: int = 0
     logs: deque[SessionLog] = field(default_factory=lambda: deque(maxlen=100))
+    last_tools: tuple[str, ...] = ()
 
     def new(self) -> None:
         self.conversation_id = uuid4()
         self.turns = 0
+        self.last_tools = ()
 
     def record(self, command: str, result: LogResult, started: float) -> None:
         self.logs.append(
@@ -145,6 +164,8 @@ class Session:
         except Exception:
             self.record("run", "error", started)
             raise
+        finally:
+            self.last_tools = self.engine.last_tools
         self.turns += 1
         self.record("run", "ok", started)
         return reply

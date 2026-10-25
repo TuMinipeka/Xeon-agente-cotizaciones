@@ -5,6 +5,7 @@ from decimal import Decimal
 import httpx
 import pytest
 
+from xeon.agent.tool_trace import capture_tool_events
 from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity
 from xeon.api.app import create_app
 from xeon.application.container import build_container
@@ -72,6 +73,29 @@ def test_plural_tubos_keeps_core_product_in_first_three_candidates() -> None:
     assert outcome.candidates[0].sku == "TUB-PVC-20"
     assert outcome.candidates[0].unit_price == "4200.00"
     assert len(outcome.candidates) == 3
+
+
+def test_tool_trace_records_three_real_invocations_without_customer_data(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    container = build_container(Settings(llm_provider="mock", _env_file=None))
+    with capture_tool_events() as events:
+        asyncio.run(
+            container.agent.respond(
+                "necesito 2 bultos de cemento en sede norte",
+                conversation_key="kapso-phone-123-+573001112233",
+            )
+        )
+
+    assert len(events) == 3
+    assert events[0] == "TOOL search_products status=exact_match sku=CEM-50"
+    assert events[1].startswith("TOOL get_stock_by_branches sku=CEM-50 sede=sede-norte")
+    assert "vigencia=" in events[1]
+    assert events[2].startswith("TOOL create_quote_draft quote_id=")
+    assert "lineas=1 subtotal=57800.00 COP" in events[2]
+    emitted = [record.message for record in caplog.records if record.name == "xeon.tools"]
+    assert emitted == events
+    assert "+573001112233" not in "\n".join(emitted)
 
 
 def test_commercial_search_requires_clarification_on_ambiguous_or_unitless_input() -> None:

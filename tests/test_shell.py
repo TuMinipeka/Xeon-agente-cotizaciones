@@ -54,6 +54,8 @@ def test_aliases_and_free_text_are_pure() -> None:
         "s": ("status", ""),
         "c": ("config", ""),
         "l 3": ("logs", "3"),
+        "tools": ("tools", ""),
+        "t": ("tools", ""),
         "n": ("new", ""),
         "?": ("help", ""),
         "h": ("help", ""),
@@ -110,7 +112,7 @@ def test_banner_text_snapshot(width: int, height: int) -> None:
     lines = text.splitlines()
     assert len(lines) == height
     assert all(len(line) == width for line in lines[: height - 2])
-    assert len(lines[-2]) == 49
+    assert len(lines[-2]) == 58
     assert lines[-1] == "xeon > "
     snapshot = Path(__file__).parent / "snapshots" / f"banner_{width}x{height}.txt"
     assert text == snapshot.read_text(encoding="utf-8")
@@ -206,6 +208,23 @@ def test_shell_run_new_logs_and_config_hide_secrets() -> None:
     assert "secret" not in text.casefold()
 
 
+def test_tools_command_shows_last_turn_and_new_clears_it() -> None:
+    session = _mock_session()
+    console, output = _console()
+    lines = iter(["r Necesito 2 bultos de cemento", "tools", "new", "t", "quit"])
+
+    assert (
+        run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0
+    )
+
+    shown = output.getvalue()
+    assert "TOOL search_products status=exact_match sku=CEM-50" in shown
+    assert "TOOL get_stock_by_branches sku=CEM-50" in shown
+    assert "TOOL create_quote_draft quote_id=" in shown
+    assert "Sin herramientas en el ultimo turno." in shown
+    assert session.last_tools == ()
+
+
 def test_shell_uses_same_conversation_for_multiple_mock_turns() -> None:
     session = _mock_session()
     conversation_id: UUID = session.conversation_id
@@ -262,7 +281,7 @@ def test_numeric_choices_are_sent_to_engine(line: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "line", ["status foo", "config bar", "new 123", "help extra", "quit ahora"]
+    "line", ["status foo", "config bar", "tools extra", "new 123", "help extra", "quit ahora"]
 )
 def test_no_argument_commands_show_usage_without_running(line: str) -> None:
     session = _mock_session()
@@ -295,6 +314,7 @@ def test_plain_help_lists_commands_without_banner() -> None:
         == 0
     )
     assert "run / r" in output.getvalue()
+    assert "tools / t" in output.getvalue()
     assert "q quit" in output.getvalue()
     assert "XEON CLI" not in output.getvalue()
     assert "system ready" not in output.getvalue()

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from xeon.agent.tool_trace import record_tool
 from xeon.application.ports.catalog import CatalogUnavailableError, ProductCatalog
 from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
 from xeon.application.quote_draft import (
@@ -69,6 +70,15 @@ class CommercialToolbelt:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     def search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
+        outcome = self._search_products(query, limit=limit)
+        record_tool(
+            "search_products",
+            status=outcome.status,
+            sku=outcome.candidates[0].sku if outcome.candidates else "none",
+        )
+        return outcome
+
+    def _search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
         cleaned = query.strip()
         if not cleaned:
             return SearchProductsOutcome(
@@ -179,14 +189,34 @@ class CommercialToolbelt:
         evaluated_at: str,
         requested_quantity: Decimal | None = None,
     ) -> StockByBranches:
-        return self._get_stock_by_branches.execute(
-            GetStockByBranchesQuery(
-                sku=sku,
-                requested_branch_id=requested_branch_id,
-                evaluated_at=evaluated_at,
-                requested_quantity=requested_quantity,
+        try:
+            result = self._get_stock_by_branches.execute(
+                GetStockByBranchesQuery(
+                    sku=sku,
+                    requested_branch_id=requested_branch_id,
+                    evaluated_at=evaluated_at,
+                    requested_quantity=requested_quantity,
+                )
             )
+        except Exception:
+            record_tool("get_stock_by_branches", status="unavailable")
+            raise
+        local = next(
+            (item for item in result.items if item.branch_id == result.requested_branch_id),
+            None,
         )
+        record_tool(
+            "get_stock_by_branches",
+            sku=result.sku,
+            sede=result.requested_branch_id
+            if result.requested_branch_id.startswith("sede-")
+            else "unknown",
+            disponible=str(result.local_available)
+            if result.local_available is not None
+            else "unknown",
+            vigencia=local.freshness.value if local is not None else "unknown",
+        )
+        return result
 
     def create_quote_draft(
         self,
@@ -196,14 +226,29 @@ class CommercialToolbelt:
         lines: Sequence[DraftLineRequest],
         discount_requested: bool = False,
     ) -> CreateQuoteResult:
-        return self._create_quote_draft.execute(
-            CreateQuoteDraftCommand(
-                tenant_id=tenant_id,
-                request_id=request_id,
-                lines=tuple(lines),
-                discount_requested=discount_requested,
+        try:
+            result = self._create_quote_draft.execute(
+                CreateQuoteDraftCommand(
+                    tenant_id=tenant_id,
+                    request_id=request_id,
+                    lines=tuple(lines),
+                    discount_requested=discount_requested,
+                )
             )
-        )
+        except Exception:
+            record_tool("create_quote_draft", status="unavailable")
+            raise
+        if isinstance(result, QuoteDraftReady):
+            record_tool(
+                "create_quote_draft",
+                quote_id=str(result.quote.id),
+                lineas=len(result.quote.lines),
+                subtotal=f"{result.quote.subtotal.amount} {result.quote.currency}",
+                replayed=str(result.replayed).lower(),
+            )
+        else:
+            record_tool("create_quote_draft", status=type(result).__name__)
+        return result
 
     def prepare_verified_context(
         self,
