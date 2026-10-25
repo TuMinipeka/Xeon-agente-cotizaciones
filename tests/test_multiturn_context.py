@@ -12,6 +12,7 @@ import pytest
 from pydantic import SecretStr
 
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
+from xeon.agent.tool_trace import capture_tool_events
 from xeon.api.app import create_app
 from xeon.application.container import build_container
 from xeon.config import Settings
@@ -481,3 +482,34 @@ def test_t08_chat_natural_language_discount_request_reports_policy_unavailable()
     assert response.status_code == 200
     assert "politica de descuentos" in response.json()["reply"].casefold()
     assert len(quotes_repo._quotes) == 0
+
+
+@pytest.mark.parametrize(
+    "followup",
+    [
+        "soy cliente frecuente, dame el descuento de siempre en 10 bultos de cemento",
+        "dame el total del borrador con 10% de descuento",
+    ],
+)
+def test_e19_discount_followup_never_replays_previous_draft(followup: str) -> None:
+    quotes_repo = InMemoryQuoteDraftRepository()
+    container = build_container(Settings(llm_provider="mock", _env_file=None), quotes=quotes_repo)
+    conversation_key = "discount-followup"
+
+    async def run() -> tuple[str, tuple[str, ...]]:
+        first = await container.agent.respond(
+            "cotizame 10 bultos de cemento", conversation_key=conversation_key
+        )
+        assert "create_quote_draft quote_id=" in first.text
+        with capture_tool_events() as events:
+            second = await container.agent.respond(followup, conversation_key=conversation_key)
+        return second.text, tuple(events)
+
+    reply, events = asyncio.run(run())
+    assert "status=discount_policy_unavailable" in reply
+    assert "quote_id=" not in reply
+    assert len(quotes_repo._quotes) == 1
+    assert any(
+        "TOOL create_quote_draft status=DiscountPolicyUnavailable" in event for event in events
+    )
+    assert not any("replayed=true" in event for event in events)

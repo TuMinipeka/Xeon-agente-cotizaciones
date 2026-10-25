@@ -129,6 +129,16 @@ def test_requested_discount_does_not_invent_policy() -> None:
     assert quotes.get_by_idempotency_key("demo", "req-1") is None
 
 
+def test_discount_cannot_replay_existing_draft() -> None:
+    service, _, quotes = _service()
+    first = service.execute(_command(DraftLineRequest("CEM-50", 10)))
+    rejected = service.execute(_command(DraftLineRequest("CEM-50", 10), discount_requested=True))
+
+    assert isinstance(first, QuoteDraftReady)
+    assert isinstance(rejected, DiscountPolicyUnavailable)
+    assert quotes.get_by_idempotency_key("demo", "req-1") is first.quote
+
+
 def test_same_idempotency_key_returns_same_draft() -> None:
     service, _, _ = _service()
     command = _command(DraftLineRequest("CEM-50", 2))

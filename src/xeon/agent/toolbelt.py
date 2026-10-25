@@ -71,12 +71,16 @@ class CommercialToolbelt:
 
     def search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
         outcome = self._search_products(query, limit=limit)
+        self._record_search(outcome)
+        return outcome
+
+    @staticmethod
+    def _record_search(outcome: SearchProductsOutcome) -> None:
         record_tool(
             "search_products",
             status=outcome.status,
             sku=outcome.candidates[0].sku if outcome.candidates else "none",
         )
-        return outcome
 
     def _search_products(self, query: str, *, limit: int = 3) -> SearchProductsOutcome:
         cleaned = query.strip()
@@ -265,11 +269,8 @@ class CommercialToolbelt:
         if not normalized or normalized.casefold() in {"hola", "buenas", "buenos dias"}:
             return None, None, None, ()
 
-        if (
-            _requests_quote_summary(normalized)
-            and known_lines
-            and not _requests_discount(normalized)
-        ):
+        discount_requested = _requests_discount(normalized)
+        if _requests_quote_summary(normalized) and known_lines:
             try:
                 summary = self.create_quote_draft(
                     tenant_id="whatsapp",
@@ -279,9 +280,18 @@ class CommercialToolbelt:
                         request_id,
                     ),
                     lines=tuple(DraftLineRequest(line.sku, line.quantity) for line in known_lines),
+                    discount_requested=discount_requested,
                 )
                 if isinstance(summary, QuoteDraftReady):
                     return _format_draft(summary.quote), last_sku, None, ()
+                if isinstance(summary, DiscountPolicyUnavailable):
+                    return (
+                        "[XEON_TOOL:create_quote_draft status=discount_policy_unavailable] "
+                        "No hay politica de descuentos aprobada; no se creo un borrador.",
+                        last_sku,
+                        None,
+                        (),
+                    )
             except Exception as exc:
                 _LOG.error("Quote draft source unavailable: %s", type(exc).__name__)
                 return (
@@ -321,11 +331,12 @@ class CommercialToolbelt:
         selected_sku: str | None = None
         for clause, quantity in clauses:
             exact_query = _explicit_product_query(clause)
-            outcome = self.search_products(exact_query or clause, limit=3)
+            outcome = self._search_products(exact_query or clause, limit=3)
             if exact_query is not None and outcome.status == "semantic_candidates":
-                outcome = self.search_products(clause, limit=3)
+                outcome = self._search_products(clause, limit=3)
             if last_sku is not None and outcome.status in {"not_found", "clarification_required"}:
-                outcome = self.search_products(last_sku, limit=1)
+                outcome = self._search_products(last_sku, limit=1)
+            self._record_search(outcome)
             if outcome.status in {"clarification_required", "catalog_unavailable", "not_found"}:
                 return (
                     f"[XEON_TOOL:search_products status={outcome.status}] {outcome.message}",
@@ -408,7 +419,7 @@ class CommercialToolbelt:
                     tenant_id="whatsapp",
                     request_id=_draft_request_id(conversation_key, tuple(draft_lines), request_id),
                     lines=tuple(draft_lines),
-                    discount_requested=_requests_discount(normalized),
+                    discount_requested=discount_requested,
                 )
                 if isinstance(result, QuoteDraftReady):
                     contexts.append(_format_draft(result.quote))

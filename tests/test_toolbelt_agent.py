@@ -98,6 +98,16 @@ def test_tool_trace_records_three_real_invocations_without_customer_data(
     assert "+573001112233" not in "\n".join(emitted)
 
 
+def test_speculative_product_lookup_has_one_effective_trace_line() -> None:
+    container = build_container(Settings(llm_provider="mock", _env_file=None))
+    with capture_tool_events() as events:
+        asyncio.run(container.agent.respond("necesito 10 tubos pvc", conversation_key="trace-once"))
+
+    search_events = [event for event in events if event.startswith("TOOL search_products")]
+    assert len(search_events) == 1
+    assert "sku=TUB-PVC-20" in search_events[0]
+
+
 def test_commercial_search_requires_clarification_on_ambiguous_or_unitless_input() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
 
