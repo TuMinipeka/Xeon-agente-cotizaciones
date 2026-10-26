@@ -36,6 +36,7 @@ El orquestador principal es **Claude Opus**, por decisión del usuario del 2026-
 | **Claude Opus** (`w7:p3`)       | Orquestador, arquitecto, auditor DRY y guardián de la wiki | Reparte las tareas por herdr. Define los contratos y los esquemas Pydantic de las herramientas. Revisa los diffs en busca de duplicación y violaciones hexagonales. Corre `ruff`, `mypy` y `pytest`. Integra el inbox y hace los commits. |
 | **Codex** (`w7:p9`)             | Desarrollador core y deploy                                | Implementa adaptadores y herramientas detrás de los puertos (por ejemplo, el proveedor Grok). Se encarga de los scripts y el entorno Docker. Antes de crear una utilidad, busca en la wiki y en el código para no duplicar.               |
 | **agy / Antigravity** (`w7:p8`) | QA, usuarios sintéticos y auditor de contexto              | Corre pruebas multi-turno con `mock` y casos límite (entrada malformada, inyección de prompt, webhooks repetidos). Prepara el guion reproducible de la demo de 2 minutos.                                                                 |
+| **Claude Sonnet 5.5** (`w7:pQ`) | Agente de apoyo en paralelo (desde el 2026-10-26) | Tareas acotadas de documentación, wiki, grafo y tooling en una zona de archivos separada. Primera tarea: clasificar por colores el grafo de la bóveda Obsidian. |
 
 Los ID de panel dependen de la sesión. Verificarlos con `herdr agent list` antes de usarlos. El CLI `gemini` no está instalado; Antigravity cumple ese rol.
 

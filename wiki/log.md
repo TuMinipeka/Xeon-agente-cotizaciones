@@ -322,3 +322,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Corrida en vivo de agy:** S15–S20 con `grok-4.6` dio 1 PASS y 5 FAIL en 64 llamadas (huella `0c0b8619431b38a0`). Los defectos D1–D5 se delegaron a Codex en `fix/live-qa-defects`, y el falso positivo de `branch_matches` en vivo, a agy.
 - **D14 (usuario):** embudo guiado con texto acotado, confirmación con botón que pasa al asesor humano, plantilla demo de políticas para Colombia y redirección ante desvíos.
 - **Contrato:** [embudo de cotización](pages/embudo-cotizacion.md).
+
+## [2026-10-26] operación | Nuevo agente Claude Sonnet 5.5
+
+- **Incorporación:** el usuario sumó un agente Claude Sonnet 5.5 (panel `w7:pQ`) para trabajar en paralelo. Se registró en [orquestación](pages/orquestacion.md).
+- **Primera tarea (delegada):** colorear el grafo de Graphify por capa en las bóvedas de Obsidian.
