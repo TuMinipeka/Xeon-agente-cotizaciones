@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Protocol
 
+from xeon.application.reply import Reply
+
 
 @dataclass(frozen=True, slots=True)
 class FunnelState:
@@ -17,6 +19,8 @@ class FunnelState:
     awaiting_number: bool = False
     awaiting_modification: bool = False
     closed: bool = False
+    last_request_id: str | None = None
+    last_reply: Reply | None = None
 
 
 class FunnelRepository(Protocol):

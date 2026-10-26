@@ -12,8 +12,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from xeon.agent.executor import CommercialExecutor
-from xeon.agent.intent import Intent, IntentBatch, IntentKind, fallback_intents
-from xeon.agent.toolbelt import CommercialToolbelt
+from xeon.agent.intent import (
+    Intent,
+    IntentBatch,
+    IntentKind,
+    fallback_intents,
+    is_explicit_addition,
+)
+from xeon.agent.toolbelt import CommercialToolbelt, _explicit_product_query, _requests_discount
 from xeon.application.ports.advisor import AdvisorNotifier
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.cart import CartRepository
@@ -126,11 +132,13 @@ class GuidedFunnel:
                     options += (Option("delivery:pickup", "Recoger en sede"),)
                 if delivery and delivery.domicilio and delivery.domicilio.disponible:
                     options += (Option("delivery:home", "Domicilio"),)
+                if not options:
+                    options = (Option("delivery:branch_inquiry", "Consultar sede"),)
             case "sede":
                 options = tuple(
                     Option(
                         f"branch:{branch.id}",
-                        f"{branch.name}: {self._branch_stock(key, branch.id)}"[:24],
+                        self._branch_title(key, branch.id, branch.name),
                     )
                     for branch in self._branches.list_branches()[:8]
                 )
@@ -169,6 +177,12 @@ class GuidedFunnel:
         except CatalogUnavailableError:
             product = None
         return (product.name if product else sku)[:24]
+
+    def _branch_title(self, key: str, branch_id: str, name: str) -> str:
+        status = self._branch_stock(key, branch_id)
+        available = 24 - len(status) - 2
+        label = name if len(name) <= available else name.split()[-1][:available]
+        return f"{label}: {status}"
 
     def _branch_stock(self, key: str, branch_id: str) -> str:
         cart = self._carts.get(key)
@@ -292,6 +306,20 @@ class GuidedFunnel:
         self, key: str, message: str, *, option_id: str | None = None, request_id: str | None = None
     ) -> Reply:
         state = self.state(key)
+        if request_id is not None and state.last_request_id == request_id and state.last_reply:
+            return state.last_reply
+        reply = await self._handle_step(key, message, option_id=option_id, request_id=request_id)
+        if request_id is not None:
+            self._save(
+                key,
+                replace(self.state(key), last_request_id=request_id, last_reply=reply),
+            )
+        return reply
+
+    async def _handle_step(
+        self, key: str, message: str, *, option_id: str | None = None, request_id: str | None = None
+    ) -> Reply:
+        state = self.state(key)
         raw = (option_id or message).strip()
         if not raw:
             return self.render(key)
@@ -349,6 +377,14 @@ class GuidedFunnel:
             return self.render(key, prefix=f"Con gusto. Tu borrador sigue disponible.\n{summary}\n")
         if option_id is None and self._is_weight_question(normalized_message):
             return self.render(key, prefix=self._answer_weight_and_delivery(key, message) + "\n")
+        if option_id is None and _requests_discount(message):
+            return self.render(
+                key,
+                prefix=(
+                    "No hay politica de descuentos autorizada; "
+                    "pendiente de confirmar con un asesor.\n"
+                ),
+            )
         if option_id is None and self._is_project_statement(normalized_message):
             project_intents = tuple(
                 intent
@@ -371,14 +407,35 @@ class GuidedFunnel:
             return self.render(key, prefix="Solo puedo ayudarte con tu cotización.\n")
         if option_id is None:
             local = fallback_intents(message)
-            operations = tuple(
+            operations = [
                 intent
                 for intent in local.intents
                 if intent.kind in {IntentKind.QUITAR, IntentKind.MODIFICAR_CANTIDAD}
-            )
+            ]
+            cart = self._carts.get(key)
+            if cart is not None and cart.confirmed_lines():
+                for intent in local.intents:
+                    if intent.kind is not IntentKind.AGREGAR or intent.quantity is None:
+                        continue
+                    query = (
+                        _explicit_product_query(intent.source_text)
+                        or intent.product
+                        or intent.source_text
+                    )
+                    found = self._tools.search_products(query)
+                    if len(found.candidates) != 1 or not any(
+                        line.sku == found.candidates[0].sku for line in cart.confirmed_lines()
+                    ):
+                        continue
+                    if is_explicit_addition(message):
+                        operations.append(intent)
+                    else:
+                        operations.append(
+                            intent.model_copy(update={"kind": IntentKind.MODIFICAR_CANTIDAD})
+                        )
             if operations:
                 result = self._executor.execute(
-                    IntentBatch(intents=operations),
+                    IntentBatch(intents=tuple(operations)),
                     message=message,
                     conversation_key=key,
                     request_id=request_id,
@@ -453,6 +510,8 @@ class GuidedFunnel:
                 )
             case "entrega", "delivery:pickup":
                 state = replace(state, step="sede", delivery="recogida")
+            case "entrega", "delivery:branch_inquiry":
+                state = replace(state, step="sede", delivery=None)
             case "entrega", "delivery:home":
                 state = replace(state, step="direccion", delivery="domicilio")
             case "sede", choice if choice.startswith("branch:"):
@@ -515,8 +574,8 @@ class GuidedFunnel:
         product: str | None,
         quantity: Decimal | None,
         request_id: str | None,
-    ) -> None:
-        self._executor.execute(
+    ) -> str:
+        result = self._executor.execute(
             IntentBatch(
                 intents=(
                     Intent(
@@ -528,6 +587,7 @@ class GuidedFunnel:
             conversation_key=key,
             request_id=request_id,
         )
+        return result.text
 
     def _add_selected(
         self, key: str, state: FunnelState, amount: Decimal, request_id: str | None
@@ -535,7 +595,7 @@ class GuidedFunnel:
         if state.selected_sku is None:
             return self.render(key)
         kind = IntentKind.MODIFICAR_CANTIDAD if state.awaiting_modification else IntentKind.AGREGAR
-        self._execute(key, kind, state.selected_sku, amount, request_id)
+        result = self._execute(key, kind, state.selected_sku, amount, request_id)
         self._save(
             key,
             replace(
@@ -546,7 +606,8 @@ class GuidedFunnel:
                 awaiting_modification=False,
             ),
         )
-        return self.render(key)
+        summary = self._cart(key) if self._carts.get(key) else ""
+        return self.render(key, prefix=result + "\n" + summary + "\n")
 
     async def _classify(self, message: str, options: tuple[Option, ...], step: str) -> str:
         normalized = _normalized(message)

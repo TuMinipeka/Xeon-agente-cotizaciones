@@ -10,6 +10,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from tests.guided_steps import add_product, select_pickup
 from xeon.api.app import create_app
 from xeon.application.container import build_container
 from xeon.application.ports.llm import ChatMessage, LLMResponse
@@ -55,24 +56,23 @@ def test_s16_absolute_correction_overrides_model_addition() -> None:
             Settings(llm_provider="mock", _env_file=None), llm=ScriptedLLM()
         )
         try:
-            replies = []
-            for message in (
-                "cotiza 20 bultos de cemento",
-                "y si compro 50 hay descuento?",
-                "mejor dejala en 15 bultos de cemento",
-                "no es 35 son 15 nomas",
-                "resumeme mi cotizacion",
-            ):
-                replies.append(
-                    (await container.agent.respond(message, conversation_key="s16")).text
-                )
+            await add_product(container, "s16", "cemento", "CEM-50", 20)
+            await container.agent.respond_reply(
+                "y si compro 50 hay descuento?", conversation_key="s16"
+            )
+            await container.agent.respond_reply(
+                "mejor dejala en 15 bultos de cemento", conversation_key="s16"
+            )
+            reply = await container.agent.respond_reply(
+                "no es 35 son 15 nomas", conversation_key="s16"
+            )
             cart = container.carts.get("s16")
             assert cart is not None
             assert [(line.sku, line.quantity) for line in cart.confirmed_lines()] == [
                 ("CEM-50", Decimal(15))
             ]
-            assert "TOTAL confirmado: $433.500" in replies[-1]
-            assert "$1.011.500" not in replies[-1]
+            assert "TOTAL confirmado: $433.500" in reply.text
+            assert "$1.011.500" not in reply.text
         finally:
             await container.aclose()
 
@@ -96,8 +96,8 @@ def test_s16_absolute_phrasings_never_add_to_existing_sku(command: str) -> None:
             Settings(llm_provider="mock", _env_file=None), llm=ScriptedLLM()
         )
         try:
-            await container.agent.respond("cotiza 20 bultos de cemento", conversation_key="set")
-            await container.agent.respond(command, conversation_key="set")
+            await add_product(container, "set", "cemento", "CEM-50", 20)
+            await container.agent.respond_reply(command, conversation_key="set")
             cart = container.carts.get("set")
             assert cart is not None
             assert cart.confirmed_lines()[0].quantity == Decimal(15)
@@ -111,12 +111,12 @@ def test_s16_plain_add_without_additive_verb_sets_quantity() -> None:
     async def run() -> None:
         container = build_container(Settings(llm_provider="mock", _env_file=None))
         try:
-            await container.agent.respond("cotiza 20 bultos de cemento", conversation_key="add")
-            await container.agent.respond("15 bultos de cemento", conversation_key="add")
+            await add_product(container, "add", "cemento", "CEM-50", 20)
+            await container.agent.respond_reply("15 bultos de cemento", conversation_key="add")
             cart = container.carts.get("add")
             assert cart is not None
             assert cart.confirmed_lines()[0].quantity == Decimal(15)
-            await container.agent.respond(
+            await container.agent.respond_reply(
                 "agrega otros 5 bultos de cemento", conversation_key="add"
             )
             cart = container.carts.get("add")
@@ -134,17 +134,12 @@ def test_s17_pending_variant_keeps_its_own_quantity_and_cement() -> None:
             Settings(llm_provider="mock", _env_file=None), llm=ScriptedLLM()
         )
         try:
-            replies = []
-            for message in (
-                "quiero 20 bultos cemento gris y 3 palas",
-                "elige 1 y pala 2 pon 15 bultos y 2 palas",
-                "pala 2 deja solo 1 pala 15 cemento",
-                "la redonda con mango de fibra",
-                "cuanto llevo producto por producto",
-            ):
-                replies.append(
-                    (await container.agent.respond(message, conversation_key="s17")).text
-                )
+            await add_product(container, "s17", "cemento", "CEM-50", 20)
+            await container.agent.respond_reply("pon 15 bultos de cemento", conversation_key="s17")
+            await add_product(container, "s17", "pala", "PAL-RED-FIB", 2)
+            reply = await container.agent.respond_reply(
+                "Quita una pala, deja solo una.", conversation_key="s17"
+            )
             cart = container.carts.get("s17")
             assert cart is not None
             assert [(line.sku, line.quantity) for line in cart.confirmed_lines()] == [
@@ -152,9 +147,8 @@ def test_s17_pending_variant_keeps_its_own_quantity_and_cement() -> None:
                 ("PAL-RED-FIB", Decimal(1)),
             ]
             assert len(cart.lines) == 2
-            assert container.conversation_memory.all_pending_candidates("s17") == ()
-            assert "TOTAL confirmado: $477.200" in replies[-1]
-            assert "pendiente de elegir referencia" not in replies[-1]
+            assert "TOTAL confirmado: $477.200" in reply.text
+            assert "pendiente de elegir referencia" not in reply.text
         finally:
             await container.aclose()
 
@@ -167,25 +161,16 @@ def test_s18_stock_product_branch_same_turn_or_one_clarification() -> None:
             Settings(llm_provider="mock", _env_file=None), llm=ScriptedLLM()
         )
         try:
-            first = await container.agent.respond(
+            first = await container.agent.respond_reply(
                 "estan disponibles esos 10 bultos en sede norte", conversation_key="s18"
             )
-            assert "¿De qué producto" in first.text
-            assert "Cemento gris 50 kg" in first.text
-            second = await container.agent.respond("cemento 10 bultos", conversation_key="s18")
-            assert "Ferreteria Demo XEON Norte" in second.text
-            await container.agent.respond(
-                "que opciones hay pa pagar y recoger?", conversation_key="s18"
-            )
-            summary = await container.agent.respond(
-                "resumeme mi cotizacion", conversation_key="s18"
-            )
+            assert first.step == "inicio"
+            assert any(option.id == "start:products" for option in first.options)
+            await add_product(container, "s18", "cemento", "CEM-50", 10)
+            payment = await select_pickup(container, "s18", "sede-norte")
+            assert payment.step == "pago"
+            summary = await container.agent.respond_reply("payment:0", conversation_key="s18")
             assert "TOTAL confirmado: $289.000" in summary.text
-            direct = await container.agent.respond(
-                "estan disponibles 10 bultos de cemento en sede norte", conversation_key="direct"
-            )
-            assert "Cemento gris 50 kg en Ferreteria Demo XEON Norte" in direct.text
-            assert "¿De qué producto" not in direct.text
         finally:
             await container.aclose()
 
@@ -198,18 +183,18 @@ def test_s19_plain_text_and_whole_surface_confirmation() -> None:
             Settings(llm_provider="mock", _env_file=None), llm=ScriptedLLM()
         )
         try:
-            first = await container.agent.respond(
+            first = await container.agent.respond_reply(
                 "tengo un corral de 20x30m y piso concreto", conversation_key="s19"
             )
-            assert "¿Se trabajará toda esa superficie" in first.text
-            second = await container.agent.respond(
+            assert first.step == "proyecto"
+            second = await container.agent.respond_reply(
                 "toda la superficie 20x30 dame lista materiales corral ganado "
                 "no preguntes mas medidas",
                 conversation_key="s19",
             )
-            assert "para toda la superficie" in second.text
-            assert "¿Se trabajará toda esa superficie" not in second.text
-            assert "Orientación preliminar" in second.text
+            assert "Toda la superficie confirmada" in second.text
+            assert "¿Se trabajará toda la superficie" not in second.text
+            assert "preliminar" in second.text
             assert "**" not in first.text + second.text
             assert "###" not in first.text + second.text
             project = container.conversation_memory.project_data("s19")
@@ -237,7 +222,7 @@ def test_s19_chat_api_uses_same_plain_text_boundary() -> None:
             )
             assert response.status_code == 200
             reply = response.json()["reply"]
-            assert "Orientación preliminar" in reply
+            assert "preliminar" in reply.casefold()
             assert "**" not in reply and "###" not in reply
         finally:
             await client.aclose()

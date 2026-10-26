@@ -162,54 +162,33 @@ def create_app(
     @application.post("/v1/chat", response_model=ChatResponse)
     async def chat(request: ChatRequest) -> ChatResponse:
         try:
-            if runtime.settings.guided_funnel_enabled:
-                reply = await runtime.agent.respond_reply(
-                    request.message, conversation_key=str(request.conversation_id)
-                )
-                return ChatResponse(
-                    conversation_id=request.conversation_id,
-                    reply=reply.numbered(),
-                    provider="local-guided",
-                    model="guided-funnel-v1",
-                    step=reply.step,
-                    options=tuple({"id": item.id, "title": item.title} for item in reply.options),
-                    kind=reply.kind,
-                )
-            result = await runtime.agent.respond(
+            reply = await runtime.agent.respond_reply(
                 request.message, conversation_key=str(request.conversation_id)
             )
         except LLMProviderError as exc:
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return ChatResponse(
             conversation_id=request.conversation_id,
-            reply=result.text,
-            provider=result.provider,
-            model=result.model,
+            reply=reply.numbered(),
+            provider="local-guided",
+            model="guided-funnel-v1",
+            step=reply.step,
+            options=tuple({"id": item.id, "title": item.title} for item in reply.options),
+            kind=reply.kind,
         )
 
     async def process_kapso_message(incoming: IncomingWhatsAppMessage) -> None:
         try:
-            if runtime.settings.guided_funnel_enabled:
-                reply = await runtime.agent.respond_reply(
-                    incoming.text,
-                    conversation_key=f"kapso-{incoming.instance}-{incoming.sender_number}",
-                    request_id=f"kapso-{incoming.external_message_id}",
-                    option_id=incoming.option_id,
+            reply = await runtime.agent.respond_reply(
+                incoming.text,
+                conversation_key=f"kapso-{incoming.instance}-{incoming.sender_number}",
+                request_id=f"kapso-{incoming.external_message_id}",
+                option_id=incoming.option_id,
+            )
+            if runtime.whatsapp_channel is not None:
+                await runtime.whatsapp_channel.send_reply(
+                    recipient_number=incoming.sender_number, reply=reply
                 )
-                if runtime.whatsapp_channel is not None:
-                    await runtime.whatsapp_channel.send_reply(
-                        recipient_number=incoming.sender_number, reply=reply
-                    )
-            else:
-                result = await runtime.agent.respond(
-                    incoming.text,
-                    conversation_key=f"kapso-{incoming.instance}-{incoming.sender_number}",
-                    request_id=f"kapso-{incoming.external_message_id}",
-                )
-                if runtime.whatsapp_channel is not None:
-                    await runtime.whatsapp_channel.send_text(
-                        recipient_number=incoming.sender_number, text=result.text
-                    )
         except LLMProviderError, ChannelDeliveryError:
             # The signed webhook was accepted; provider errors cannot be returned after the ack.
             seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)
@@ -239,8 +218,6 @@ def create_app(
                 event, idempotency_key=request.headers.get("X-Idempotency-Key")
             )
             if incoming is None:
-                continue
-            if incoming.option_id is not None and not runtime.settings.guided_funnel_enabled:
                 continue
             dedup_key = (incoming.instance, incoming.external_message_id)
             if dedup_key in seen_kapso_messages:

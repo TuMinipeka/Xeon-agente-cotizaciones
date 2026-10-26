@@ -76,7 +76,7 @@ def test_discount_intent_recognizes_words_and_percentages() -> None:
     assert not _requests_discount("Cotizame 10 bultos de cemento")
 
 
-def test_grok_receives_history_between_system_context_and_current_turn() -> None:
+def test_grok_only_receives_current_closed_step_choice() -> None:
     captured: list[list[dict[str, str]]] = []
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -107,21 +107,34 @@ def test_grok_receives_history_between_system_context_and_current_turn() -> None
                     "/v1/chat",
                     json={
                         "conversation_id": "00000000-0000-0000-0000-000000000001",
-                        "message": "Tienen tubo pvc de 1/2 pulgada?",
+                        "message": "start:products",
                     },
                 )
                 second = await client.post(
                     "/v1/chat",
                     json={
                         "conversation_id": "00000000-0000-0000-0000-000000000001",
-                        "message": "Cotizame 5 unidades de ese mismo",
+                        "message": "tubo pvc de 1/2 pulgada",
                     },
                 )
-            assert first.status_code == second.status_code == 200
+                choice = await client.post(
+                    "/v1/chat",
+                    json={
+                        "conversation_id": "00000000-0000-0000-0000-000000000001",
+                        "message": "product:TUB-PVC-20",
+                    },
+                )
+                unrelated = await client.post(
+                    "/v1/chat",
+                    json={
+                        "conversation_id": "00000000-0000-0000-0000-000000000001",
+                        "message": "explicame otra cosa",
+                    },
+                )
+            assert all(item.status_code == 200 for item in (first, second, choice, unrelated))
 
     asyncio.run(run())
-    roles = [message["role"] for message in captured[1]]
-    assert roles == ["system", "system", "user", "assistant", "user"]
-    assert captured[1][-3]["content"] == "Tienen tubo pvc de 1/2 pulgada?"
-    assert captured[1][-1]["content"] == "Cotizame 5 unidades de ese mismo"
-    assert "SKU=TUB-PVC-20" in captured[1][1]["content"]
+    assert len(captured) == 1
+    assert [message["role"] for message in captured[0]] == ["system", "user"]
+    assert captured[0][-1]["content"] == "explicame otra cosa"
+    assert "tubo pvc" not in captured[0][-1]["content"]

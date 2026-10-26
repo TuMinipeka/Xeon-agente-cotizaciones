@@ -96,11 +96,11 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 | Shell `xeon` (Rich) y subcomandos Typer `health`, `chat`, `quotes`, `stock` | Sin autenticación ni perfiles de usuario |
 | **Grok** por defecto (`grok-4.6`, verificado por el orquestador mediante XEON); `mock` en pruebas y Groq como respaldo | Costos de inferencia según la pasarela del reto |
 | Búsqueda por SKU, alias y puntuación de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial |
-| Stock sintético por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante | Sin lectura ni reserva de inventario real |
+| Stock por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante; fuente sintética o conector SQL de solo lectura | Sin reserva de inventario |
 | Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
-| Memoria por conversación (últimos turnos a Grok y último SKU), acotada con LRU | Local al proceso; no se comparte entre workers |
+| Memoria por conversación, carrito y paso del embudo, acotados al proceso | No se comparte entre workers |
 | Descuentos: sin política aprobada se rechazan, también cuando se piden por chat | Sin políticas versionadas |
-| `CommercialScopePolicy` (bloquea temas ajenos antes del LLM) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
+| Embudo D14 con opciones cerradas, redirección local y respuestas desde plantillas | El modelo solo clasifica texto de pasos cerrados |
 | Webhook firmado de Kapso (`whatsapp.message.received`), lotes y deduplicación en memoria; ensayo en sandbox realizado | Acuse `processed` no confirma entrega al teléfono; sin cola durable |
 
 ---
@@ -114,35 +114,24 @@ flowchart LR
     U[Shell xeon] --> S
     C[POST /v1/chat] --> S
     W[Webhook Kapso con firma HMAC] --> F[Filtro y deduplicación] --> S
-    S[AgentService] --> P[CommercialScopePolicy]
-    S --> M[ConversationMemory]
-    S --> T[CommercialToolbelt]
+    S[AgentService] --> P[GuidedFunnel]
+    P --> M[ConversationMemory y QuoteCart]
+    P --> T[CommercialToolbelt]
     T --> K[Catálogo sintético]
     T --> I[Inventario sintético]
     T --> Q[Borrador DRAFT]
-    S --> L[LLMPort: Grok / Groq / mock]
-    L --> R[CustomerResponsePolicy]
-    R --> O[Respuesta / envío por WhatsApp]
+    P --> L[LLMPort: Grok / Groq / mock]
+    P --> O[Reply: texto / botones / lista]
+    O --> W
 ```
 
-1. **Alcance.** `CommercialScopePolicy` responde localmente a lo que no es ferretería y separa
-   la parte comercial de las solicitudes mixtas.
-2. **Contexto verificado.** `CommercialToolbelt.prepare_verified_context` busca el producto (o usa el
-   último SKU de la conversación ante «ese mismo»), consulta stock y, si hay cantidad, crea un
-   `DRAFT`. Si detecta un pedido de descuento sin política, informa y no crea borrador.
-3. **Modelo.** `AgentService` envía a Grok el prompt de sistema, el contexto verificado, el
-   historial corto de la conversación y el turno actual. El LLM **no** ejecuta herramientas ni
-   calcula precios: redacta a partir de datos ya verificados.
-4. **Salida.** `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados de las
-   respuestas de proveedores reales.
-
-El contexto inyectado al modelo lleva marcadores `[XEON_TOOL:...]`; son internos y el filtro de
-salida impide mostrarlos al comprador cuando responde un proveedor real.
+1. **Embudo.** `GuidedFunnel` presenta producto, cantidad, entrega, sede, pago y resumen. El cliente responde con el id o número ofrecido.
+2. **Datos.** `CommercialToolbelt` busca referencias y `CommercialExecutor` modifica `QuoteCart` y crea borradores con `Decimal`.
+3. **Modelo.** Grok clasifica texto libre de pasos cerrados a un id permitido o `no_encaja`. Nunca calcula, aprueba ni redacta el resumen transaccional.
+4. **Salida.** `Reply` genera texto, botones o lista; Kapso transforma las opciones en mensajes interactivos y API/CLI las numeran.
 
 > [!WARNING]
-> En el chat, una búsqueda descriptiva toma el primer candidato para consultar stock y cotizar.
-> No lo interpretes como referencia confirmada por el comprador; para cotizar de forma explícita
-> usa `xeon quotes create` o `POST /v1/quotes` con SKU o alias exacto.
+> El chat muestra candidatos y exige elegir una referencia antes de añadirla al carrito.
 
 Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no** significan
 «agotado».

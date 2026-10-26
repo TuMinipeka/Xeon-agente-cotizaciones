@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.engine import URL
 
+from tests.guided_steps import add_product
 from xeon.application.container import build_container
 from xeon.config import Settings, SettingsError
 from xeon.connectors.schema import ReadQuery, load_connector
@@ -57,16 +58,16 @@ def test_sql_connector_quotes_real_schema_and_resolves_branch(tmp_path: Path) ->
     async def run() -> None:
         container = build_container(_store(tmp_path))
         try:
-            quote = await container.agent.respond("2 bultos de cemento", conversation_key="sql-1")
-            stock = await container.agent.respond(
-                "¿disponibles en sede Robles?", conversation_key="sql-1"
+            await add_product(container, "sql-1", "cemento", "FER-01", 2)
+            await container.agent.respond_reply("more:view", conversation_key="sql-1")
+            await container.agent.respond_reply("delivery:branch_inquiry", conversation_key="sql-1")
+            payment = await container.agent.respond_reply("branch:BOD-7", conversation_key="sql-1")
+            summary = await container.agent.respond_reply(
+                "payment:pending", conversation_key="sql-1"
             )
-            summary = await container.agent.respond(
-                "resumeme mi cotizacion", conversation_key="sql-1"
-            )
-            assert "Cemento Ferreteria Robles" in quote.text
-            assert "disponible" in stock.text
-            assert "Ferreteria Robles Principal" in stock.text
+            assert "Cemento Ferreteria Robles" in summary.text
+            assert payment.step == "pago"
+            assert container.agent._funnel.state("sql-1").branch_id == "BOD-7"
             assert "TOTAL confirmado: $75.100" in summary.text
             cart = container.carts.get("sql-1")
             assert cart is not None

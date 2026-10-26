@@ -4,16 +4,14 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Sequence
 from decimal import Decimal
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field
 
 from xeon.agent.toolbelt import _extract_requested_quantity
 from xeon.application.ports.branches import BranchDirectory, resolve_branch
 from xeon.application.ports.conversation_memory import PendingCandidates
-from xeon.application.ports.llm import ChatMessage, LLMPort, LLMProviderError, LLMResponse
 
 
 class IntentKind(StrEnum):
@@ -59,17 +57,6 @@ class IntentBatch(BaseModel):
 
     intents: tuple[Intent, ...] = Field(min_length=1)
 
-
-_INTERPRETER_PROMPT = """Interpreta el turno comercial de XEON. Devuelve solo JSON
-con {"intents":[...]}, sin Markdown. Cada intención usa kind entre
-consultar_producto, agregar, modificar_cantidad, quitar, elegir_opcion,
-responder_pendiente, ver_resumen_total, consultar_stock, consultar_politica,
-asesoria_proyecto, hipotetica, saludo, fuera_de_alcance. Incluye producto,
-cantidad, branch, attributes, policy y project cuando existan. Conserva TODAS
-las solicitudes del turno. Una pregunta hipotética no agrega ni modifica.
-Consultas de compra, pagos, entrega, stock, resumen y asesoría de proyectos
-son comerciales. Fuera de alcance solo para solicitudes realmente ajenas.
-No calcules precios, stock ni descuentos; el backend lo hará."""
 
 _WORD_NUMBERS = {"una": Decimal(1), "uno": Decimal(1), "dos": Decimal(2), "tres": Decimal(3)}
 _DIMENSIONS = re.compile(
@@ -154,64 +141,6 @@ def is_absolute_quantity(text: str) -> bool:
 
 def is_explicit_addition(text: str) -> bool:
     return re.search(r"\b(?:agrega|agregame|suma|otros?|m[aá]s)\b", _normalize(text)) is not None
-
-
-def _compound_cart_intents(message: str) -> IntentBatch | None:
-    normalized = _normalize(message)
-    if match := re.search(r"\belige\s+([1-3])\s+y\s+pala\s+([1-3])\b", normalized):
-        intents = [
-            Intent(
-                kind=IntentKind.ELEGIR_OPCION,
-                product=match.group(1),
-                source_text=f"elige {match.group(1)}",
-            ),
-            Intent(
-                kind=IntentKind.ELEGIR_OPCION,
-                product=f"pala opcion {match.group(2)}",
-                source_text=f"pala {match.group(2)}",
-            ),
-        ]
-        if cement := re.search(r"\bpon\s+(\d+)\s+bultos?\b", normalized):
-            intents.append(
-                Intent(
-                    kind=IntentKind.MODIFICAR_CANTIDAD,
-                    product="cemento",
-                    quantity=Decimal(cement.group(1)),
-                    source_text=cement.group(),
-                )
-            )
-        if shovels := re.search(r"\by\s+(\d+)\s+palas?\b", normalized):
-            intents.append(
-                Intent(
-                    kind=IntentKind.MODIFICAR_CANTIDAD,
-                    product="pala",
-                    quantity=Decimal(shovels.group(1)),
-                    source_text=shovels.group(),
-                )
-            )
-        return IntentBatch(intents=tuple(intents))
-    if "pala" in normalized and (
-        match := re.search(r"\bdeja\s+solo\s+(\d+)\s+palas?\b", normalized)
-    ):
-        intents = [
-            Intent(
-                kind=IntentKind.MODIFICAR_CANTIDAD,
-                product="pala",
-                quantity=Decimal(match.group(1)),
-                source_text=match.group(),
-            )
-        ]
-        if cement := re.search(r"\b(\d+)\s+cemento\b", normalized):
-            intents.append(
-                Intent(
-                    kind=IntentKind.MODIFICAR_CANTIDAD,
-                    product="cemento",
-                    quantity=Decimal(cement.group(1)),
-                    source_text=cement.group(),
-                )
-            )
-        return IntentBatch(intents=tuple(intents))
-    return None
 
 
 def _product_phrase(text: str) -> str | None:
@@ -314,7 +243,7 @@ def fallback_intents(
                 )
             )
             continue
-        if _MODIFY.search(clause) or re.search(r"\blos?\s+\w+\s+a\s+\d+", clause, re.I):
+        if _MODIFY.search(_normalize(clause)) or re.search(r"\blos?\s+\w+\s+a\s+\d+", clause, re.I):
             intents.append(
                 _from_clause(
                     IntentKind.MODIFICAR_CANTIDAD,
@@ -387,75 +316,3 @@ def fallback_intents(
     if not intents:
         intents = [Intent(kind=IntentKind.FUERA_DE_ALCANCE, source_text=cleaned)]
     return IntentBatch(intents=tuple(intents))
-
-
-class IntentInterpreter:
-    def __init__(self, branches: BranchDirectory | None = None) -> None:
-        self._branches = branches
-
-    async def interpret(
-        self,
-        message: str,
-        *,
-        llm: LLMPort,
-        pending: PendingCandidates | None = None,
-        context: str = "",
-        history: Sequence[ChatMessage] = (),
-    ) -> tuple[IntentBatch, LLMResponse | None]:
-        local = fallback_intents(message, pending=pending, branches=self._branches)
-        compound = _compound_cart_intents(message)
-        if all(intent.kind is IntentKind.FUERA_DE_ALCANCE for intent in local.intents):
-            return local, None
-        try:
-            response = await llm.complete(
-                (
-                    ChatMessage(role="system", content=_INTERPRETER_PROMPT),
-                    ChatMessage(role="system", content=context),
-                    *history,
-                    ChatMessage(role="user", content=message),
-                )
-            )
-            parsed = IntentBatch.model_validate_json(response.text)
-            if compound is not None:
-                return compound, response
-            if _STOCK.search(message) and any(
-                item.kind is IntentKind.CONSULTAR_STOCK for item in local.intents
-            ):
-                return local, response
-            if len(local.intents) == 1 and local.intents[0].kind is IntentKind.ASESORIA_PROYECTO:
-                return local, response
-            if (
-                len(parsed.intents) == 1
-                and len(local.intents) > 1
-                and all(item.kind is IntentKind.AGREGAR for item in local.intents)
-            ):
-                return local, response
-            return IntentBatch(
-                intents=tuple(
-                    intent.model_copy(
-                        update={
-                            "source_text": intent.source_text
-                            or (message if len(parsed.intents) == 1 else ""),
-                            "kind": IntentKind.MODIFICAR_CANTIDAD
-                            if is_absolute_quantity(intent.source_text or message)
-                            and intent.kind in {IntentKind.AGREGAR, IntentKind.CONSULTAR_PRODUCTO}
-                            and len(parsed.intents) == 1
-                            else intent.kind,
-                            "quantity": _quantity(message)
-                            if len(parsed.intents) == 1 and is_absolute_quantity(message)
-                            else intent.quantity,
-                            "branch": resolved.id
-                            if (
-                                resolved := resolve_branch(
-                                    intent.branch or intent.source_text or message,
-                                    self._branches,
-                                )
-                            )
-                            else None,
-                        }
-                    )
-                    for intent in parsed.intents
-                )
-            ), response
-        except ValidationError, ValueError, LLMProviderError:
-            return compound or local, None

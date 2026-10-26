@@ -473,16 +473,27 @@ async def test_sut_captures_live_tool_events_for_branch_check() -> None:
     )
     sut = XEONSUT(settings)
     try:
-        await sut.respond("¿Hay stock en sede norte de 10 bultos de cemento?")
+        messages = [
+            "¿Hay stock en sede norte de 10 bultos de cemento?",
+            "start:products",
+            "cemento",
+            "product:CEM-50",
+            "quantity:10",
+            "more:view",
+            "delivery:pickup",
+            "branch:sede-norte",
+        ]
+        responses = [await sut.respond(messages[0])]
+        for message in messages[1:]:
+            responses.append(await sut.respond(message))
         oracle = Oracle()
-        clean_live_reply = [{"reply": "Stock pendiente de confirmación.", "provider": "grok"}]
         view = EvalView(
             oracle,
-            clean_live_reply,
+            responses,
             sut.llm.tool_contexts(),
             sut.drafts(),
             "live",
-            ["hay en norte"],
+            messages,
         )
         assert run_check({"type": "branch_matches", "branch": "sede-norte"}, view).status == "PASS"
         assert run_check({"type": "branch_matches", "branch": "sede-sur"}, view).status == "FAIL"

@@ -5,6 +5,7 @@ from decimal import Decimal
 import httpx
 import pytest
 
+from tests.guided_steps import add_product
 from xeon.adapters.branches.memory import InMemoryBranchDirectory
 from xeon.agent.tool_trace import capture_tool_events
 from xeon.agent.toolbelt import _extract_requested_quantity
@@ -29,14 +30,18 @@ def test_injected_clock_controls_stock_freshness() -> None:
     settings = Settings(llm_provider="mock", _env_file=None)
     fresh = build_container(settings, clock=lambda: datetime(2026, 10, 8, 15, 0, tzinfo=UTC))
     stale = build_container(settings, clock=lambda: datetime(2026, 10, 24, 15, 0, tzinfo=UTC))
-    fresh_reply = asyncio.run(
-        fresh.agent.respond("hay 10 bultos de cemento en sede norte?", conversation_key="fresh")
-    )
-    stale_reply = asyncio.run(
-        stale.agent.respond("hay 10 bultos de cemento en sede norte?", conversation_key="stale")
-    )
-    assert "vigencia=fresh" in fresh_reply.text
-    assert "vigencia=stale" in stale_reply.text
+
+    async def option(container, key):  # type: ignore[no-untyped-def]
+        await add_product(container, key, "cemento", "CEM-50", 10)
+        await container.agent.respond_reply("more:view", conversation_key=key)
+        return await container.agent.respond_reply("delivery:pickup", conversation_key=key)
+
+    fresh_reply = asyncio.run(option(fresh, "fresh"))
+    stale_reply = asyncio.run(option(stale, "stale"))
+    fresh_title = next(item.title for item in fresh_reply.options if item.id == "branch:sede-norte")
+    stale_title = next(item.title for item in stale_reply.options if item.id == "branch:sede-norte")
+    assert "disponible" in fresh_title
+    assert "pendiente" in stale_title
 
 
 def test_quote_failure_is_visible_without_exception_details(
@@ -48,7 +53,7 @@ def test_quote_failure_is_visible_without_exception_details(
         raise RuntimeError("private detail")
 
     monkeypatch.setattr(container.create_quote_draft, "execute", fail)
-    reply = asyncio.run(container.agent.respond("10 bultos de cemento", conversation_key="error"))
+    reply = asyncio.run(add_product(container, "error", "cemento", "CEM-50", 10))
     assert "No pude actualizar el borrador" in reply.text
     assert "private detail" not in reply.text
 
@@ -87,19 +92,22 @@ def test_tool_trace_records_three_real_invocations_without_customer_data(
 ) -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
     with capture_tool_events() as events:
-        asyncio.run(
-            container.agent.respond(
-                "necesito 2 bultos de cemento en sede norte",
-                conversation_key="kapso-phone-123-+573001112233",
-            )
-        )
 
-    assert len(events) == 3
-    assert events[0] == "TOOL search_products status=exact_match sku=CEM-50"
-    assert events[1].startswith("TOOL get_stock_by_branches sku=CEM-50 sede=sede-norte")
-    assert "vigencia=" in events[1]
-    assert events[2].startswith("TOOL create_quote_draft quote_id=")
-    assert "lineas=1 subtotal=57800.00 COP" in events[2]
+        async def journey() -> None:
+            key = "kapso-phone-123-+573001112233"
+            await add_product(container, key, "cemento", "CEM-50", 2)
+            await container.agent.respond_reply("more:view", conversation_key=key)
+            await container.agent.respond_reply("delivery:pickup", conversation_key=key)
+            await container.agent.respond_reply("branch:sede-norte", conversation_key=key)
+
+        asyncio.run(journey())
+
+    assert any(event == "TOOL search_products status=exact_match sku=CEM-50" for event in events)
+    assert any(
+        event.startswith("TOOL get_stock_by_branches sku=CEM-50 sede=sede-norte")
+        for event in events
+    )
+    assert any("lineas=1 subtotal=57800.00 COP" in event for event in events)
     emitted = [record.message for record in caplog.records if record.name == "xeon.tools"]
     assert emitted == events
     assert "+573001112233" not in "\n".join(emitted)
@@ -108,7 +116,12 @@ def test_tool_trace_records_three_real_invocations_without_customer_data(
 def test_speculative_product_lookup_has_one_effective_trace_line() -> None:
     container = build_container(Settings(llm_provider="mock", _env_file=None))
     with capture_tool_events() as events:
-        asyncio.run(container.agent.respond("necesito 10 tubos pvc", conversation_key="trace-once"))
+
+        async def search() -> None:
+            await container.agent.respond_reply("start:products", conversation_key="trace-once")
+            await container.agent.respond_reply("tubos pvc", conversation_key="trace-once")
+
+        asyncio.run(search())
 
     search_events = [event for event in events if event.startswith("TOOL search_products")]
     assert len(search_events) == 1
@@ -154,9 +167,19 @@ def test_chat_endpoint_surfaces_verified_candidates() -> None:
         settings = Settings(llm_provider="mock", _env_file=None)
         transport = httpx.ASGITransport(app=create_app(settings=settings))
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            await client.post(
+                "/v1/chat",
+                json={
+                    "message": "start:products",
+                    "conversation_id": "00000000-0000-0000-0000-000000000999",
+                },
+            )
             return await client.post(
                 "/v1/chat",
-                json={"message": "busco material para fundir placa y pegar ladrillo"},
+                json={
+                    "message": "busco material para fundir placa y pegar ladrillo",
+                    "conversation_id": "00000000-0000-0000-0000-000000000999",
+                },
             )
 
     response = asyncio.run(run())

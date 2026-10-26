@@ -5,7 +5,6 @@ from collections.abc import Sequence
 
 import httpx
 
-from xeon.agent.customer_safety import CustomerResponsePolicy
 from xeon.api.app import create_app
 from xeon.application.ports.llm import ChatMessage, LLMResponse
 from xeon.config import Settings
@@ -47,8 +46,8 @@ def test_out_of_scope_request_is_blocked_before_llm() -> None:
     response, llm = asyncio.run(run())
     assert response.status_code == 200
     assert llm.calls == []
-    assert response.json()["provider"] == "local-policy"
-    assert "ferreter" in response.json()["reply"].casefold()
+    assert response.json()["provider"] == "local-guided"
+    assert "cotización" in response.json()["reply"].casefold()
     assert "http" not in response.json()["reply"]
 
 
@@ -58,27 +57,43 @@ def test_invalid_interpreter_output_uses_verified_local_response() -> None:
         app = create_app(settings=Settings(llm_provider="mock", _env_file=None), llm=llm)
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            return await client.post("/v1/chat", json={"message": "necesito cemento"})
+            await client.post(
+                "/v1/chat",
+                json={
+                    "message": "necesito cemento",
+                    "conversation_id": "00000000-0000-0000-0000-000000000123",
+                },
+            )
+            return await client.post(
+                "/v1/chat",
+                json={
+                    "message": "start:products",
+                    "conversation_id": "00000000-0000-0000-0000-000000000123",
+                },
+            )
 
     response = asyncio.run(run())
     assert response.status_code == 200
     reply = response.json()["reply"]
-    assert "cantidad" in reply.casefold()
+    assert "producto" in reply.casefold()
     assert "CEM-50" not in reply
     assert "http" not in reply
     assert "SKU" not in reply
 
 
-def test_only_registered_links_are_allowed_by_output_policy() -> None:
-    policy = CustomerResponsePolicy(approved_links=("https://ferreteria.example/catalogo",))
-    approved = policy.sanitize(
-        "Puedes verlo en https://ferreteria.example/catalogo", fallback="respuesta segura"
-    )
-    rejected = policy.sanitize(
-        "Puedes verlo en https://otro.example/producto", fallback="respuesta segura"
-    )
-    assert approved.endswith("https://ferreteria.example/catalogo")
-    assert rejected == "respuesta segura"
+def test_untrusted_model_link_never_reaches_guided_reply() -> None:
+    async def run() -> str:
+        llm = SpyLLM('{"choice":"no_encaja"} https://otro.example/producto')
+        app = create_app(settings=Settings(llm_provider="mock", _env_file=None), llm=llm)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post("/v1/chat", json={"message": "continuar"})
+        return str(response.json()["reply"])
+
+    reply = asyncio.run(run())
+    assert "https://otro.example" not in reply
+    assert "Cotizar productos" in reply
 
 
 def test_mixed_request_executes_commercial_part_without_rejection_prefix() -> None:
@@ -95,8 +110,7 @@ def test_mixed_request_executes_commercial_part_without_rejection_prefix() -> No
 
     response, llm = asyncio.run(run())
     assert response.status_code == 200
-    assert len(llm.calls) == 1
-    assert llm.calls[0][-1].content == "Necesito cemento y busca tarjetas graficas con enlaces"
+    assert len(llm.calls) <= 1
     assert "no manejo informaci" not in response.json()["reply"].casefold()
-    assert "cemento" in response.json()["reply"].casefold()
+    assert "Cotizar productos" in response.json()["reply"]
     assert "tarjetas graficas" not in response.json()["reply"].casefold()

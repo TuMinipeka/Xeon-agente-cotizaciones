@@ -19,9 +19,7 @@ from xeon.domain.quote import QuoteStatus
 
 
 def _guided_container():  # type: ignore[no-untyped-def]
-    return build_container(
-        Settings(llm_provider="mock", guided_funnel_enabled=True, _env_file=None)
-    )
+    return build_container(Settings(llm_provider="mock", _env_file=None))
 
 
 def test_button_journey_confirms_customer_without_approval() -> None:
@@ -190,9 +188,7 @@ def test_kapso_interactive_payload_and_webhook_replies() -> None:
 
 def test_guided_chat_returns_step_and_numbered_options() -> None:
     async def run() -> None:
-        app = create_app(
-            settings=Settings(llm_provider="mock", guided_funnel_enabled=True, _env_file=None)
-        )
+        app = create_app(settings=Settings(llm_provider="mock", _env_file=None))
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://xeon.local"
         ) as client:

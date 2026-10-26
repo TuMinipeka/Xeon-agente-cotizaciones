@@ -49,7 +49,7 @@ def test_signed_webhook_dispatches_once_with_kapso_payload_and_dedup(
 ) -> None:
     sent: list[httpx.Request] = []
     calls: list[tuple[str | None, str | None]] = []
-    original_respond = AgentService.respond
+    original_respond = AgentService.respond_reply
 
     async def tracked_respond(
         self: AgentService,
@@ -57,13 +57,18 @@ def test_signed_webhook_dispatches_once_with_kapso_payload_and_dedup(
         *,
         conversation_key: str | None = None,
         request_id: str | None = None,
+        option_id: str | None = None,
     ) -> object:
         calls.append((conversation_key, request_id))
         return await original_respond(
-            self, message, conversation_key=conversation_key, request_id=request_id
+            self,
+            message,
+            conversation_key=conversation_key,
+            request_id=request_id,
+            option_id=option_id,
         )
 
-    monkeypatch.setattr(AgentService, "respond", tracked_respond)
+    monkeypatch.setattr(AgentService, "respond_reply", tracked_respond)
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append(request)
@@ -101,8 +106,8 @@ def test_signed_webhook_dispatches_once_with_kapso_payload_and_dedup(
     payload = json.loads(sent[0].content)
     assert payload["messaging_product"] == "whatsapp"
     assert payload["to"] == "573001112233"
-    assert payload["type"] == "text"
-    assert "cemento" in payload["text"]["body"].lower()
+    assert payload["type"] == "interactive"
+    assert payload["interactive"]["type"] in {"button", "list"}
 
 
 def test_missing_or_invalid_signature_returns_401_without_processing() -> None:

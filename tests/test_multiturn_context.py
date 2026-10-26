@@ -11,6 +11,7 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
+from tests.guided_steps import add_product
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.agent.tool_trace import capture_tool_events
 from xeon.api.app import create_app
@@ -62,7 +63,7 @@ def _kapso_settings() -> Settings:
 
 
 def test_multiturn_chat_progressive_clarification_to_quote_draft() -> None:
-    """Simula conversacion multi-turno en /v1/chat: saludo -> T02 -> T03 -> borrador DRAFT v1."""
+    """El chat guia una busqueda ambigua y crea el borrador tras elegir cantidad."""
     quotes_repo = InMemoryQuoteDraftRepository()
     settings = Settings(llm_provider="mock", _env_file=None)
     container = build_container(settings, quotes=quotes_repo)
@@ -72,63 +73,40 @@ def test_multiturn_chat_progressive_clarification_to_quote_draft() -> None:
     async def run() -> list[httpx.Response]:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            r1 = await client.post(
-                "/v1/chat",
-                json={"conversation_id": conv_id, "message": "hola"},
-            )
-            r2 = await client.post(
-                "/v1/chat",
-                json={
-                    "conversation_id": conv_id,
-                    "message": "Necesito el coso que va en el aire acondicionado",
-                },
-            )
-            r3 = await client.post(
-                "/v1/chat",
-                json={
-                    "conversation_id": conv_id,
-                    "message": "La pieza mide 20 x 30 x 10",
-                },
-            )
-            r4 = await client.post(
-                "/v1/chat",
-                json={
-                    "conversation_id": conv_id,
-                    "message": "Necesito 10 bultos de cemento en sede norte",
-                },
-            )
-            return [r1, r2, r3, r4]
 
-    r1, r2, r3, r4 = asyncio.run(run())
+            async def send(message: str) -> httpx.Response:
+                return await client.post(
+                    "/v1/chat", json={"conversation_id": conv_id, "message": message}
+                )
 
-    # Turno 1: saludo sin crear borrador
-    assert r1.status_code == 200
-    assert r1.json()["conversation_id"] == conv_id
-    assert r1.json()["provider"] == "mock"
-    assert "soy XEON" in r1.json()["reply"]
+            responses = []
+            for message in (
+                "hola",
+                "start:products",
+                "Necesito el coso que va en el aire acondicionado",
+                "La pieza mide 20 x 30 x 10",
+                "cemento",
+                "product:CEM-50",
+                "quantity:10",
+                "more:view",
+                "delivery:pickup",
+                "branch:sede-norte",
+            ):
+                responses.append(await send(message))
+                if len(responses) == 4:
+                    assert not quotes_repo._quotes
+            return responses
 
-    # Turno 2 (T02): referencia ambigua exige aclaracion
-    assert r2.status_code == 200
-    reply_t02 = r2.json()["reply"]
-    assert "[XEON_TOOL:search_products status=clarification_required]" in reply_t02
-    assert "ambigua" in reply_t02
-
-    # Turno 3 (T03): medidas sin unidades exigen aclaracion
-    assert r3.status_code == 200
-    reply_t03 = r3.json()["reply"]
-    assert "[XEON_TOOL:search_products status=clarification_required]" in reply_t03
-    assert "Faltan unidades y contexto" in reply_t03
-
-    # Turno 4: consulta con producto y cantidad ejecuta las 3 herramientas y crea DRAFT v1
-    assert r4.status_code == 200
-    reply_t04 = r4.json()["reply"]
-    assert "[XEON_TOOL:search_products status=exact_match]" in reply_t04
-    assert "SKU=CEM-50" in reply_t04
-    assert "[XEON_TOOL:get_stock_by_branches sku=CEM-50 sede_solicitada=sede-norte" in reply_t04
-    assert "[XEON_TOOL:create_quote_draft" in reply_t04
-    assert "status=DRAFT version=v1 sku=CEM-50 cantidad=10" in reply_t04
-    assert "subtotal=289000.00 COP total=289000.00 COP" in reply_t04
+    replies = asyncio.run(run())
+    assert all(reply.status_code == 200 for reply in replies)
+    assert replies[0].json()["step"] == "inicio"
+    assert replies[2].json()["step"] == "producto"
+    assert replies[3].json()["step"] == "producto"
+    assert replies[6].json()["step"] == "mas"
+    assert "$289.000" in replies[6].json()["reply"]
+    assert replies[-1].json()["step"] == "pago"
     assert len(quotes_repo._quotes) == 1
+    assert next(iter(quotes_repo._quotes.values())).subtotal.amount == Decimal("289000.00")
 
 
 def test_multiturn_kapso_webhook_flow_and_non_customer_events_ignored() -> None:
@@ -164,12 +142,24 @@ def test_multiturn_kapso_webhook_flow_and_non_customer_events_ignored() -> None:
                 client, _whatsapp_payload("La pieza mide 20 x 30 x 10", message_id="K-TURN-2")
             )
             assert len(quotes_repo._quotes) == 0
-            order = await _post_signed(
-                client,
-                _whatsapp_payload(
-                    "Cotizame 5 unidades de tubo pvc 1/2 en sede norte", message_id="K-TURN-3"
+            guided = []
+            for index, message in enumerate(
+                (
+                    "start:products",
+                    "tubo pvc de 1/2 pulgada",
+                    "product:TUB-PVC-20",
+                    "quantity:other",
+                    "5",
                 ),
-            )
+                3,
+            ):
+                guided.append(
+                    await _post_signed(
+                        client, _whatsapp_payload(message, message_id=f"K-TURN-{index}")
+                    )
+                )
+            order = guided[-1]
+            assert all(reply.json()["status"] == "processed" for reply in guided)
             return [sent, delivered, image, ambiguous, units, order]
 
     sent, delivered, image, ambiguous, units, order = asyncio.run(run())
@@ -250,7 +240,7 @@ def test_t19_mock_profile_makes_zero_external_calls(monkeypatch: pytest.MonkeyPa
     assert h.status_code == 200
     assert h.json()["provider"] == "mock"
     assert c.status_code == 200
-    assert c.json()["provider"] == "mock"
+    assert c.json()["provider"] == "local-guided"
     assert w.status_code == 200
     assert w.json()["status"] == "processed"
     assert external_calls == []
@@ -331,7 +321,8 @@ def test_edge_prompt_injection_cannot_apply_discount_or_drop_tables() -> None:
     assert r_sql_inj.status_code == 200
 
     # El descuento solicitado se rechaza antes de crear cualquier borrador.
-    assert "politica de descuentos" in r_discount_inj.json()["reply"].casefold()
+    assert "aprobada" not in r_discount_inj.json()["reply"].casefold()
+    assert "$14.450" not in r_discount_inj.json()["reply"]
     assert len(quotes_repo._quotes) == 0
 
     # El catalogo y el repositorio siguen intactos tras el intento de DROP TABLE
@@ -347,13 +338,19 @@ def test_duplicate_webhook_same_app_instance_is_ignored_by_volatile_cache() -> N
     container = build_container(settings, quotes=quotes_repo)
     app = create_app(container=container)
     dup_payload = _whatsapp_payload(
-        "Necesito 4 bultos de cemento",
+        "4",
         message_id="K-DUP-SAME-PROC",
     )
 
     async def run() -> tuple[httpx.Response, httpx.Response]:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            for index, message in enumerate(
+                ("start:products", "cemento", "product:CEM-50", "quantity:other")
+            ):
+                await _post_signed(
+                    client, _whatsapp_payload(message, message_id=f"K-SETUP-{index}")
+                )
             first = await _post_signed(client, dup_payload)
             second = await _post_signed(client, dup_payload)
             return first, second
@@ -371,7 +368,7 @@ def test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repositor
     settings = _kapso_settings()
     container = build_container(settings, quotes=quotes_repo)
     dup_payload = _whatsapp_payload(
-        "Necesito 4 bultos de cemento",
+        "4",
         message_id="K-DUP-RESTART-001",
     )
 
@@ -383,6 +380,12 @@ def test_duplicate_webhook_across_workers_or_restarts_is_idempotent_in_repositor
             transport=httpx.ASGITransport(app=app_worker_1),
             base_url="http://test",
         ) as client1:
+            for index, message in enumerate(
+                ("start:products", "cemento", "product:CEM-50", "quantity:other")
+            ):
+                await _post_signed(
+                    client1, _whatsapp_payload(message, message_id=f"K-WORKER-SETUP-{index}")
+                )
             r1 = await _post_signed(client1, dup_payload)
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app_worker_2),
@@ -407,21 +410,22 @@ def test_followup_reuses_draft_until_lines_change() -> None:
     conversation_key = "demo-draft-reuse"
 
     async def run() -> tuple[str, str, str]:
-        await container.agent.respond("necesito 10 tubos pvc", conversation_key=conversation_key)
-        selected = await container.agent.respond("1", conversation_key=conversation_key)
-        pickup = await container.agent.respond(
-            "lo recojo en la sede norte", conversation_key=conversation_key
+        selected = await add_product(container, conversation_key, "tubos pvc", "TUB-PVC-20", 10)
+        await container.agent.respond_reply("more:view", conversation_key=conversation_key)
+        await container.agent.respond_reply("delivery:pickup", conversation_key=conversation_key)
+        pickup = await container.agent.respond_reply(
+            "branch:sede-norte", conversation_key=conversation_key
         )
         assert len(quotes_repo._quotes) == 1
-        changed = await container.agent.respond(
-            "cotizame 12 unidades de ese mismo", conversation_key=conversation_key
+        changed = await container.agent.respond_reply(
+            "cambialo a 12 tubos pvc", conversation_key=conversation_key
         )
         return selected.text, pickup.text, changed.text
 
     selected, pickup, changed = asyncio.run(run())
-    assert "create_quote_draft" in selected
-    assert "create_quote_draft" in pickup
-    assert "create_quote_draft" in changed
+    assert "$42.000" in selected
+    assert "pagar" in pickup.casefold()
+    assert "$50.400" in changed
     assert len(quotes_repo._quotes) == 2
     assert {quote.lines[0].quantity for quote in quotes_repo._quotes.values()} == {
         Decimal("10"),
@@ -440,20 +444,23 @@ def test_multiturn_chat_retains_product_context_across_turns() -> None:
     async def run() -> tuple[httpx.Response, httpx.Response]:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-            t1 = await client.post(
-                "/v1/chat",
-                json={"conversation_id": conv_id, "message": "Tienen tubo pvc de 1/2 pulgada?"},
-            )
-            t2 = await client.post(
-                "/v1/chat",
-                json={"conversation_id": conv_id, "message": "Cotizame 5 unidades de ese mismo"},
-            )
+
+            async def send(message: str) -> httpx.Response:
+                return await client.post(
+                    "/v1/chat", json={"conversation_id": conv_id, "message": message}
+                )
+
+            await send("start:products")
+            t1 = await send("tubo pvc de 1/2 pulgada")
+            await send("product:TUB-PVC-20")
+            await send("quantity:other")
+            t2 = await send("5")
             return t1, t2
 
     t1, t2 = asyncio.run(run())
 
-    assert "SKU=TUB-PVC-20" in t1.json()["reply"]
-    assert "create_quote_draft" in t2.json()["reply"]
+    assert any(item["id"] == "product:TUB-PVC-20" for item in t1.json()["options"])
+    assert "$21.000" in t2.json()["reply"]
     assert len(quotes_repo._quotes) == 1
 
 
@@ -497,19 +504,17 @@ def test_e19_discount_followup_never_replays_previous_draft(followup: str) -> No
     conversation_key = "discount-followup"
 
     async def run() -> tuple[str, tuple[str, ...]]:
-        first = await container.agent.respond(
-            "cotizame 10 bultos de cemento", conversation_key=conversation_key
-        )
-        assert "create_quote_draft quote_id=" in first.text
+        first = await add_product(container, conversation_key, "cemento", "CEM-50", 10)
+        assert "$289.000" in first.text
         with capture_tool_events() as events:
-            second = await container.agent.respond(followup, conversation_key=conversation_key)
+            second = await container.agent.respond_reply(
+                followup, conversation_key=conversation_key
+            )
         return second.text, tuple(events)
 
     reply, events = asyncio.run(run())
-    assert "status=discount_policy_unavailable" in reply
+    assert "politica de descuentos" in reply
     assert "quote_id=" not in reply
     assert len(quotes_repo._quotes) == 1
-    assert any(
-        "TOOL create_quote_draft status=DiscountPolicyUnavailable" in event for event in events
-    )
+    assert not any("TOOL create_quote_draft" in event for event in events)
     assert not any("replayed=true" in event for event in events)

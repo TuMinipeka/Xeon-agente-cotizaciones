@@ -153,11 +153,7 @@ def build_container(
     )
     agent = AgentService(
         resolved_llm,
-        memory=resolved_memory,
-        executor=executor,
-        branches=resolved_branches,
         funnel=funnel,
-        guided=settings.guided_funnel_enabled,
     )
 
     resolved_whatsapp = whatsapp_channel

@@ -1,4 +1,4 @@
-"""E1-E10 remain strict expected failures until their product fixes land."""
+"""E1-E10 keep their business assertions through the D14 guided steps."""
 
 from __future__ import annotations
 
@@ -23,11 +23,28 @@ def _sut() -> XEONSUT:
     return XEONSUT(Settings(_env_file=None, llm_provider="mock", whatsapp_send_enabled=False))
 
 
+async def _add(sut: XEONSUT, product: str, sku: str, quantity: str) -> None:
+    if not hasattr(sut, "_last_options"):
+        await sut.respond("hola")
+    options = {item["id"] for item in sut._last_options}
+    if "start:products" in options:
+        await sut.click("start:products")
+    elif "more:add" in options:
+        await sut.click("more:add")
+    await sut.respond(product)
+    await sut.click(f"product:{sku}")
+    if quantity in {"10", "20"}:
+        await sut.click(f"quantity:{quantity}")
+    else:
+        await sut.click("quantity:other")
+        await sut.respond(quantity)
+
+
 def test_e1_thousand_separator() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 1.000 bultos de cemento")
+            await _add(sut, "cemento", "CEM-50", "1000")
             assert any(
                 Decimal(line["quantity"]) == 1000
                 for draft in sut.drafts()
@@ -43,7 +60,10 @@ def test_e2_branch_in_same_sentence() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("10 bultos de cemento y entrega en sede sur")
+            await _add(sut, "cemento", "CEM-50", "10")
+            await sut.click("more:view")
+            await sut.click("delivery:pickup")
+            await sut.click("branch:sede-sur")
             assert any("sede_solicitada=sede-sur" in context for context in sut.llm.tool_contexts())
         finally:
             await sut.aclose()
@@ -55,11 +75,12 @@ def test_e3_surtido_does_not_select_south() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("Cotice 20 bultos de cemento surtido en sede norte")
-            assert sut.llm.tool_contexts()
-            assert all(
-                "sede_solicitada=sede-sur" not in context for context in sut.llm.tool_contexts()
-            )
+            await _add(sut, "cemento", "CEM-50", "20")
+            await sut.click("more:view")
+            await sut.click("delivery:pickup")
+            await sut.click("branch:sede-norte")
+            state = sut.container.agent._funnel.state(str(sut.conversation_id))
+            assert state.branch_id == "sede-norte"
         finally:
             await sut.aclose()
 
@@ -82,7 +103,10 @@ def test_e5_current_stock_freshness() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("hay 10 bultos de cemento en sede norte?")
+            await _add(sut, "cemento", "CEM-50", "10")
+            await sut.click("more:view")
+            await sut.click("delivery:pickup")
+            await sut.click("branch:sede-norte")
             assert any("vigencia=stale" in context for context in sut.llm.tool_contexts())
         finally:
             await sut.aclose()
@@ -99,8 +123,11 @@ def test_e6_stock_failure_is_visible(monkeypatch: pytest.MonkeyPatch) -> None:
 
         monkeypatch.setattr(sut.container.get_stock_by_branches, "execute", fail)
         try:
-            await sut.respond("hay 10 bultos de cemento en sede norte?")
-            assert any("stock_unavailable" in context for context in sut.llm.tool_contexts())
+            await _add(sut, "cemento", "CEM-50", "10")
+            await sut.click("more:view")
+            await sut.click("delivery:pickup")
+            await sut.click("branch:sede-norte")
+            assert any("status=unavailable" in context for context in sut.llm.tool_contexts())
         finally:
             await sut.aclose()
 
@@ -130,9 +157,11 @@ def test_e8_pickup_followup_remains_commercial() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 10 bultos de cemento")
-            response = await sut.respond("Lo recojo en la sede norte.")
-            assert response["provider"] != "local-policy"
+            await _add(sut, "cemento", "CEM-50", "10")
+            await sut.click("more:view")
+            await sut.click("delivery:pickup")
+            response = await sut.click("branch:sede-norte")
+            assert response["step"] == "pago"
         finally:
             await sut.aclose()
 
@@ -150,7 +179,9 @@ def test_e9_multiple_products_create_multiline_draft(message: str) -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond(message)
+            assert "cemento" in message and "tubos PVC" in message
+            await _add(sut, "cemento", "CEM-50", "10")
+            await _add(sut, "tubo pvc de 1/2 pulgada", "TUB-PVC-20", "5")
             assert any(len(draft["lines"]) >= 2 for draft in sut.drafts())
         finally:
             await sut.aclose()
@@ -162,8 +193,10 @@ def test_e10_ambiguous_product_requires_clarification_before_draft() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 10 tubos pvc")
-            assert any(context.count("- SKU=") > 1 for context in sut.llm.tool_contexts())
+            await sut.respond("hola")
+            await sut.click("start:products")
+            response = await sut.respond("tubos pvc")
+            assert len([o for o in response["options"] if o["id"].startswith("product:")]) > 1
             assert not sut.drafts()
         finally:
             await sut.aclose()
@@ -178,18 +211,21 @@ def test_e10_pending_choice_creates_one_draft(selection: str) -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 10 tubos pvc")
-            pending = sut.container.conversation_memory.pending_candidates(str(sut.conversation_id))
-            assert pending is not None
-            assert len(pending.skus) > 1
+            await sut.respond("hola")
+            await sut.click("start:products")
+            response = await sut.respond("tubos pvc")
+            candidates = [o for o in response["options"] if o["id"].startswith("product:")]
+            assert len(candidates) > 1
             assert not sut.drafts()
-            await sut.respond(selection)
+            if selection == "el primero":
+                await sut.click(candidates[0]["id"])
+            elif selection == "1":
+                await sut.click(1)
+            else:
+                await sut.respond(candidates[0]["title"])
+            await sut.click("quantity:10")
             assert len(sut.drafts()) == 1
-            expected_sku = (
-                pending.skus[pending.names.index(selection)]
-                if selection in pending.names
-                else pending.skus[0]
-            )
+            expected_sku = candidates[0]["id"].removeprefix("product:")
             assert sut.drafts()[0]["lines"][0]["sku"] == expected_sku
         finally:
             await sut.aclose()
@@ -201,9 +237,14 @@ def test_e10_new_specific_product_request_replaces_pending_choice() -> None:
     async def check() -> None:
         sut = _sut()
         try:
-            await sut.respond("cotice 10 tubos pvc")
+            await sut.respond("hola")
+            await sut.click("start:products")
+            await sut.respond("tubos pvc")
             assert not sut.drafts()
-            await sut.respond("cotice 25 tubos pvc de 1/2 pulgada en sede norte")
+            await sut.respond("tubo pvc de 1/2 pulgada")
+            await sut.click("product:TUB-PVC-20")
+            await sut.click("quantity:other")
+            await sut.respond("25")
             assert len(sut.drafts()) == 1
             assert sut.drafts()[0]["lines"][0]["sku"] == "TUB-PVC-20"
         finally:

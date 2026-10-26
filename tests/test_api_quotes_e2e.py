@@ -171,7 +171,8 @@ def test_quote_flow_keeps_mock_provider() -> None:
             health = await client.get("/health")
             chat = await client.post("/v1/chat", json={"message": "hola"})
             assert health.json()["provider"] == "mock"
-            assert chat.json()["provider"] == "mock"
+            assert chat.json()["provider"] == "local-guided"
+            assert chat.json()["step"] == "inicio"
             assert "sensitive" not in chat.text
 
     asyncio.run(run())
