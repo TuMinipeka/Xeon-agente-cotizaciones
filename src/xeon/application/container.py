@@ -148,6 +148,7 @@ def build_container(
         branches=resolved_branches,
         policies=resolved_policies,
         notifier=LoggingAdvisorNotifier(),
+        memory=resolved_memory,
         tenant_id=settings.tenant_id,
     )
     agent = AgentService(

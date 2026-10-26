@@ -16,6 +16,7 @@ class FunnelState:
     candidates: tuple[str, ...] = ()
     awaiting_number: bool = False
     awaiting_modification: bool = False
+    closed: bool = False
 
 
 class FunnelRepository(Protocol):

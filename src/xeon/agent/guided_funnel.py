@@ -18,6 +18,7 @@ from xeon.application.ports.advisor import AdvisorNotifier
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import CatalogUnavailableError, ProductCatalog
+from xeon.application.ports.conversation_memory import ConversationMemory
 from xeon.application.ports.funnel import FunnelRepository, FunnelState
 from xeon.application.ports.llm import ChatMessage, LLMPort, LLMProviderError
 from xeon.application.ports.policies import PolicyRepository
@@ -51,6 +52,7 @@ class GuidedFunnel:
         branches: BranchDirectory,
         policies: PolicyRepository,
         notifier: AdvisorNotifier,
+        memory: ConversationMemory,
         tenant_id: str,
     ) -> None:
         self._llm = llm
@@ -63,6 +65,7 @@ class GuidedFunnel:
         self._branches = branches
         self._policies = policies
         self._notifier = notifier
+        self._memory = memory
         self._tenant_id = tenant_id
 
     def state(self, key: str) -> FunnelState:
@@ -194,6 +197,14 @@ class GuidedFunnel:
 
     def render(self, key: str, *, prefix: str = "") -> Reply:
         state = self.state(key)
+        project = self._memory.project_data(key)
+        project_text = ""
+        if project.area_m2 is not None:
+            project_text = f"Proyecto de {project.area_m2:,.0f} m² registrado. "
+            if project.whole_surface is True:
+                project_text += "Toda la superficie confirmada. "
+            elif project.whole_surface is None:
+                project_text += "¿Se trabajará toda la superficie o solo una parte? "
         questions = {
             "inicio": "¿Qué necesitas?",
             "producto": "¿Qué producto buscas? Escribe nombre o referencia.",
@@ -209,9 +220,8 @@ class GuidedFunnel:
             ),
             "pago": "¿Cómo prefieres pagar?",
             "resumen": self._cart(key) + self._summary_details(state),
-            "proyecto": (
-                "¿Qué vas a construir? La lista será preliminar y requiere validación técnica."
-            ),
+            "proyecto": project_text
+            + ("¿Qué vas a construir? La lista será preliminar y requiere validación técnica."),
             "asesor": "Un asesor te contactará.",
             "confirmado": "Recibimos tu confirmación. Un asesor revisará y te contactará.",
             "cancelado": "Cotización cancelada.",
@@ -246,6 +256,38 @@ class GuidedFunnel:
             f"Vigencia: {validity}. IVA: {policy.iva or unknown}."
         )
 
+    @staticmethod
+    def _is_weight_question(message: str) -> bool:
+        return bool(re.search(r"\b(?:kilos?|peso|kg)\b", message)) and bool(
+            re.search(r"\b(?:bultos?|cemento|arena|gravilla)\b", message)
+        )
+
+    @staticmethod
+    def _is_project_statement(message: str) -> bool:
+        return bool(re.search(r"\b(?:corral|proyecto|superficie|piso de concreto)\b", message))
+
+    def _answer_weight_and_delivery(self, key: str, message: str) -> str:
+        cart = self._carts.get(key)
+        products = [line.product for line in cart.lines if line.product is not None] if cart else []
+        if "cemento" in _normalized(message):
+            products = [product for product in products if "cemento" in _normalized(product.name)]
+        product = products[0] if len(products) == 1 else None
+        if product is None:
+            weight = "El peso del bulto está pendiente de confirmar con un asesor."
+        else:
+            declared = product.specs_dict.get("peso_kg")
+            match = re.search(r"\b(\d+(?:[.,]\d+)?)\s*kg\b", product.name, re.I)
+            kilos = declared or (match.group(1) if match else None)
+            weight = (
+                f"El bulto de {product.name} trae {kilos} kg según el catálogo."
+                if kilos
+                else f"El peso de {product.name} está pendiente de confirmar con un asesor."
+            )
+        if "domicilio" in _normalized(message):
+            cost = self._policies.get(self._tenant_id, "domicilio")
+            weight += " Domicilio: " + (cost or "pendiente de confirmar con un asesor.")
+        return weight
+
     async def handle(
         self, key: str, message: str, *, option_id: str | None = None, request_id: str | None = None
     ) -> Reply:
@@ -277,6 +319,28 @@ class GuidedFunnel:
             return self.render(key)
         if state.step in {"confirmado", "cancelado", "asesor"}:
             return self.render(key)
+        normalized_message = _normalized(message)
+        if option_id is None and re.search(r"\b(?:gracias|muchas gracias)\b", normalized_message):
+            self._save(key, replace(state, closed=True))
+            summary = self._cart(key) if self._carts.get(key) else ""
+            return self.render(key, prefix=f"Con gusto. Tu borrador sigue disponible.\n{summary}\n")
+        if option_id is None and self._is_weight_question(normalized_message):
+            return self.render(key, prefix=self._answer_weight_and_delivery(key, message) + "\n")
+        if option_id is None and self._is_project_statement(normalized_message):
+            project_intents = tuple(
+                intent
+                for intent in fallback_intents(message).intents
+                if intent.kind is IntentKind.ASESORIA_PROYECTO
+            )
+            if project_intents:
+                self._executor.execute(
+                    IntentBatch(intents=project_intents),
+                    message=message,
+                    conversation_key=key,
+                    request_id=request_id,
+                )
+                self._save(key, replace(state, step="proyecto"))
+                return self.render(key)
         if option_id is None:
             local = fallback_intents(message)
             operations = tuple(
@@ -292,7 +356,7 @@ class GuidedFunnel:
                     request_id=request_id,
                 )
                 self._save(key, replace(state, step="mas"))
-                return self.render(key, prefix=result.text + "\n")
+                return self.render(key, prefix=result.text + "\n" + self._cart(key) + "\n")
         if state.step == "producto" and option_id is None:
             search_result = self._tools.search_products(message, limit=8)
             if not search_result.candidates:

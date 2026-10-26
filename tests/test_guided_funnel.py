@@ -204,3 +204,70 @@ def test_guided_chat_returns_step_and_numbered_options() -> None:
             assert "1. Hablar con asesor" in payload["reply"]
 
     asyncio.run(run())
+
+
+def test_s15_compound_weight_question_uses_verified_catalog_presentation() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "s15-guided"
+        try:
+            for message in ("start:products", "cemento", "product:CEM-50", "quantity:10"):
+                await container.agent.respond_reply(message, conversation_key=key)
+            reply = await container.agent.respond_reply(
+                "¿También manejan arena y gravilla? "
+                "¿Cuántos kilos trae un bulto y el domicilio es gratis?",
+                conversation_key=key,
+            )
+            assert "50 kg" in reply.text
+            assert "Domicilio:" in reply.text
+            assert "lo confirma un asesor" in reply.text
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_s16_adjustment_shows_subtotal_and_thanks_keeps_cart() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "s16-guided"
+        try:
+            for message in ("start:products", "cemento", "product:CEM-50", "quantity:20"):
+                await container.agent.respond_reply(message, conversation_key=key)
+            adjusted = await container.agent.respond_reply(
+                "Mejor déjamelo en 15 bultos.", conversation_key=key
+            )
+            assert adjusted.step == "mas"
+            assert "$433.500" in adjusted.text
+            closed = await container.agent.respond_reply("ok gracias", conversation_key=key)
+            assert closed.step == "mas"
+            assert "$433.500" in closed.text
+            assert "¡Hola!" not in closed.text
+            cart = container.carts.get(key)
+            assert cart is not None and cart.confirmed_lines()[0].quantity == 15
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_s19_whole_surface_answer_is_not_reasked() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "s19-guided"
+        try:
+            await container.agent.respond_reply("start:project", conversation_key=key)
+            reply = await container.agent.respond_reply(
+                "toda la superficie 20x30 dame lista materiales corral ganado "
+                "no preguntes mas medidas",
+                conversation_key=key,
+            )
+            assert "600 m²" in reply.text
+            assert "Toda la superficie confirmada" in reply.text
+            assert "¿Se trabajará toda la superficie" not in reply.text
+            repeat = await container.agent.respond_reply("toda la superficie", conversation_key=key)
+            assert "¿Se trabajará toda la superficie" not in repeat.text
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
