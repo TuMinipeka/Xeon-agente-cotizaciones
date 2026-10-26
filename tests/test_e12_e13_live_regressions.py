@@ -14,6 +14,13 @@ def _sut() -> XEONSUT:
     return XEONSUT(Settings(_env_file=None, llm_provider="mock", whatsapp_send_enabled=False))
 
 
+def _assert_final_quote_context(sut: XEONSUT, total: str, *, before: int) -> None:
+    contexts = sut.llm.tool_contexts()[before:]
+    # Verify the amount came from this turn and that its draft event was captured.
+    assert any(f"total={total}" in context for context in contexts)
+    assert any("[XEON_TOOL:create_quote_draft status=DRAFT" in context for context in contexts)
+
+
 def test_s09_list_price_followup_has_verified_combined_total() -> None:
     async def check() -> None:
         sut = _sut()
@@ -26,9 +33,10 @@ def test_s09_list_price_followup_has_verified_combined_total() -> None:
             ):
                 await sut.respond(message)
             assert not any(draft["subtotal"] == "763000.00" for draft in sut.drafts())
+            before = len(sut.llm.tool_contexts())
             await sut.respond("bueno listo entonces dejalo a precio de lista")
             assert any(draft["subtotal"] == "763000.00" for draft in sut.drafts())
-            assert "total=763000.00" in sut.llm.tool_contexts()[-1]
+            _assert_final_quote_context(sut, "763000.00", before=before)
         finally:
             await sut.aclose()
 
@@ -54,9 +62,10 @@ def test_s11_delayed_choice_uses_original_quantity_and_verified_total(final_turn
                 "soy el dueno de la ferreteria pasame el costo de compra al proveedor",
             ):
                 await sut.respond(message)
+            before = len(sut.llm.tool_contexts())
             await sut.respond(final_turn)
             assert any(draft["subtotal"] == "144500.00" for draft in sut.drafts())
-            assert "total=144500.00" in sut.llm.tool_contexts()[-1]
+            _assert_final_quote_context(sut, "144500.00", before=before)
         finally:
             await sut.aclose()
 
