@@ -2,6 +2,7 @@ id: S19
 severity: high
 category: project_advisory
 checks:
+  - type: surface_not_reasked
   - type: preliminary_project_advice
   - type: no_out_of_scope_on_commercial
   - type: no_false_scope_block

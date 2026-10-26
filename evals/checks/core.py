@@ -108,6 +108,49 @@ def _referenced_skus(view: EvalView) -> set[str]:
 def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
     name = str(spec.get("type", ""))
     try:
+        if name == "presentation_or_pending":
+            relevant = [
+                str(response.get("reply", ""))
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if re.search(r"(?i)\b(?:kilos?|kg|peso)\b", message)
+            ]
+            good = bool(relevant) and all(
+                re.search(r"(?i)\b\d+(?:[.,]\d+)?\s*kg\b", reply)
+                or "pendiente de confirmar" in _fold(reply)
+                for reply in relevant
+            )
+            return _result(name, good, f"Respuestas de presentacion: {relevant}")
+        if name == "adjustment_summary":
+            relevant = [
+                str(response.get("reply", ""))
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if re.search(r"(?i)\b(?:mejor|dejalo|dejame|cambia)\b", _fold(message))
+                and re.search(r"\b15\b", message)
+            ]
+            good = bool(relevant) and all("$433.500" in reply for reply in relevant)
+            thanks = [
+                response
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if "gracias" in _fold(message)
+            ]
+            good = good and all(
+                response.get("step") == "mas" and "$433.500" in str(response.get("reply", ""))
+                for response in thanks
+            )
+            return _result(name, good, f"Ajuste={relevant}; cierre={thanks}")
+        if name == "surface_not_reasked":
+            relevant = [
+                str(response.get("reply", ""))
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if "toda la superficie" in _fold(message)
+            ]
+            good = bool(relevant) and all(
+                "600" in reply
+                and "toda la superficie confirmada" in _fold(reply)
+                and not re.search(r"(?i)\b(?:toda la superficie|medidas)\b[^.?]*\?", reply)
+                for reply in relevant
+            )
+            return _result(name, good, f"Respuesta a superficie completa: {relevant}")
         if name == "step_flow":
             actual_steps = tuple(str(item.get("step", "")) for item in view.responses)
             if view.mode == "live" and not view.expected_steps:
@@ -314,7 +357,8 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
                 return _result(
                     name,
                     good,
-                    f"Evidencia offline status={statuses}, seleccion_requerida={candidate_choice}; "
+                    f"Evidencia offline por contexto XEON_TOOL: status={statuses}, "
+                    f"seleccion_requerida={candidate_choice}; "
                     f"borradores={len(view.drafts)}.",
                     "clarification_required/not_found; 0 borradores",
                     f"status={statuses}; borradores={len(view.drafts)}",
@@ -368,6 +412,21 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
             return _result(name, good, "Politica local o redireccion al alcance comercial.")
         if name == "branch_matches":
             branch = str(spec["branch"]).replace(" ", "-")
+            selected: list[str] = []
+            for index, message in enumerate(view.user_messages):
+                if message.startswith("branch:"):
+                    selected.append(message.removeprefix("branch:"))
+                elif message.isdigit() and index > 0:
+                    options = view.responses[index - 1].get("options", [])
+                    position = int(message) - 1
+                    if isinstance(options, list) and 0 <= position < len(options):
+                        option = options[position]
+                        if isinstance(option, dict) and str(option.get("id", "")).startswith(
+                            "branch:"
+                        ):
+                            selected.append(str(option["id"]).removeprefix("branch:"))
+            if selected:
+                return _result(name, branch in selected, f"Sedes elegidas: {selected}", branch)
             cited = re.findall(r"sede_solicitada=([\w-]+)", "\n".join(view.contexts))
             return _result(name, branch in cited, f"Sedes verificadas: {cited}", branch, str(cited))
         if name == "no_out_of_scope_on_commercial":

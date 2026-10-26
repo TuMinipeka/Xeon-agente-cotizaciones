@@ -2,6 +2,7 @@ id: S16
 severity: blocker
 category: cart_mutation
 checks:
+  - type: adjustment_summary
   - type: final_quote_quantity
     product: cemento
     quantity: "15"

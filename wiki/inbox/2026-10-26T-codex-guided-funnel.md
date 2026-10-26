@@ -80,3 +80,41 @@ lexical preliminar; no calcula cantidades técnicas. En sede se muestra el estad
 primera línea confirmada y se indica que necesita confirmación; la vista por todas las líneas
 queda pendiente. La dirección de domicilio se guarda solo en memoria y su costo siempre lo
 confirma un asesor. Valores `null` de políticas no se suplen con supuestos.
+
+## Residuales de la segunda corrida en vivo
+
+La evidencia procede de la sección 5 de `C:\Users\danie\Documents\xeon\wiki\inbox\2026-10-26T-agy-live-qa-conde.md` (lectura solamente). Commit `7617005` (`Fix: :bug: PreserveGuidedQuoteContext`):
+
+| Escenario | Causa y corrección en embudo | Regresión determinista |
+|---|---|---|
+| S15 | La pregunta de peso salía sin consultar la presentación del catálogo; ahora toma `peso_kg` o la presentación del nombre y declara pendiente lo desconocido. Domicilio sigue sujeto a la política. | `test_s15_compound_weight_question_uses_verified_catalog_presentation` |
+| S16 | El ajuste devolvía solo la pregunta del paso y `ok gracias` reabría el saludo; ahora el ajuste incluye el resumen con subtotal y el agradecimiento cierra cordialmente sin borrar el carrito. | `test_s16_adjustment_shows_subtotal_and_thanks_keeps_cart` |
+| S19 | La respuesta sobre toda la superficie no se guardaba; ahora el embudo registra el proyecto con 600 m² y confirmación de toda la superficie, sin volver a pedir esa medida. | `test_s19_whole_surface_answer_is_not_reasked` |
+
+## Evaluador y flujo único
+
+Commit `2d51833` (`Test: :test_tube: EvaluateGuidedJourneys`) agrega recorridos por id o número para S01–S22; S21 confirma 20 bultos y una pala redonda de fibra por $621.700, S22 redirige una petición ajena a mitad del recorrido. El SUT expone `step`, `options` y `kind`; los checks nuevos son `step_flow`, `options_offered`, `no_freeform_solution` y `confirmation_state`. Las condiciones comerciales previas de S01–S20 permanecen en sus archivos de checks. Los recorridos cambian la forma del diálogo para cumplir D14; producto, cantidad, entrega y pago son pasos separados.
+
+Se retiró el selector `GUIDED_FUNNEL_ENABLED`; API, CLI y Kapso delegan en `AgentService` a una sola instancia de `GuidedFunnel`. Se borró la tabla inactiva de seguimientos libres del runner. `uv run --locked --group evals python -m evals.runner --mode offline` produjo **66 PASS, 0 FAIL, 0 ERROR** (S01–S22, tres repeticiones, cero llamadas al modelo). La suite general sigue en migración: las antiguas pruebas de integración enviaban una cotización completa en el primer turno y esperaban ejecución inmediata, contrato sustituido por D14. El gate no se declarará verde hasta adaptar esas pruebas sin perder sus criterios.
+### Cierre de la auditoría (este corte reemplaza el estado opt-in anterior)
+
+Se migraron las pruebas de integración del contrato libre al contrato D14 sin eliminar sus comprobaciones comerciales: selección explícita antes de cotizar, sumas con `Decimal`, stock fresco o pendiente, inyección sin descuento ni SQL, idempotencia de webhook y retención del carrito. La suite completa quedó verde. La ruta heredada de `AgentService` y el selector de configuración fueron eliminados; se retiraron `IntentInterpreter`, su prompt de extracción libre y `CustomerResponsePolicy`, que ya no participaban en producción. El parser local de intenciones permanece para operaciones evidentes del carrito y datos de proyecto; `CommercialExecutor` y `QuoteCart` siguen siendo únicos.
+
+El evaluador añadió checks deterministas de presentación del bulto o pendiente (S15), subtotal visible y cierre sin reinicio (S16), y superficie 600 m² sin repregunta (S19). `branch_matches` usa el id de sede elegido y no confunde una opción ofrecida con la elección del cliente. `RecordingLLM` conserva los eventos de stock no disponible. El modo offline sigue sin llamadas al modelo; en modo live, el simulador puede enviar id o número, pero **no se ejecutó** una corrida live ni se verificó el payload Kapso en sandbox en este corte.
+
+Se detectaron y corrigieron tres defectos adicionales al migrar: una variante con tilde en “dejámelo” no fijaba la cantidad; la ausencia de política de entrega para otro tenant dejaba el paso sin salida (ahora ofrece consulta de sede y mantiene la entrega pendiente); y un webhook duplicado entre workers podía reinterpretar el número como otra opción (ahora devuelve la última respuesta para el mismo `request_id` en la misma instancia de estado). La idempotencia entre procesos distintos sigue requiriendo persistencia compartida del estado del embudo.
+
+Gate ejecutado en `C:\Users\danie\Documents\xf`:
+
+```powershell
+uv run --locked ruff check .
+uv run --locked ruff format --check .
+uv run --locked mypy src evals
+uv run --locked pytest -q --tb=no
+uv run --locked --group evals python -m evals.runner --mode offline
+uv run --locked python scripts/check_doc_links.py
+uv run --locked --group graph python scripts/build_graphify_map.py
+```
+
+Resultados: Ruff y formato verdes; mypy verde en 89 archivos; pytest completo verde; offline **66 PASS / 0 FAIL / 0 ERROR**, S01–S22 con tres repeticiones y costo LLM **0**; enlaces relativos revisados **42**, rotos **0**. Graphify regeneró el mapa local por AST sin extracción semántica ni envío a LLM. `wiki/graph/` no se integró en este corte.
+Commits del cierre: `4a05826` (`Feat: :sparkles: UnifyGuidedConversationFlow`) integra el flujo único, los arreglos detectados al migrar y las regresiones de integración. El commit de evaluador y esta nota se registra inmediatamente después en la rama local.

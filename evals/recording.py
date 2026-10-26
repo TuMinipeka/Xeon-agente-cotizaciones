@@ -23,9 +23,10 @@ def format_tool_event(event: str) -> str:
         sede = pairs.get("sede", "")
         disponible = pairs.get("disponible", "unknown")
         vigencia = pairs.get("vigencia", "unknown")
+        status = pairs.get("status", "")
         header = (
             f"[XEON_TOOL:get_stock_by_branches sku={sku} sede_solicitada={sede} "
-            f"disponible_local={disponible} vigencia={vigencia}]"
+            f"disponible_local={disponible} vigencia={vigencia} status={status}]"
         )
         return f"{header}\n- SKU={sku} sede_solicitada={sede}"
     if name == "search_products":
