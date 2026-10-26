@@ -186,6 +186,46 @@ def test_kapso_interactive_payload_and_webhook_replies() -> None:
         assert incoming is not None and incoming.option_id == "yes"
 
 
+def test_kapso_start_with_four_options_uses_list_not_reply_buttons() -> None:
+    sent: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"messages": [{"id": "wamid.start"}]})
+
+    async def run() -> tuple[str, ...]:
+        container = _guided_container()
+        try:
+            reply = await container.agent.respond_reply("hola", conversation_key="start-list")
+            assert reply.step == "inicio"
+            assert reply.kind == "list"
+            assert len(reply.options) == 4
+            assert all(len(option.title) <= 24 for option in reply.options)
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                adapter = KapsoChannelAdapter(
+                    base_url="https://api.kapso.ai",
+                    phone_number_id="123",
+                    graph_version="v24.0",
+                    api_key="test-only",
+                    client=client,
+                )
+                await adapter.send_reply(recipient_number="573001112233", reply=reply)
+            return tuple(option.id for option in reply.options)
+        finally:
+            await container.aclose()
+
+    option_ids = asyncio.run(run())
+    assert len(sent) == 1
+    payload = sent[0]
+    assert payload["type"] == "interactive"
+    interactive = payload["interactive"]
+    assert interactive["type"] == "list"
+    assert "buttons" not in interactive["action"]
+    rows = interactive["action"]["sections"][0]["rows"]
+    assert len(rows) == 4
+    assert tuple(row["id"] for row in rows) == option_ids
+
+
 def test_guided_chat_returns_step_and_numbered_options() -> None:
     async def run() -> None:
         app = create_app(settings=Settings(llm_provider="mock", _env_file=None))

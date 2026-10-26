@@ -151,10 +151,15 @@ def _stock_text(settings: Settings) -> str:
     async def run() -> str:
         container = build_container(settings)
         try:
-            await container.agent.respond("2 bultos de cemento", conversation_key="sql-n")
-            reply = await container.agent.respond(
-                "¿disponibles en sede Robles?", conversation_key="sql-n"
+            await add_product(container, "sql-n", "cemento", "FER-01", 2)
+            await container.agent.respond_reply("more:view", conversation_key="sql-n")
+            branch_options = await container.agent.respond_reply(
+                "delivery:branch_inquiry", conversation_key="sql-n"
             )
+            assert branch_options.step == "sede"
+            assert any(option.id == "branch:BOD-7" for option in branch_options.options)
+            reply = await container.agent.respond_reply("branch:BOD-7", conversation_key="sql-n")
+            assert reply.step == "pago"
             return reply.text
         finally:
             await container.aclose()
@@ -171,6 +176,7 @@ def test_naive_datetime_is_rejected_unless_a_zone_is_declared(tmp_path: Path) ->
 def test_declared_zone_makes_naive_datetime_usable(tmp_path: Path) -> None:
     text = _stock_text(_store(tmp_path, naive=True, zone="America/Bogota"))
     assert "Ferreteria Robles Principal" in text
+    assert "stock disponible" in text
 
 
 def test_naive_zone_converts_to_that_offset_and_rejects_unknown_zone() -> None:
