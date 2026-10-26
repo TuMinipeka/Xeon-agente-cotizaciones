@@ -309,3 +309,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **agy:** pasa de Gemini 4 Argon a **Gemini 3.8 Flash con razonamiento medio** (decisión del usuario). Se añadió en [orquestación](pages/orquestacion.md) una guía para asignarle tareas según su nivel de razonamiento.
 - **D12:** se corrigió la afirmación «XEON no es un RAG». XEON tiene un RAG estructurado (recupera del catálogo y aumenta el prompt) dentro de un agente con herramientas. La decisión no cambia: no se convierte en un RAG de texto puro.
+
+## [2026-10-26] integración | Fases 1 y 2 fusionadas en developer/daniel
+
+- **Fusiones:** `fix/qa-conde-cart` (correcciones de QA, más A1 de agy en `df19216`) y `feat/store-connector` (conector SQL, `87ca4d2`) entraron en `developer/daniel`. Se retiró el worktree `xeon-connector`.
+- **Quality gate:** 294 pruebas, `ruff`, `mypy` (82 archivos) y evaluación offline S01–S20 con 60 PASS, 0 FAIL y 0 ERROR.
+- **Páginas:** se actualizó el [conector de la ferretería](pages/conector-ferreteria.md) a `implementado`.
+- **Inbox:** se integraron y retiraron las notas `codex-store-connector` y `agy-qa-conde-evals`.

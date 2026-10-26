@@ -7,7 +7,7 @@ tags:
 
 Objetivo: que XEON lea el catálogo, los precios, el stock y las sedes desde el sistema de **cada ferretería** y no desde nuestros datos sintéticos. Decisión: [D13](decisiones-pendientes.md). Relación con el RAG: [D12](decisiones-pendientes.md). Relacionado: [arquitectura actual](arquitectura-actual.md), [contratos de herramientas](contratos-herramientas.md).
 
-Revisado: 2026-10-26. Estado: **`aprobado`, sin implementar**. Es la fase 2, después de las [correcciones de QA](qa-conde-2026-10-24.md).
+Revisado: 2026-10-26. Estado: **`implementado`** (Codex, `87ca4d2`; fusionado en `developer/daniel`). Auditado por el orquestador. Guía de uso: [`docs/CONECTOR_FERRETERIA.md`](../../docs/CONECTOR_FERRETERIA.md).
 
 ## Punto de partida (verificado el 2026-10-26)
 
@@ -30,3 +30,27 @@ Revisado: 2026-10-26. Estado: **`aprobado`, sin implementar**. Es la fase 2, des
 3. **Selección:** `DATA_SOURCE=synthetic|sql|rest|csv` y `TENANT_ID`.
 4. **Después:** adaptador REST para ERP (Siigo, Alegra), adaptador CSV para pilotos, e índice híbrido propio (`pgvector` y *full-text*) sincronizado de forma incremental, solo con el catálogo descriptivo.
 5. **Prueba de independencia:** una base SQLite con un esquema **distinto** al canónico debe cotizar correctamente solo con cambiar el YAML.
+
+## Implementación (2026-10-26)
+
+- **Dominio y puerto:** `domain/branch.py` y el puerto `application/ports/branches.py` (`BranchDirectory`). El intérprete resuelve las sedes contra el directorio, sin sedes fijas.
+- **Configuración:** `Settings` tiene `DATA_SOURCE` (`synthetic` por defecto; `rest` y `csv` todavía fallan con un mensaje claro), `TENANT_ID`, `CURRENCY` y `SQL_URL_FILE`. La URL de conexión solo se lee desde `secrets/`.
+- **Validación del YAML:** `connectors/schema.py` la hace con Pydantic.
+  - Solo admite un `SELECT`, sin `;`, sin comentarios y sin palabras de DML o DDL.
+  - Exige los parámetros `:sku`, `:query` y `:limit`, y el mapeo de los campos obligatorios.
+- **Conexión:** `adapters/sql/connection.py` usa SQLAlchemy 2.1.6 Core (grupo opcional `db`) con parámetros enlazados y oculta los parámetros en los errores.
+  - Solo lectura forzada en SQLite (`query_only`) y PostgreSQL (`READ ONLY`).
+  - En MySQL y SQL Server depende de un usuario de solo lectura, que es **obligatorio**.
+- **Adaptadores:** `adapters/catalog/sql.py`, `inventory/sql.py` y `branches/sql.py`. La nota y la penalización de referencias sintéticas se movieron al adaptador sintético.
+- **Prueba de independencia** (`tests/test_sql_connector.py`):
+  - una base SQLite con otro esquema (`articulos`, `sucursales` y `existencias`, con precios en centavos como texto y stock por bodega) cotiza 2 × $37.550 = $75.100 y consulta el stock en la sede `BOD-7`;
+  - se rechazan INSERT, UPDATE, DROP, sentencias múltiples y comentarios;
+  - una inyección pasada por parámetro no altera la consulta.
+- **Verificación tras la fusión:** 294 pruebas, `ruff`, `mypy` y evaluación offline con 60 PASS.
+
+## Límites
+
+- No hay descubrimiento automático del esquema: alguien escribe el YAML de cada ferretería.
+- La búsqueda SQL es léxica y depende de cómo se configure la consulta.
+- El carrito, la memoria y los borradores siguen en el proceso.
+- Solo está probado contra SQLite. PostgreSQL, MySQL y SQL Server reales están por verificar.
