@@ -22,3 +22,17 @@ Las cuatro consultas son `find_by_sku`, `search_text`, `stock_by_sku` y `list_br
 La configuración rechaza consultas que no comiencen con un único SELECT, punto y coma, comentarios y palabras de DML/DDL. Los valores del usuario pasan por parámetros enlazados. El conector activa `query_only` en SQLite y transacciones de solo lectura en PostgreSQL. MySQL y SQL Server dependen de permisos de usuario para la protección de escritura. El timeout de PostgreSQL limita la sentencia; en SQLite `busy_timeout` limita espera por bloqueo. En otros motores se requiere timeout del servidor o driver. El catálogo hace búsqueda lexical con `LIKE` y no indexa datos de clientes.
 
 `DATA_SOURCE=synthetic` sigue siendo el valor por defecto. `rest` y `csv` están reservados y fallan de forma explícita. No hay migración automática de esquemas, escritura SQL, persistencia de carrito ni índice híbrido en esta fase.
+
+## Pruebas de integración con motores reales
+
+`tests/integration/test_sql_engines.py` valida el conector contra PostgreSQL 17.6 y MySQL 8.4.6 con un esquema ajeno a XEON y un usuario de solo lectura por motor. Están marcadas `integration` y `pytest` normal las excluye. Requieren Docker; las credenciales de `compose.db-test.yaml` son solo de prueba y los contenedores no usan volúmenes persistentes (puertos locales 55432 y 53450).
+
+```powershell
+docker compose -f compose.db-test.yaml up -d --wait
+uv run --locked --group db-test pytest -m integration tests/integration
+docker compose -f compose.db-test.yaml down -v
+```
+
+Cubren cotización con precios de la base, stock por sede, `LIMIT` y parámetros enlazados por dialecto, rechazo de escritura por el usuario de solo lectura (aun con una consulta que salta la validación del YAML), transacción de solo lectura de PostgreSQL y rechazo de YAML con DML.
+
+**Fechas en MySQL:** `DATETIME` no tiene zona horaria y XEON exige UTC explícito en `observed_at` y `valid_until`. Con el YAML de ejemplo, MySQL deja el stock «pendiente de confirmación con un asesor». Formatea las columnas en la consulta: `DATE_FORMAT(e.actualizado, '%Y-%m-%dT%H:%i:%s+00:00') AS actualizado`.
