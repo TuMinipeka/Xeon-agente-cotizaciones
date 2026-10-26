@@ -174,7 +174,7 @@ def test_multiturn_kapso_webhook_flow_and_non_customer_events_ignored() -> None:
 def test_t08_discount_without_policy_is_rejected() -> None:
     """T08: solicitar descuento sin politica aprobada devuelve 422 y no inventa porcentaje."""
     quotes_repo = InMemoryQuoteDraftRepository()
-    settings = Settings(llm_provider="mock", _env_file=None)
+    settings = Settings(llm_provider="mock", tenant_id="ferreteria-demo", _env_file=None)
     container = build_container(settings, quotes=quotes_repo)
     app = create_app(container=container)
 

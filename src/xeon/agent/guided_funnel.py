@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import replace
 from decimal import Decimal, InvalidOperation
 from typing import Literal
@@ -30,7 +31,14 @@ from xeon.application.ports.llm import ChatMessage, LLMPort, LLMProviderError
 from xeon.application.ports.policies import PolicyRepository
 from xeon.application.ports.quotes import QuoteDraftRepository
 from xeon.application.reply import Option, Reply
-from xeon.domain.quote import QuoteStatus
+from xeon.domain.cart import QuoteCart
+from xeon.domain.quote import Quote, QuoteStatus
+
+
+def _quote_matches_cart(quote: Quote, cart: QuoteCart) -> bool:
+    drafted = Counter((line.sku, line.quantity.normalize()) for line in quote.lines)
+    wanted = Counter((line.sku, line.quantity.normalize()) for line in cart.confirmed_lines())
+    return drafted == wanted
 
 
 def _normalized(value: str) -> str:
@@ -633,7 +641,8 @@ class GuidedFunnel:
                     if quote_request_id is not None
                     else None
                 )
-                if quote is None:
+                if quote is None or not _quote_matches_cart(quote, cart):
+                    # Fail closed: never confirm a draft that differs from what the customer built.
                     return self.render(
                         key, prefix="Borrador pendiente de confirmar con un asesor.\n"
                     )

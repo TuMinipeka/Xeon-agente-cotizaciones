@@ -60,6 +60,8 @@ from xeon.domain.inventory import InvalidInventoryError
 from xeon.domain.quote import EmptyQuoteError, InvalidQuantityError, Quote
 
 _MAX_SEEN_WEBHOOK_IDS = 1024
+# Ids the funnel and the WhatsApp channel derive themselves; the public API may not claim them.
+RESERVED_REQUEST_PREFIXES = ("xeon-", "kapso-")
 
 
 def _quote_out(quote: Quote, *, replayed: bool = False) -> QuoteDraftOut:
@@ -289,6 +291,14 @@ def create_app(
         request: CreateQuoteDraftRequest,
         response: Response,
     ) -> QuoteOutcomeResponse:
+        if request.tenant_id != runtime.settings.tenant_id:
+            raise HTTPException(
+                status_code=400, detail="tenant_id no corresponde a este despliegue."
+            )
+        if request.request_id.lower().startswith(RESERVED_REQUEST_PREFIXES):
+            raise HTTPException(
+                status_code=400, detail="request_id usa un prefijo reservado del sistema."
+            )
         try:
             result = runtime.create_quote_draft.execute(
                 CreateQuoteDraftCommand(
@@ -366,6 +376,10 @@ def create_app(
         quote_id: UUID,
         tenant_id: str = Query(min_length=1, max_length=80),
     ) -> QuoteDraftOut:
+        if tenant_id != runtime.settings.tenant_id:
+            raise HTTPException(
+                status_code=400, detail="tenant_id no corresponde a este despliegue."
+            )
         try:
             quote = runtime.get_quote_draft.execute(quote_id, tenant_id)
         except QuoteNotFoundError as exc:

@@ -16,7 +16,7 @@ from xeon.config import Settings
 async def _client(
     catalog: InMemoryProductCatalog | None = None,
 ) -> AsyncIterator[httpx.AsyncClient]:
-    settings = Settings(llm_provider="mock", _env_file=None)
+    settings = Settings(llm_provider="mock", tenant_id="demo", _env_file=None)
     container = build_container(settings, catalog=catalog)
     transport = httpx.ASGITransport(app=create_app(container=container))
     async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1") as client:
