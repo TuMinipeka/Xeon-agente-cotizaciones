@@ -5,6 +5,7 @@ from __future__ import annotations
 from xeon.agent.customer_safety import CustomerResponsePolicy
 from xeon.agent.executor import CommercialExecutor
 from xeon.agent.intent import IntentInterpreter, IntentKind
+from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.conversation_memory import ConversationMemory
 from xeon.application.ports.llm import ChatMessage, LLMPort, LLMResponse
 
@@ -16,12 +17,13 @@ class AgentService:
         *,
         memory: ConversationMemory,
         executor: CommercialExecutor,
+        branches: BranchDirectory | None = None,
         response_policy: CustomerResponsePolicy | None = None,
     ) -> None:
         self._llm = llm
         self._memory = memory
         self._executor = executor
-        self._interpreter = IntentInterpreter()
+        self._interpreter = IntentInterpreter(branches)
         self._response_policy = response_policy or CustomerResponsePolicy()
 
     async def respond(

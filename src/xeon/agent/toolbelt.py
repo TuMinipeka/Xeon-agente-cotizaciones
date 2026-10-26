@@ -216,9 +216,7 @@ class CommercialToolbelt:
         record_tool(
             "get_stock_by_branches",
             sku=result.sku,
-            sede=result.requested_branch_id
-            if result.requested_branch_id.startswith("sede-")
-            else "unknown",
+            sede=result.requested_branch_id,
             disponible=str(result.local_available)
             if result.local_available is not None
             else "unknown",
@@ -291,10 +289,6 @@ def _format_draft(quote: Quote) -> str:
         for line in quote.lines
     ]
     return "\n".join((header, *details))
-
-
-def _has_branch(text: str) -> bool:
-    return re.search(r"\b(?:sede\s+)?(?:norte|sur|centro)\b", text, re.I) is not None
 
 
 def _pending_selection(text: str, pending: PendingCandidates | None) -> str | None:
@@ -403,11 +397,3 @@ def _extract_requested_quantity(text: str) -> Decimal | None:
     except Exception:
         return None
     return value if value > Decimal("0") else None
-
-
-def _extract_requested_branch(text: str) -> str:
-    if re.search(r"\b(?:sede\s+)?sur\b", text, re.IGNORECASE):
-        return "sede-sur"
-    if re.search(r"\b(?:sede\s+)?centro\b", text, re.IGNORECASE):
-        return "sede-centro"
-    return "sede-norte"

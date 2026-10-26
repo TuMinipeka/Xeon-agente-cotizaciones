@@ -5,10 +5,12 @@ from decimal import Decimal
 import httpx
 import pytest
 
+from xeon.adapters.branches.memory import InMemoryBranchDirectory
 from xeon.agent.tool_trace import capture_tool_events
-from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity
+from xeon.agent.toolbelt import _extract_requested_quantity
 from xeon.api.app import create_app
 from xeon.application.container import build_container
+from xeon.application.ports.branches import resolve_branch
 from xeon.application.quote_draft import DraftLineRequest, QuoteDraftReady
 from xeon.config import Settings
 
@@ -18,8 +20,9 @@ def test_colombian_quantities_and_branch_word_boundaries() -> None:
     assert _extract_requested_quantity("quiero 1.500 bultos") == Decimal(1500)
     assert _extract_requested_quantity("quiero 2,5 metros") == Decimal("2.5")
     assert _extract_requested_quantity("quiero 2.5 metros") == Decimal("2.5")
-    assert _extract_requested_branch("surtido en sede norte") == "sede-norte"
-    assert _extract_requested_branch("entrega en sede sur") == "sede-sur"
+    branches = InMemoryBranchDirectory()
+    assert resolve_branch("surtido en sede norte", branches).id == "sede-norte"
+    assert resolve_branch("entrega en sede sur", branches).id == "sede-sur"
 
 
 def test_injected_clock_controls_stock_freshness() -> None:

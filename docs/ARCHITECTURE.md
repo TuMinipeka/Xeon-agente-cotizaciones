@@ -1,5 +1,15 @@
 # Arquitectura base de XEON
 
+## Conector SQL por ferretería (fase 2)
+
+`DATA_SOURCE` selecciona el adaptador en `AppContainer`. El valor predeterminado `synthetic`
+usa los datos de demostración; `sql` carga `connectors/<tenant>.yaml` y una URL local de `secrets/`.
+Los puertos `ProductCatalog`, `BranchInventory` y `BranchDirectory` aíslan el dominio del motor.
+`IntentInterpreter` resuelve nombres y alias contra `BranchDirectory`; `CommercialExecutor`
+consulta stock con el id verificado. Precio y subtotal siguen bajo `Money(Decimal)` y
+`CreateQuoteDraft`. SQLAlchemy se importa solo al seleccionar SQL. Ver
+[guía de conexión](CONECTOR_FERRETERIA.md) para mapeos, permisos y límites.
+
 ## Estado implementado
 
 El sistema conecta tres planos a traves de `AppContainer` (composition root) bajo arquitectura
@@ -27,7 +37,7 @@ POST /v1/quotes  GET /v1/quotes/{id}
  AppContainer (composition root)
       |
       +--> CreateQuoteDraft / GetQuoteDraft
-      +--> ProductCatalog (memoria: SKU/alias, specs y contexto descriptivo)
+      +--> ProductCatalog (sintético por defecto; SQL configurable)
       +--> QuoteDraftRepository (memoria, clave idempotente tenant_id+request_id)
       |
       v
@@ -40,7 +50,8 @@ GET /v1/stock  CLI stock show
  AppContainer
       |
       +--> GetStockByBranches
-      +--> BranchInventory (memoria, snapshots sinteticos)
+      +--> BranchInventory (sintético por defecto; SQL configurable)
+      +--> BranchDirectory (ids, nombres visibles y alias)
       |
       v
  domain: StockSnapshot(valid_until), AvailabilityKind(local|transfer|delivery),

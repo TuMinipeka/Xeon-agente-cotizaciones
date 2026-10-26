@@ -33,6 +33,9 @@ evals = [
 graph = [
     "graphifyy==0.9.95",
 ]
+db = [
+    "sqlalchemy>=2.0.40,<3.0",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]
