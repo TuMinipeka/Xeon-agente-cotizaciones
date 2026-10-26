@@ -316,3 +316,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Quality gate:** 294 pruebas, `ruff`, `mypy` (82 archivos) y evaluación offline S01–S20 con 60 PASS, 0 FAIL y 0 ERROR.
 - **Páginas:** se actualizó el [conector de la ferretería](pages/conector-ferreteria.md) a `implementado`.
 - **Inbox:** se integraron y retiraron las notas `codex-store-connector` y `agy-qa-conde-evals`.
+
+## [2026-10-26] decisión | Embudo guiado y políticas de la ferretería (D14)
+
+- **Corrida en vivo de agy:** S15–S20 con `grok-4.6` dio 1 PASS y 5 FAIL en 64 llamadas (huella `0c0b8619431b38a0`). Los defectos D1–D5 se delegaron a Codex en `fix/live-qa-defects`, y el falso positivo de `branch_matches` en vivo, a agy.
+- **D14 (usuario):** embudo guiado con texto acotado, confirmación con botón que pasa al asesor humano, plantilla demo de políticas para Colombia y redirección ante desvíos.
+- **Contrato:** [embudo de cotización](pages/embudo-cotizacion.md).

@@ -199,3 +199,15 @@ El usuario indicó el 2026-10-26 que XEON debe instalarse sobre el software de c
   3. **Selección:** `DATA_SOURCE=synthetic|sql|rest|csv`. Los datos sintéticos pasan a ser un adaptador más.
 - **Políticas** de pago, entrega y horarios: archivo de configuración por ferretería (decisión del usuario).
 - **Estado:** `aprobado` (plan del 2026-10-26). La implementación es la fase 2 y se hace después de las correcciones de QA. Detalle en el [conector de la ferretería](conector-ferreteria.md).
+
+## D14: Conversación guiada y políticas de la ferretería
+
+El usuario pidió el 2026-10-26 que XEON no divague ni ofrezca soluciones: debe guiar al cliente hasta armar el borrador, con opciones visuales de WhatsApp y respuestas restringidas. La confirmación se hace con un botón.
+
+- **Resolución (usuario, sobre las opciones que propuso el orquestador):**
+  - **Embudo guiado con texto acotado.** Cada paso tiene botones o lista; Grok solo traduce el texto libre a una opción del paso, y el texto libre solo vale para buscar productos.
+  - **Botón Confirmar:** el borrador pasa a `CONFIRMADO_POR_CLIENTE` y se notifica a un **asesor humano**, que revisa, aprueba y factura. XEON no aprueba.
+  - **Políticas:** plantilla demo para Colombia (pagos en efectivo, transferencia, tarjeta y Nequi; recogida en sede y domicilio con costo que confirma un asesor; horario L–V de 7:00 a 18:00 y sábados de 7:00 a 13:00; vigencia de 3 días; IVA y descuentos a cargo de un asesor).
+  - **Desvíos:** se redirige con las opciones del paso y, si el cliente pide asesoría técnica, se ofrece [Hablar con asesor].
+- **Motivación:** la corrida en vivo S15–S20 dio 1 aprobado y 5 fallidos con texto libre.
+- **Contrato:** [embudo de cotización](embudo-cotizacion.md).
