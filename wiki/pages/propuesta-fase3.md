@@ -91,6 +91,13 @@ Las versiones salen de PyPI y de los README consultados el 2026-10-26; los preci
 
 ### E. Observabilidad y costo por tarea
 
+Estado: **`implementado`** (commits `ef69e8b` y `aeaa971`, merge `76e2458`; autor: Sonnet; ver [docs/OBSERVABILIDAD.md](../../docs/OBSERVABILIDAD.md)):
+
+- **Uso de tokens:** `LLMResponse.usage` (`TokenUsage`) lee el `usage` real del proveedor OpenAI-compatible; si falta o es inválido queda como desconocido sin estimar; `MockLLM` informa 0.
+- **Métricas sin PII:** puerto `MetricsRecorder` (`src/xeon/application/ports/metrics.py`) con adaptadores `NullMetrics`, `InMemoryMetrics` y `JsonlMetrics` (vía `METRICS_PATH`), sin registrar teléfono, texto ni clave de conversación.
+- **Etapas cronometradas:** cubre `turno`, `llm`, `ejecutor`, `catalogo`, `inventario` y `envio_kapso` mediante `MeteredLLM` y wrappers de métricas en `build_container`.
+- **Costo y reportes:** tarifa por millón en `Settings` (`LLM_PRICE_*`) marcada como supuesto al no estar documentada la unidad de la pasarela; `scripts/cost_report.py` agrega por tarea y el runner de evals guarda `observability.jsonl` y métricas en cada caso.
+
 - **Problema:** no se mide cuánto cuesta ni cuánto tarda una cotización; el adaptador del LLM descarta el uso de tokens.
 - **Diseño hexagonal:** puerto `UsageRecorder` invocado por un decorador de `LLMPort` (tokens de entrada y salida del campo de uso de la respuesta, modelo, latencia) y por el embudo (latencia por paso). Adaptadores: logs JSON estructurados (por defecto), tabla `usage_events` en el PostgreSQL de A y, opcional, trazas OpenTelemetry. Un comando `xeon usage` resume costo por conversación con precios por modelo en configuración. La clave de conversación se guarda con hash; sin texto de clientes.
 - **Tecnología:** `opentelemetry-sdk` **1.45.1** ([PyPI](https://pypi.org/project/opentelemetry-sdk/)). Las convenciones semánticas `gen_ai.*` siguen en estado *Development* ([resumen de julio de 2026](https://dev.to/azena-ai/opentelemetrys-genai-semantic-conventions-are-not-stable-yet-heres-what-actually-shipped-in-2026-3mke)), así que conviene empezar con logs y tabla propia y dejar OpenTelemetry opcional.

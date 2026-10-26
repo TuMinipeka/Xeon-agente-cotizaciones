@@ -19,6 +19,7 @@ from xeon.adapters.persistence.postgres.repositories import ConcurrentCartUpdate
 from xeon.api.app import create_app
 from xeon.application.container import build_container
 from xeon.application.ports.channels import WhatsAppSendReceipt
+from xeon.application.ports.metrics import MetricEvent
 from xeon.application.reply import Reply
 from xeon.config import Settings
 from xeon.domain.cart import QuoteCart
@@ -213,5 +214,30 @@ def test_tenants_do_not_share_conversation_state(settings: Settings) -> None:
         finally:
             await alpha.aclose()
             await beta.aclose()
+
+    asyncio.run(run())
+
+
+def test_metrics_failure_does_not_rollback_persisted_turn(settings: Settings) -> None:
+    class BrokenMetrics:
+        def record(self, event: MetricEvent) -> None:
+            raise OSError("unavailable")
+
+    async def run() -> None:
+        first = build_container(settings, metrics=BrokenMetrics())
+        try:
+            key = "metrics-failure"
+            for message in ("start:products", "cemento", "product:CEM-50", "quantity:10"):
+                await first.agent.respond_reply(message, conversation_key=key)
+        finally:
+            await first.aclose()
+        second = build_container(settings)
+        try:
+            assert second.agent._funnel.state("metrics-failure").step == "mas"
+            cart = second.carts.get("metrics-failure")
+            assert cart is not None and cart.confirmed_lines()[0].quantity == 10
+            assert second.agent._funnel._cart("metrics-failure").find("289.000") >= 0
+        finally:
+            await second.aclose()
 
     asyncio.run(run())

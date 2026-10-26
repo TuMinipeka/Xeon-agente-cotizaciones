@@ -25,9 +25,18 @@ import yaml
 from evals.checks import EvalView, run_check
 from evals.judge import JUDGE_TIMEOUT_RETRY, build_judge, semantic_verdict
 from evals.reference.oracle import FIXTURES, FixtureMismatch, Oracle
-from evals.report import append_case, metrics, resume_report, write_manifest, write_report
+from evals.report import (
+    append_case,
+    append_observability,
+    metrics,
+    resume_report,
+    write_manifest,
+    write_report,
+)
 from evals.sut import XEONSUT
 from scripts.export_eval_fixtures import export
+from xeon.adapters.metrics import event_to_json
+from xeon.application.observability import aggregate, metric_context
 from xeon.config import Settings
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -385,7 +394,15 @@ async def run(
 
     semaphore = asyncio.Semaphore(concurrency)
 
+    observed: list[dict[str, Any]] = []
+
     async def process_case(
+        scenario_id: str, rep: int, persona: dict[str, Any], checks: dict[str, Any]
+    ) -> dict[str, Any]:
+        with metric_context(task=scenario_id):
+            return await run_case(scenario_id, rep, persona, checks)
+
+    async def run_case(
         scenario_id: str, rep: int, persona: dict[str, Any], checks: dict[str, Any]
     ) -> dict[str, Any]:
         async with semaphore:
@@ -471,6 +488,7 @@ async def run(
                             "drafts": sut.drafts(),
                             "token_estimate": sut.llm.token_estimate,
                         },
+                        "observability": aggregate(sut.metrics.events).get(scenario_id, {}),
                     }
                 except Exception as exc:
                     case = {
@@ -487,6 +505,9 @@ async def run(
                     }
                 finally:
                     if sut is not None:
+                        rows = [event_to_json(event) for event in sut.metrics.events]
+                        append_observability(path, rows)
+                        observed.extend(rows)
                         await sut.aclose()
             append_case(path, case, budget.used)
             print(f"{scenario_id} rep={rep} {case['status']} calls={budget.used}", flush=True)
@@ -503,6 +524,7 @@ async def run(
         "max_calls": max_calls,
         "cases": cases,
         "metrics": metrics(cases),
+        "observability": aggregate(observed),
     }
     write_report(path, report)
     return report, path

@@ -12,10 +12,23 @@ class ChatMessage:
 
 
 @dataclass(frozen=True, slots=True)
+class TokenUsage:
+    """Tokens reported by the provider; None means the provider did not report them."""
+
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+
+    @property
+    def known(self) -> bool:
+        return self.prompt_tokens is not None and self.completion_tokens is not None
+
+
+@dataclass(frozen=True, slots=True)
 class LLMResponse:
     text: str
     provider: str
     model: str
+    usage: TokenUsage | None = None
 
 
 class LLMProviderError(RuntimeError):

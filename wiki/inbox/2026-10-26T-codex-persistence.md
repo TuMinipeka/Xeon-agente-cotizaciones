@@ -7,7 +7,7 @@ tags:
 
 Fecha: 2026-10-26. Aporte: Codex en `feat/state-persistence`, worktree `xa`. Estado: implementado y probado localmente; pendiente de integración en páginas compartidas. Fuente: decisión D15 del usuario, [propuesta fase 3 A](../pages/propuesta-fase3.md), [guía](../../docs/PERSISTENCIA.md), código y pruebas del worktree.
 
-Commits: `f234e89` (persistencia y regresiones), `60a0974` (recorridos SQL guiados). No se hizo push.
+Commits: `f234e89` (persistencia y regresiones), `60a0974` (recorridos SQL guiados), `2917ec4` (ajustes de persistencia). No se hizo push.
 
 ## Diseño y archivos
 
@@ -32,3 +32,9 @@ El grafo local se regeneró mediante `uv run --locked --group graph python scrip
 - Un cambio futuro de estructura de JSONB debe migrar `schema_version=1` antes de desplegar el nuevo lector. La persistencia D15 A no implementa el índice RAG D12 ni aprobación humana.
 
 Páginas afectadas para futura integración de wiki: `arquitectura-actual`, `estado-del-corte`, `conector-ferreteria`, `propuesta-fase3`.
+
+## Merge de observabilidad (c1347cd)
+
+Se fusionó `developer/daniel` en `feat/state-persistence` conservando D15 A y la observabilidad de Sonnet. Los conflictos en `container.py` y `api/app.py` se resolvieron con un solo cableado: `MeteredLLM`, `MetricsRecorder` y proxies `timed` rodean el mismo ejecutor, catálogo e inventario que usan los repositorios de memoria o PostgreSQL. El envío Kapso se mide en una función común tanto con `STATE_STORE=memory` como con `postgres`; la reclamación única y el bloqueo por conversación continúan dentro de la transacción PostgreSQL. Los eventos de métricas contienen etapa, latencia, tokens y costo configurado, sin texto, teléfono ni clave de conversación. `BestEffortMetrics` deja que una falla del destino de métricas emita solo el tipo de error y no revierta la transacción comercial; una prueba de integración lo verifica tras recrear el contenedor.
+
+CI ya instala `uv sync --locked --group db`; no requirió otro ajuste y mantiene `integration` fuera de pytest normal. Perfil CI: Ruff, `ruff format --check`, `mypy src` y pytest verdes; dos pruebas opcionales de Graphify se omiten sin grupo `graph`. Perfil completo (`db`, `db-test`, `evals`, `graph`): `mypy src evals` verde (104 archivos), pytest normal verde, integración PostgreSQL/SQL 15/15 y evaluación offline 66 PASS, 0 FAIL, 0 ERROR. Sin llamadas pagadas. Los contenedores de ambos Compose se apagaron al finalizar.

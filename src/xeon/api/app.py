@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -23,6 +24,7 @@ from xeon.api.schemas import (
     StockByBranchesOut,
 )
 from xeon.application.container import AppContainer, build_container
+from xeon.application.observability import metric_context, record_stage
 from xeon.application.ports.catalog import ProductCatalog
 from xeon.application.ports.channels import (
     ChannelDeliveryError,
@@ -43,6 +45,7 @@ from xeon.application.quote_draft import (
     QuoteDraftReady,
     QuoteNotFoundError,
 )
+from xeon.application.reply import Reply
 from xeon.application.stock import AvailabilityItem, GetStockByBranchesQuery, StockByBranches
 from xeon.config import Settings, SettingsError, get_settings
 from xeon.domain.inventory import InvalidInventoryError
@@ -179,6 +182,20 @@ def create_app(
 
     async def process_kapso_message(incoming: IncomingWhatsAppMessage) -> None:
         key = f"kapso-{incoming.instance}-{incoming.sender_number}"
+
+        async def send(reply: Reply) -> None:
+            if runtime.whatsapp_channel is None:
+                return
+            sent_at = time.perf_counter()
+            try:
+                await runtime.whatsapp_channel.send_reply(
+                    recipient_number=incoming.sender_number, reply=reply
+                )
+            finally:
+                if runtime.metrics is not None:
+                    with metric_context(step=reply.step):
+                        record_stage(runtime.metrics, "envio_kapso", sent_at)
+
         try:
             if runtime.state_unit is not None and runtime.processed_events is not None:
                 async with runtime.state_unit.conversation(key):
@@ -192,10 +209,7 @@ def create_app(
                         request_id=f"kapso-{incoming.external_message_id}",
                         option_id=incoming.option_id,
                     )
-                    if runtime.whatsapp_channel is not None:
-                        await runtime.whatsapp_channel.send_reply(
-                            recipient_number=incoming.sender_number, reply=reply
-                        )
+                    await send(reply)
             else:
                 reply = await runtime.agent.respond_reply(
                     incoming.text,
@@ -203,10 +217,7 @@ def create_app(
                     request_id=f"kapso-{incoming.external_message_id}",
                     option_id=incoming.option_id,
                 )
-                if runtime.whatsapp_channel is not None:
-                    await runtime.whatsapp_channel.send_reply(
-                        recipient_number=incoming.sender_number, reply=reply
-                    )
+                await send(reply)
         except LLMProviderError, ChannelDeliveryError:
             # The signed webhook was accepted; provider errors cannot be returned after the ack.
             seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)

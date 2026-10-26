@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from pathlib import Path
 
@@ -464,38 +465,44 @@ def test_live_context_without_mock_markers_captures_branch_evidence() -> None:
     assert result_sur.status == "FAIL"
 
 
-@pytest.mark.asyncio
-async def test_sut_captures_live_tool_events_for_branch_check() -> None:
-    settings = Settings(
-        _env_file=None,
-        llm_provider="mock",
-        whatsapp_send_enabled=False,
-    )
-    sut = XEONSUT(settings)
-    try:
-        messages = [
-            "¿Hay stock en sede norte de 10 bultos de cemento?",
-            "start:products",
-            "cemento",
-            "product:CEM-50",
-            "quantity:10",
-            "more:view",
-            "delivery:pickup",
-            "branch:sede-norte",
-        ]
-        responses = [await sut.respond(messages[0])]
-        for message in messages[1:]:
-            responses.append(await sut.respond(message))
-        oracle = Oracle()
-        view = EvalView(
-            oracle,
-            responses,
-            sut.llm.tool_contexts(),
-            sut.drafts(),
-            "live",
-            messages,
+def test_sut_captures_live_tool_events_for_branch_check() -> None:
+    async def scenario() -> None:
+        settings = Settings(
+            _env_file=None,
+            llm_provider="mock",
+            whatsapp_send_enabled=False,
         )
-        assert run_check({"type": "branch_matches", "branch": "sede-norte"}, view).status == "PASS"
-        assert run_check({"type": "branch_matches", "branch": "sede-sur"}, view).status == "FAIL"
-    finally:
-        await sut.aclose()
+        sut = XEONSUT(settings)
+        try:
+            messages = [
+                "¿Hay stock en sede norte de 10 bultos de cemento?",
+                "start:products",
+                "cemento",
+                "product:CEM-50",
+                "quantity:10",
+                "more:view",
+                "delivery:pickup",
+                "branch:sede-norte",
+            ]
+            responses = [await sut.respond(messages[0])]
+            for message in messages[1:]:
+                responses.append(await sut.respond(message))
+            oracle = Oracle()
+            view = EvalView(
+                oracle,
+                responses,
+                sut.llm.tool_contexts(),
+                sut.drafts(),
+                "live",
+                messages,
+            )
+            assert (
+                run_check({"type": "branch_matches", "branch": "sede-norte"}, view).status == "PASS"
+            )
+            assert (
+                run_check({"type": "branch_matches", "branch": "sede-sur"}, view).status == "FAIL"
+            )
+        finally:
+            await sut.aclose()
+
+    asyncio.run(scenario())

@@ -39,6 +39,16 @@ def append_case(path: Path, case: dict[str, Any], calls: int) -> None:
         os.fsync(journal.fileno())
 
 
+def append_observability(path: Path, events: list[dict[str, Any]]) -> None:
+    """Persist raw metric events (no personal data) for scripts/cost_report.py."""
+    if not events:
+        return
+    path.mkdir(parents=True, exist_ok=True)
+    with (path / "observability.jsonl").open("a", encoding="utf-8") as journal:
+        for event in events:
+            journal.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+
 def resume_report(path: Path) -> dict[str, Any]:
     manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
     journal = path / "cases.jsonl"

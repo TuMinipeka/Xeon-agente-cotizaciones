@@ -362,3 +362,15 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **Decisión del usuario:** A + E primero, PostgreSQL propio en contenedor local y panel web para el asesor. Detalle en [D15](pages/decisiones-pendientes.md).
 - **Embudo:** Codex lo alineó con el contrato D14 (`dcfc794`): 3 botones reales, cantidades según la unidad y políticas respondidas en cualquier paso. Gate en verde, con 66 de 66 offline.
+
+## [2026-10-26] integración | Ajuste del embudo al contrato D14
+
+- **Codex (`dcfc794`):** resolvió las 5 discrepancias reportadas por agy en el embudo guiado D14. Ofrece 3 botones reales en `inicio`, `cantidad`, `mas`, `entrega` (sumando `[Hablar con asesor]` como tercera alternativa) y `resumen`; comandos «cancelar» y «asesor» transversales por texto.
+- **Cantidades y políticas:** `cantidad` nombra el producto y adapta botones sugeridos por unidad (bulto 10/20, metro 10/50, unidad 1/2, más Otra); preguntas sobre horario, domicilio, recogida, pago, IVA, descuentos y vigencia se responden dinámicamente desde el YAML del tenant en cualquier paso.
+- **Verificación:** gate verde en offline (66/66 PASS), nota `2026-10-26T-codex-funnel-contract.md` retirada del inbox e integrada en [embudo de cotización](pages/embudo-cotizacion.md).
+
+## [2026-10-26] integración | Observabilidad y costo por tarea (E)
+
+- **Sonnet (`ef69e8b`, `aeaa971`, merge `76e2458`):** implementó la opción E de la fase 3 (ver [docs/OBSERVABILIDAD.md](../docs/OBSERVABILIDAD.md) y [propuesta de la fase 3](pages/propuesta-fase3.md)); puerto `MetricsRecorder` con `NullMetrics`, `InMemoryMetrics` y `JsonlMetrics` (`METRICS_PATH`) sin PII.
+- **Etapas y tokens:** cronometra `turno`, `llm`, `ejecutor`, `catalogo`, `inventario` y `envio_kapso`; `LLMResponse.usage` lee `usage` real del proveedor o desconocido sin estimar; tarifas `LLM_PRICE_*` como supuesto.
+- **Reportes:** `scripts/cost_report.py` agrega métricas por tarea y costo; el runner de evals registra `observability.jsonl`. Nota `2026-10-26T-sonnet-observability.md` retirada del inbox.

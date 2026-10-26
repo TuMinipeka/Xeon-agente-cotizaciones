@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from xeon.application.ports.llm import ChatMessage, LLMResponse
+from xeon.application.ports.llm import ChatMessage, LLMResponse, TokenUsage
 
 _MOCK_PROVIDER_NAME = "mock"
 _MOCK_MODEL = "mock-xeon-v1"
@@ -56,7 +56,13 @@ class MockLLM:
                 "Entendi tu solicitud. No se identifico una referencia en el catalogo; "
                 "por lo que no inventare referencias, precios ni disponibilidad."
             )
-        return LLMResponse(text=text, provider=self.provider_name, model=self.model)
+        # The mock consumes no tokens: zero is a fact here, not an estimate.
+        return LLMResponse(
+            text=text,
+            provider=self.provider_name,
+            model=self.model,
+            usage=TokenUsage(0, 0),
+        )
 
     async def aclose(self) -> None:
         return None
