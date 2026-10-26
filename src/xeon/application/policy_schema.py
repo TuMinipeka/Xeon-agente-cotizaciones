@@ -38,3 +38,8 @@ class StorePolicy(BaseModel):
     descuentos: str | None = None
     fuera_de_horario: str | None = None
     facturacion: str | None = None
+    # Identidad de la tienda para el PDF del borrador; ausentes se muestran como pendientes.
+    nombre_comercial: str | None = None
+    nit: str | None = None
+    direccion: str | None = None
+    telefono_tienda: str | None = None

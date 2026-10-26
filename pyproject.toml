@@ -37,6 +37,13 @@ db = [
     "sqlalchemy>=2.0.40,<3.0",
     "tzdata>=2024.1; sys_platform == 'win32'",
 ]
+pdf = [
+    "reportlab>=5.1,<6",
+]
+pdf-test = [
+    "reportlab>=5.1,<6",
+    "pypdf>=6.0,<7",
+]
 db-test = [
     "sqlalchemy>=2.0.40,<3.0",
     "psycopg[binary]>=3.2",
@@ -74,4 +81,8 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = ["scenario.*", "langwatch.*", "litellm.*"]
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["reportlab.*"]
+ignore_missing_imports = true
 

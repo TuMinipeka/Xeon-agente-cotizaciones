@@ -1,5 +1,6 @@
 # Plantilla demo para Colombia. Cada ferreteria reemplaza sus valores aprobados.
 demo: true
+nombre_comercial: Ferretería demo XEON (datos ficticios)
 pagos: [Efectivo, Transferencia, Tarjeta débito/crédito, Nequi]
 entrega:
   recoger_en_sede: {disponible: true, nota: "Mismo día si hay stock"}
