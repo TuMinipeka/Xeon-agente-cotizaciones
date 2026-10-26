@@ -384,6 +384,14 @@ class GuidedFunnel:
     async def handle(
         self, key: str, message: str, *, option_id: str | None = None, request_id: str | None = None
     ) -> Reply:
+        async with self._states.conversation(key):
+            return await self._handle_locked(
+                key, message, option_id=option_id, request_id=request_id
+            )
+
+    async def _handle_locked(
+        self, key: str, message: str, *, option_id: str | None = None, request_id: str | None = None
+    ) -> Reply:
         state = self.state(key)
         if request_id is not None and state.last_request_id == request_id and state.last_reply:
             return state.last_reply
