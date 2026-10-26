@@ -29,3 +29,18 @@ Verificación adicional: `scripts/check_doc_links.py` revisó 60 enlaces relativ
 ## Límites
 
 El resultado remoto entre aceptación y registro local sigue siendo ambiguo; para exactamente una vez se necesita una garantía de idempotencia documentada por Kapso/Meta o conciliación fiable por clave de negocio. Cinco fallos de entrada o salida dejan registro `failed` para atención manual; no hay panel de redrive ni alerta automática. El aviso libre del asesor puede fallar fuera de la ventana de servicio de WhatsApp; requiere plantilla aprobada en un corte posterior. Los payloads entrantes y las respuestas salientes incluyen datos personales: se restringe el acceso a la base y la retención continúa **POR DEFINIR** por el usuario. El orden por conversación difiere de un orden total entre tenants o destinatarios. Falta prueba de carga y validación en sandbox real.
+
+## Seguridad del webhook (revisión Sonnet)
+
+Fuente: revisión de Sonnet `wiki/inbox/2026-10-26T-sonnet-security-review.md` del árbol principal, hallazgos M4 y B1–B3; contrastada con la [documentación oficial de seguridad](https://docs.kapso.ai/docs/platform/webhooks/security), [cabeceras v2](https://docs.kapso.ai/docs/platform/webhooks/overview) y [lotes](https://docs.kapso.ai/docs/platform/webhooks/advanced). Estado: implementado en `feat/kapso-outbox` (`d030d72`); pendiente integración editorial.
+
+| Hallazgo | Corrección y sonda de regresión |
+| --- | --- |
+| M4 | Máximo 1 MiB con comprobación previa de `Content-Length` y corte de lectura en streaming (413); máximo 100 eventos por lote (413), acorde al límite configurable documentado por Kapso. `APP_ENV=production` falla al arrancar con `STATE_STORE=memory`; PostgreSQL deduplica por clave única. La documentación v2 enumera `X-Webhook-Signature`, `X-Idempotency-Key` y versión, sin cabecera de tiempo firmada. El `message.timestamp` no autentica la hora de entrega; no se rechazan mensajes viejos solo por ese campo. |
+| B1 | La firma hexadecimal se decodifica a bytes y se compara con el HMAC en bytes. Sonda `"é" * 64` y cabecera de bytes `0xE9`: 401, nunca 500. |
+| B2 | `message.id` tiene prioridad; si falta en un lote, el id de entrega se sufija con el índice. Sonda de dos mensajes sin id y una sola cabecera: se procesan ambos con claves diferentes. |
+| B3 | Cuando se configura `KAPSO_PHONE_NUMBER_ID`, un evento firmado para otro `phone_number_id` se ignora y el log no contiene identificador, teléfono ni texto. |
+
+En desarrollo, `KAPSO_PHONE_NUMBER_ID` vacío mantiene el receptor sin filtro por número; el despliegue debe configurarlo para activar esa verificación. No se hicieron llamadas a Kapso ni a LLM pagados.
+
+Gate de este corte: perfil CI `uv sync --locked --group db`, Ruff check, Ruff format check, `mypy src` y `pytest -q` verdes. Perfil completo `db`, `db-test`, `evals`, `graph`: Ruff y formato verdes, `mypy src evals` (116 archivos), suite general verde, 21/21 pruebas de integración y evaluación offline 66 PASS, 0 FAIL, 0 ERROR. `scripts/check_doc_links.py`: 60 enlaces relativos, 0 rotos. Graphify local actualizado sin LLM: 3010 nodos, 9736 aristas, 176 comunidades, 325 archivos, 0 rutas excluidas y 0 valores con aspecto de clave. Ambos Compose se bajaron con `down` sin borrar volúmenes. Los hubs versionados de `wiki/graph/` se restauraron para evitar cambios dependientes del worktree.
