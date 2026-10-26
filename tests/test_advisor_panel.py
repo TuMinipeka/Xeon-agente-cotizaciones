@@ -207,7 +207,7 @@ def test_password_hashing_sessions_and_throttle_units(tmp_path: Path) -> None:
     throttle.failure("k")
     throttle.failure("k")
     assert throttle.blocked("k")
-    now[0] = 20
+    now[0] = 50
     assert not throttle.blocked("k")
 
 

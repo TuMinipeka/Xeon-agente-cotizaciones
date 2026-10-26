@@ -16,7 +16,7 @@ import re
 import sys
 from pathlib import Path
 
-from xeon.api.panel_auth import hash_password
+from xeon.api.panel_auth import MAX_PASSWORD_LENGTH, hash_password
 
 DEFAULT_FILE = Path("secrets/advisor_panel_credentials.txt")
 MIN_LENGTH = 12
@@ -52,6 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     password = getpass.getpass("Contrasena del asesor: ")
     if len(password) < MIN_LENGTH:
         print(f"La contrasena debe tener al menos {MIN_LENGTH} caracteres.", file=sys.stderr)
+        return 1
+    if len(password) > MAX_PASSWORD_LENGTH:
+        print(f"La contrasena admite hasta {MAX_PASSWORD_LENGTH} caracteres.", file=sys.stderr)
         return 1
     if getpass.getpass("Repite la contrasena: ") != password:
         print("Las contrasenas no coinciden.", file=sys.stderr)

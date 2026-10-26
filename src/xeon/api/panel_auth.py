@@ -10,7 +10,7 @@ import hashlib
 import hmac
 import secrets
 import time
-from collections import defaultdict, deque
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,7 +45,9 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 # Verified against when the user does not exist, so timing does not reveal valid usernames.
-_DUMMY_HASH = hash_password("sin-usuario", iterations=1000)
+# Same cost as a real hash: an unknown user must take as long as a known one (review M1).
+_DUMMY_HASH = hash_password("sin-usuario")
+MAX_PASSWORD_LENGTH = 128
 
 
 def load_credentials(path: Path) -> dict[str, str]:
@@ -69,40 +71,72 @@ def load_credentials(path: Path) -> dict[str, str]:
 def authenticate(credentials: dict[str, str], username: str, password: str) -> str | None:
     user = username.strip().lower()
     stored = credentials.get(user)
-    valid = verify_password(password, stored if stored is not None else _DUMMY_HASH)
-    return user if stored is not None and valid else None
+    # Over-long passwords are refused after the same hashing work, never silently truncated.
+    candidate = password if len(password) <= MAX_PASSWORD_LENGTH else ""
+    valid = verify_password(candidate, stored if stored is not None else _DUMMY_HASH)
+    return user if stored is not None and valid and candidate else None
 
 
 class LoginThrottle:
-    """Blocks a key after repeated failures inside a sliding window."""
+    """Per-key failure counter with progressive lockout (30 s, 60 s, 120 s ... up to an hour)."""
 
     def __init__(
         self,
         *,
         max_attempts: int = 5,
         window_seconds: float = 900,
+        base_lock_seconds: float = 30,
+        max_lock_seconds: float = 3600,
+        max_keys: int = 10_000,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._max = max_attempts
         self._window = window_seconds
+        self._base = base_lock_seconds
+        self._cap = max_lock_seconds
+        self._max_keys = max_keys
         self._clock = clock
-        self._failures: dict[str, deque[float]] = defaultdict(deque)
+        self._failures: dict[str, deque[float]] = {}
+        self._locked_until: dict[str, float] = {}
 
     def _recent(self, key: str) -> deque[float]:
-        failures = self._failures[key]
+        failures = self._failures.setdefault(key, deque())
         cutoff = self._clock() - self._window
         while failures and failures[0] <= cutoff:
             failures.popleft()
         return failures
 
+    def purge(self) -> None:
+        """Drop keys with no recent failures and no active lock; bound memory."""
+        now = self._clock()
+        for key in list(self._failures):
+            if self._locked_until.get(key, 0) <= now and not self._recent(key):
+                self._failures.pop(key, None)
+                self._locked_until.pop(key, None)
+        while len(self._failures) > self._max_keys:
+            oldest = next(iter(self._failures))
+            self._failures.pop(oldest, None)
+            self._locked_until.pop(oldest, None)
+
     def blocked(self, key: str) -> bool:
-        return len(self._recent(key)) >= self._max
+        return self._locked_until.get(key, 0) > self._clock()
+
+    def retry_after(self, key: str) -> int:
+        return max(1, int(self._locked_until.get(key, 0) - self._clock()) + 1)
 
     def failure(self, key: str) -> None:
-        self._recent(key).append(self._clock())
+        if len(self._failures) >= self._max_keys:
+            self.purge()
+        failures = self._recent(key)
+        failures.append(self._clock())
+        over = len(failures) - self._max
+        if over >= 0:
+            lock = min(self._base * (2**over), self._cap)
+            self._locked_until[key] = self._clock() + lock
 
     def success(self, key: str) -> None:
         self._failures.pop(key, None)
+        self._locked_until.pop(key, None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,9 +149,14 @@ class PanelSession:
 
 class SessionStore:
     def __init__(
-        self, *, ttl_seconds: float = 8 * 3600, clock: Callable[[], float] = time.monotonic
+        self,
+        *,
+        ttl_seconds: float = 8 * 3600,
+        max_sessions: int = 200,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._ttl = ttl_seconds
+        self._max_sessions = max_sessions
         self._clock = clock
         self._secret = secrets.token_bytes(32)
         # Only a keyed digest is retained; the cookie and CSRF tokens exist in requests.
@@ -133,7 +172,15 @@ class SessionStore:
     def ttl_seconds(self) -> float:
         return self._ttl
 
+    def purge(self) -> None:
+        now = self._clock()
+        for token in [t for t, (_, expires) in self._sessions.items() if expires <= now]:
+            del self._sessions[token]
+        while len(self._sessions) > self._max_sessions:
+            del self._sessions[next(iter(self._sessions))]
+
     def create(self, username: str) -> PanelSession:
+        self.purge()
         token = secrets.token_urlsafe(32)
         expires_at = self._clock() + self._ttl
         self._sessions[self._key(token)] = (username, expires_at)

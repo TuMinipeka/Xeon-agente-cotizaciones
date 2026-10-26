@@ -11,7 +11,7 @@ from urllib.parse import parse_qs
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from xeon.adapters.pdf import load_pdf_renderer
@@ -22,6 +22,7 @@ from xeon.api.panel_auth import (
     authenticate,
     load_credentials,
 )
+from xeon.api.security import client_ip, is_local_peer, is_secure_request, trusted_hosts
 from xeon.application.advisor_review import AdvisorReview, ReviewError
 from xeon.application.container import AppContainer
 from xeon.application.ports.advisor import AdvisorEvent, AttentionStatus
@@ -32,6 +33,7 @@ from xeon.domain.quote import QuoteStatus
 SESSION_COOKIE = "xeon_panel_session"
 LOGIN_CSRF_COOKIE = "xeon_panel_login_csrf"
 MAX_FORM_BYTES = 8192
+PAGE_SIZE = 50
 KIND_LABEL = {"client_confirmed": "Borrador confirmado", "advisor_requested": "Pide asesor"}
 STYLE = (
     "body{font-family:system-ui,sans-serif;margin:0;background:#f4f5f7;color:#1c1f24}"
@@ -56,6 +58,19 @@ def phone_from_key(conversation_key: str | None) -> str | None:
     return number if number.isdigit() and len(conversation_key.split("-")) >= 3 else None
 
 
+def _page_number(raw: str | None) -> int:
+    return int(raw) if raw and raw.isdigit() and 1 <= int(raw) <= 100_000 else 1
+
+
+def _pager(page: int, *, more: bool) -> str:
+    links = []
+    if page > 1:
+        links.append(f"<a href='/panel/?page={page - 1}'>← Anterior</a>")
+    if more:
+        links.append(f"<a href='/panel/?page={page + 1}'>Siguiente →</a>")
+    return f"<p>Página {page} · {' · '.join(links)}</p>" if links else ""
+
+
 def _mask(number: str | None) -> str:
     return f"…{number[-4:]}" if number else "sin WhatsApp"
 
@@ -71,15 +86,28 @@ def _time(value: datetime | None) -> str:
 
 def build_panel_router(container: AppContainer) -> APIRouter:
     settings = container.settings
-    router = APIRouter(prefix="/panel")
+    trusted = trusted_hosts(settings.trusted_proxies)
+
+    def require_secure_transport(request: Request) -> None:
+        """Credentials and sessions only travel over HTTPS, except for loopback development."""
+        if not is_secure_request(request, trusted) and not is_local_peer(request):
+            raise HTTPException(status_code=403, detail="El panel requiere HTTPS.")
+
+    router = APIRouter(prefix="/panel", dependencies=[Depends(require_secure_transport)])
     sessions = SessionStore(ttl_seconds=settings.advisor_panel_session_minutes * 60)
     throttle = LoginThrottle(
         max_attempts=settings.advisor_panel_max_attempts,
         window_seconds=settings.advisor_panel_lockout_minutes * 60,
     )
+    ip_throttle = LoginThrottle(
+        max_attempts=settings.advisor_panel_max_attempts * 4,
+        window_seconds=settings.advisor_panel_lockout_minutes * 60,
+    )
     inbox = container.advisor_inbox
     review = AdvisorReview(inbox, container.quotes) if inbox is not None else None
-    secure_cookie = settings.app_env == "production"
+
+    def secure_cookie(request: Request) -> bool:
+        return settings.app_env == "production" or is_secure_request(request, trusted)
 
     def respond(content: str, *, status: int = 200, title: str = "Panel del asesor") -> Response:
         nonce = secrets.token_urlsafe(12)
@@ -131,10 +159,9 @@ def build_panel_router(container: AppContainer) -> APIRouter:
     def forbidden() -> Response:
         return respond("<main><h1>Solicitud rechazada</h1></main>", status=403)
 
-    def client_ip(request: Request) -> str:
-        return request.client.host if request.client else "desconocido"
-
-    def login_page(token: str, *, message: str = "", status: int = 200) -> Response:
+    def login_page(
+        request: Request, token: str, *, message: str = "", status: int = 200
+    ) -> Response:
         notice = f"<p class='bad'>{escape(message)}</p>" if message else ""
         response = respond(
             "<main><h1>Panel del asesor</h1>"
@@ -152,7 +179,7 @@ def build_panel_router(container: AppContainer) -> APIRouter:
             token,
             httponly=True,
             samesite="strict",
-            secure=secure_cookie,
+            secure=secure_cookie(request),
             path="/panel",
             max_age=900,
         )
@@ -162,10 +189,10 @@ def build_panel_router(container: AppContainer) -> APIRouter:
         return load_credentials(settings.advisor_panel_credentials_file)
 
     @router.get("/login")
-    async def login_form() -> Response:
+    async def login_form(request: Request) -> Response:
         if not configured():
             return respond("<main><h1>Panel no configurado</h1></main>", status=503)
-        return login_page(secrets.token_urlsafe(24))
+        return login_page(request, secrets.token_urlsafe(24))
 
     @router.post("/login")
     async def login(request: Request) -> Response:
@@ -177,21 +204,30 @@ def build_panel_router(container: AppContainer) -> APIRouter:
         if data is None or not cookie or not hmac.compare_digest(data.get("csrf", ""), cookie):
             return forbidden()
         username = data.get("username", "")[:64]
-        keys = (f"ip:{client_ip(request)}", f"user:{username.strip().lower()}")
-        if any(throttle.blocked(key) for key in keys):
-            return respond(
+        ip = client_ip(request, trusted)
+        # Locks are per (IP, user): a stranger cannot lock the real advisor out from another IP.
+        pair = f"{ip}|{username.strip().lower()}"
+        if throttle.blocked(pair) or ip_throttle.blocked(ip):
+            wait = max(throttle.retry_after(pair), ip_throttle.retry_after(ip))
+            blocked = respond(
                 "<main><h1>Demasiados intentos</h1><p>Espera unos minutos.</p></main>",
                 status=429,
             )
-        user = authenticate(credentials, username, data.get("password", "")[:256])
+            blocked.headers["Retry-After"] = str(wait)
+            return blocked
+        # No truncation: a password over the limit simply fails (the script has the same limit).
+        password = data.get("password", "")
+        user = authenticate(credentials, username, password)
         if user is None:
-            for key in keys:
-                throttle.failure(key)
+            throttle.failure(pair)
+            ip_throttle.failure(ip)
             return login_page(
-                secrets.token_urlsafe(24), message="Credenciales inválidas.", status=401
+                request,
+                secrets.token_urlsafe(24),
+                message="Credenciales inválidas.",
+                status=401,
             )
-        for key in keys:
-            throttle.success(key)
+        throttle.success(pair)
         session = sessions.create(user)
         redirect = RedirectResponse("/panel/", status_code=303)
         redirect.set_cookie(
@@ -199,7 +235,7 @@ def build_panel_router(container: AppContainer) -> APIRouter:
             session.token,
             httponly=True,
             samesite="strict",
-            secure=secure_cookie,
+            secure=secure_cookie(request),
             path="/panel",
             max_age=int(sessions.ttl_seconds),
         )
@@ -234,12 +270,17 @@ def build_panel_router(container: AppContainer) -> APIRouter:
             return unauthorized()
         pending = inbox.list_events(status=AttentionStatus.PENDIENTE)
         done = [e for e in inbox.list_events() if e.status is not AttentionStatus.PENDIENTE]
+        done.reverse()
+        page = _page_number(request.query_params.get("page"))
+        start = (page - 1) * PAGE_SIZE
         head = "<tr><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th></th></tr>"
+        empty = "<tr><td colspan=5>Sin pendientes en esta página.</td></tr>"
+        shown = "".join(row(e) for e in pending[start : start + PAGE_SIZE]) or empty
         body = (
-            f"<h1>Pendientes ({len(pending)})</h1><table>{head}"
-            f"{''.join(row(e) for e in pending) or '<tr><td colspan=5>Sin pendientes.</td></tr>'}"
-            f"</table><h2>Atendidos recientes</h2><table>{head}"
-            f"{''.join(row(e) for e in done[-20:][::-1])}</table>"
+            f"<h1>Pendientes ({len(pending)})</h1><table>{head}{shown}"
+            f"</table><h2>Atendidos recientes ({len(done)})</h2><table>{head}"
+            f"{''.join(row(e) for e in done[start : start + PAGE_SIZE])}</table>"
+            + _pager(page, more=max(len(pending), len(done)) > start + PAGE_SIZE)
         )
         return respond(layout(session, body))
 
