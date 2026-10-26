@@ -142,6 +142,11 @@ CORE_SYNTHETIC_PRODUCTS: tuple[Product, ...] = (
         ),
         description_context="Cubierta prefabricada galvanizada liviana para techo.",
     ),
+)
+
+# Additional core references are kept outside the frozen 2,000-item evaluation
+# seed so the independent fixture snapshot remains reproducible.
+ADDITIONAL_CORE_PRODUCTS: tuple[Product, ...] = (
     product(
         "PAL-RED-FIB",
         "Pala redonda mango de fibra",

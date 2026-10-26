@@ -78,7 +78,7 @@ _OUTSIDE = re.compile(
     re.I,
 )
 _POLICY = re.compile(
-    r"\b(?:pagar|pago|tarjeta|efectivo|recoger|recogida|retiro|"
+    r"\b(?:pagar|pago|tarjeta|efectivo|recoger|recojo|recogida|retiro|"
     r"domicilio|envio|entrega|horario|facturaci[oó]n)\b",
     re.I,
 )
@@ -101,10 +101,17 @@ def _normalize(text: str) -> str:
 
 
 def _quantity(text: str) -> Decimal | None:
+    if re.search(r"\b\d+\s*/\s*\d+\b", text) and not re.search(
+        r"\b\d+\s+(?:tubos?|unidades?|bultos?)\b", text, re.I
+    ):
+        return None
     parsed = _extract_requested_quantity(text)
     if parsed is not None:
         return parsed
     normalized = _normalize(text)
+    multiplier = re.search(r"\bx\s*(\d+(?:[.,]\d+)?)\b", normalized)
+    if multiplier is not None:
+        return Decimal(multiplier.group(1).replace(",", "."))
     match = re.search(r"\b(\d+(?:[.,]\d+)?)\b", normalized)
     if match is not None and _DIMENSIONS.search(normalized) is None:
         raw = match.group(1).replace(",", ".")
@@ -126,8 +133,10 @@ def _product_phrase(text: str) -> str | None:
         text,
     )
     cleaned = re.sub(
-        r"(?i)^\s*(?:\d+|una?|dos|tres)\s+(?:bultos?|palas?|unidades?)\s*(?:de\s+)?", "", cleaned
+        r"(?i)^\s*(?:\d+|una?|dos|tres)\s+(?:bultos?|unidades?)\s*(?:de\s+)?", "", cleaned
     )
+    cleaned = re.sub(r"(?i)\s*[x\u00d7]\s*\d+\s*$", "", cleaned)
+    cleaned = re.sub(r"(?i)^\s*(?:dos|una?|tres|\d+)\s+", "", cleaned)
     cleaned = cleaned.strip(" ¿?.,!")
     return cleaned or None
 
@@ -148,7 +157,8 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
     if normalized in {"hola", "buenas", "buenos dias", "gracias"}:
         return IntentBatch(intents=(Intent(kind=IntentKind.SALUDO, source_text=cleaned),))
     if pending is not None and (
-        re.fullmatch(r"\s*[1-3]\s*", cleaned)
+        re.search(r"\b(?:el|del|opcion)\s*[1-3]\b", normalized)
+        or re.fullmatch(r"\s*[1-3]\s*", cleaned)
         or any(term in normalized for term in ("redonda", "cuadrada", "fibra", "madera", "opcion"))
     ):
         return IntentBatch(
@@ -202,7 +212,7 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
             policies = []
             if re.search(r"\b(?:pagar|pago|tarjeta|efectivo)\b", clause, re.I):
                 policies.append("pagos")
-            if re.search(r"\b(?:recoger|recogida|retiro)\b", clause, re.I):
+            if re.search(r"\b(?:recoger|recojo|recogida|retiro)\b", clause, re.I):
                 policies.append("recogida")
             if re.search(r"\b(?:domicilio|envio|entrega)\b", clause, re.I):
                 policies.append("domicilio")

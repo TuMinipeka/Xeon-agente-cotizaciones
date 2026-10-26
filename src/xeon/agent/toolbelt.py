@@ -74,6 +74,9 @@ class CommercialToolbelt:
         self._record_search(outcome)
         return outcome
 
+    def evaluated_at(self) -> str:
+        return self._clock().astimezone(UTC).isoformat()
+
     @staticmethod
     def _record_search(outcome: SearchProductsOutcome) -> None:
         record_tool(
@@ -229,6 +232,7 @@ class CommercialToolbelt:
         request_id: str,
         lines: Sequence[DraftLineRequest],
         discount_requested: bool = False,
+        version: int = 1,
     ) -> CreateQuoteResult:
         try:
             result = self._create_quote_draft.execute(
@@ -237,6 +241,7 @@ class CommercialToolbelt:
                     request_id=request_id,
                     lines=tuple(lines),
                     discount_requested=discount_requested,
+                    version=version,
                 )
             )
         except Exception:

@@ -30,17 +30,31 @@ class QuoteCart:
     conversation_key: str
     lines: tuple[CartLine, ...] = ()
     version: int = 0
+    quote_version: int = 0
     last_request_id: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.conversation_key.strip() or self.version < 0:
+        if not self.conversation_key.strip() or self.version < 0 or self.quote_version < 0:
             raise ValueError("La identidad y version del carrito deben ser validas.")
         keys = [line.key for line in self.lines]
         if len(keys) != len(set(keys)):
             raise ValueError("El carrito no admite referencias duplicadas.")
 
     def _changed(self, lines: tuple[CartLine, ...]) -> QuoteCart:
-        return replace(self, lines=lines, version=self.version + 1) if lines != self.lines else self
+        if lines == self.lines:
+            return self
+        before = self.confirmed_lines()
+        after = tuple(
+            build_quote_line(line.product, line.quantity)
+            for line in lines
+            if line.product is not None
+        )
+        return replace(
+            self,
+            lines=lines,
+            version=self.version + 1,
+            quote_version=self.quote_version + int(before != after),
+        )
 
     def add_item(
         self, product: Product | None, quantity: Decimal | int | str, *, label: str = ""
