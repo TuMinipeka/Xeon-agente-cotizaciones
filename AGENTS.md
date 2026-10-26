@@ -7,6 +7,7 @@ Antes de proponer cambios, leer en este orden:
 1. `docs/XeonContexto.md`: alcance funcional, seguridad y decisiones del producto.
 2. `docs/ARCHITECTURE.md`: fronteras implementadas y pendientes.
 3. `CONTRIBUTING.md`: rama, pruebas y formato de commits.
+4. `docs/METODO_DE_TRABAJO.md`: como se trabaja en equipo (herdr, worktrees, wiki, gate).
 
 Si el codigo y el documento funcional difieren, detenerse, explicar la diferencia y proponer una
 decision explicita. No presentar una capacidad planeada como ya implementada.

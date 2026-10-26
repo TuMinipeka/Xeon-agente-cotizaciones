@@ -399,3 +399,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Integrado y publicado (`73ac618`):** embudo D14, conector SQL, persistencia PostgreSQL, observabilidad, panel del asesor con PDF, outbox y recepción durable de Kapso, endurecimiento de seguridad (Sonnet: A1, A2, M1–M3, M6, M7, B7 y B8; Codex: M4 y B1–B3), y reinicio de la conversación tras los pasos terminales (agy).
 - **Gate (perfil CI):** 409 pruebas, `ruff` y `mypy` en verde, 0 enlaces rotos. La API se reinició con todo integrado y el webhook de Kapso se sincronizó con el túnel activo.
 - **Pendiente:** en el perfil completo fallan 7 pruebas del webhook porque `litellm` carga el `.env` local (`KAPSO_PHONE_NUMBER_ID`) y el filtro B3 ignora los payloads de prueba; las pruebas deben fijar el número. También queda pendiente el redrive de Codex (`feat/delivery-redrive`, sin fusionar), la retención de datos M5 (decisión del usuario), la integración en la wiki de las notas del inbox (outbox y seguridad) y la prueba por WhatsApp del usuario.
+
+## [2026-10-26] documentación | Guía de método de trabajo para agentes nuevos
+
+- **Nueva guía:** `docs/METODO_DE_TRABAJO.md`, para agentes que se suman al proyecto. Cubre las fuentes de verdad, el grafo, los roles en herdr, ramas y worktrees, el formato de commits, el gate de dos perfiles, el protocolo de la wiki y la seguridad.
+- **Enlaces:** se enlaza desde `AGENTS.md` y `docs/README.md`.

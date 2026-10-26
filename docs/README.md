@@ -1,5 +1,6 @@
 # Documentación de XEON
 
+- [METODO_DE_TRABAJO.md](METODO_DE_TRABAJO.md): guía de incorporación para agentes nuevos (roles, worktrees, commits, gate, wiki y seguridad).
 - [XeonContexto.md](XeonContexto.md): alcance funcional, principios y visión del producto.
 - [DESPLIEGUE_WHATSAPP.md](DESPLIEGUE_WHATSAPP.md): paso a paso para desplegar XEON en WhatsApp con Kapso y probar el bot.
 - [ARCHITECTURE.md](ARCHITECTURE.md): arquitectura implementada, límites y trabajo pendiente.
