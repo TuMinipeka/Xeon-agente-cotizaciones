@@ -168,9 +168,12 @@ El usuario pidió el 2026-10-24 un sistema de pruebas conversacionales con clien
 
 El usuario preguntó el 2026-10-26 si XEON es un RAG y si conviene convertirlo «meramente en un RAG avanzado».
 
-- **Hoy:** XEON es un **agente con herramientas deterministas**. Grok interpreta y redacta, y el backend busca, consulta stock y calcula. No hay recuperación de fragmentos de texto ni embeddings: la búsqueda es léxica (`InMemoryProductCatalog.search_candidates`).
+- **Hoy (corrección del 2026-10-26, a pedido del usuario de ser coherente):** en sentido amplio, **XEON sí tiene un componente RAG**. En cada turno *recupera* datos del catálogo y del inventario, los *añade* al prompt y el modelo *genera* la respuesta con ellos. Ese es el patrón *retrieval-augmented generation*, y el flujo anterior (`prepare_verified_context`) era exactamente eso.
+  - Lo que lo separa de un RAG «clásico» es que la recuperación es **estructurada y determinista** (búsqueda por SKU, alias y puntuación léxica), no semántica sobre fragmentos de texto con embeddings.
+  - Desde la fase 1, XEON además **actúa**: modifica un carrito y calcula totales con plantillas, sin que el modelo escriba las cifras.
+  - **Descripción precisa:** un *RAG estructurado dentro de un agente con herramientas*. Afirmar que «no es un RAG» era demasiado absoluto.
 - **Resolución (orquestador, dentro del plan aprobado por el usuario):**
-  - **No se convierte solo en un RAG.** Un RAG fundamenta texto, pero no puede agregar, modificar ni quitar líneas, sumar totales exactos ni garantizar stock vigente, que son justo las operaciones que falla el [reporte QA de Conde](qa-conde-2026-10-24.md).
+  - **No se convierte solo en un RAG (de texto).** Un RAG fundamenta texto, pero no puede agregar, modificar ni quitar líneas, sumar totales exactos ni garantizar stock vigente, que son justo las operaciones que falla el [reporte QA de Conde](qa-conde-2026-10-24.md).
   - **Arquitectura híbrida:** agente con herramientas transaccionales más recuperación como **una herramienta más**, en dos usos:
     1. búsqueda híbrida de productos (léxica para SKU y códigos, vectorial con `pgvector` para descripciones vagas, fusión RRF y *reranker* opcional);
     2. base de conocimiento (fichas técnicas, guías de proyecto y políticas en texto).

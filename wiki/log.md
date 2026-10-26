@@ -304,3 +304,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Auditoría:** B1, el evaluador probaba el flujo viejo (corregido); A1, el oráculo agregaba productos en código (enviado a agy).
 - **Resultado:** S01–S20 dan 60/60 offline. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
 - **Inbox:** se integraron las notas `codex-qa-conde` y `agy-qa-conde-evals`. La de agy sigue abierta hasta cerrar A1.
+
+## [2026-10-26] corrección | Modelo de agy y precisión de D12
+
+- **agy:** pasa de Gemini 4 Argon a **Gemini 3.8 Flash con razonamiento medio** (decisión del usuario). Se añadió en [orquestación](pages/orquestacion.md) una guía para asignarle tareas según su nivel de razonamiento.
+- **D12:** se corrigió la afirmación «XEON no es un RAG». XEON tiene un RAG estructurado (recupera del catálogo y aumenta el prompt) dentro de un agente con herramientas. La decisión no cambia: no se convierte en un RAG de texto puro.
