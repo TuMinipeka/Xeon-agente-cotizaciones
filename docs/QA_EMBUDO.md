@@ -1,9 +1,13 @@
 # Guía de prueba manual del embudo guiado por WhatsApp (D14)
 
 > [!IMPORTANT]
-> **Estado de ejecución:** Esta guía de pruebas manuales fue redactada contra la especificación contractual [D14](../wiki/pages/embudo-cotizacion.md). Debe ejecutarse por el equipo de QA humano una vez que la implementación del embudo guiado esté completamente fusionada e integrada en la rama de trabajo.
-> 
-> **Criterio de auditoría (Código vs. Contrato):** Los títulos, identificadores (`id`) y textos esperados reflejan la implementación real en `src/xeon/agent/guided_funnel.py`. En aquellos puntos donde el código contradice o se desvía del contrato D14 (por ejemplo, número de botones o preguntas fijas sin interpolación), la guía mantiene el criterio contractual esperado y señala la discrepancia correspondiente.
+> **Estado de ejecución:** Esta guía de pruebas manuales está alineada con el contrato [D14](../wiki/pages/embudo-cotizacion.md) y su implementación verificada en `src/xeon/agent/guided_funnel.py` tras los ajustes de Codex (commit `dcfc794`).
+>
+> **Comportamiento interactivo:**
+> - Los pasos `inicio`, `cantidad`, `mas`, `entrega` y `resumen` ofrecen exactamente **3 botones** de respuesta rápida (*reply buttons*).
+> - El paso `cantidad` interpola el nombre completo del producto y ofrece opciones sugeridas según su unidad (`bulto`: 10/20/Otra; `metro`: 10/50/Otra; `unidad`: 1/2/Otra).
+> - Las consultas sobre políticas de la ferretería (horario, domicilio, recogida, pago, IVA, descuentos, vigencia) se responden desde `config/policies/whatsapp.yaml` y repiten las opciones del paso activo sin alterar el carrito.
+> - Los comandos de texto `cancelar` y `asesor` están disponibles en cualquier paso de la conversación.
 
 ---
 
@@ -15,7 +19,7 @@ Para ejecutar estas pruebas desde un teléfono móvil real con WhatsApp conectad
 2. **Servicios requeridos:**
    - API de XEON activa en puerto local (`http://localhost:8000`).
    - Túnel seguro `cloudflared` activo redirigiendo tráfico HTTPS al puerto 8000.
-   - Webhook de Kapso configurado apuntando a la URL del túnel (`/v1/integrations/kapso/webhook`).
+   - Webhook de Kapso configurado apuntando a la URL del túnel (`/v1/channels/whatsapp/kapso/webhook`).
    - Envío de mensajes activo en la configuración (`WHATSAPP_SEND_ENABLED=true`).
 3. **Seguridad y confidencialidad:**
    - **Nunca** digite ni exponga tokens, API keys ni secretos en la consola o en capturas de pantalla de prueba.
@@ -36,19 +40,19 @@ Para ejecutar estas pruebas desde un teléfono móvil real con WhatsApp conectad
 
 | Paso | Acción del probador | Respuesta esperada de XEON | Opciones interactivas esperadas (ID / Título) |
 |---|---|---|---|
-| 1 | Inicia conversación o pulsa botón inicial | Pregunta de bienvenida e intención general:<br>«¿Qué necesitas?» | 3 botones según contrato D14:<br>• `start:products`: `[Cotizar productos]`<br>• `start:project`: `[Proyecto u obra]`<br>• `global:advisor`: `[Hablar con asesor]`<br>*(Discrepancia en código: añade `global:cancel` sumando 4 opciones y forzando lista).* |
+| 1 | Inicia conversación o pulsa botón inicial | Pregunta de bienvenida e intención general:<br>«¿Qué necesitas?» | 3 botones de respuesta rápida:<br>• `start:products`: `[Cotizar productos]`<br>• `start:project`: `[Proyecto u obra]`<br>• `global:advisor`: `[Hablar con asesor]` |
 | 2 | Pulsa `[Cotizar productos]` (`start:products`) | Solicita nombre del producto:<br>«¿Qué producto buscas? Escribe nombre o referencia.» | Campo de texto libre activo |
 | 3 | Escribe: `cemento` | Presenta lista interactiva de productos coincidentes:<br>«Elige una referencia:\n¿Qué producto buscas? Escribe nombre o referencia.» | Lista interactiva con opciones del catálogo, incluyendo:<br>• `product:CEM-50`: `Cemento gris 50 kg` |
-| 4 | Selecciona `Cemento gris 50 kg` (`product:CEM-50`) | Pregunta por la cantidad deseada:<br>Contrato D14: «¿Cuántas unidades de Cemento gris 50 kg?»<br>*(Discrepancia en código: mensaje fijo «¿Cuántas unidades necesitas?»).* | 3 botones de cantidad según contrato D14:<br>• `quantity:10`: `[10]`<br>• `quantity:20`: `[20]`<br>• `quantity:other`: `[Otra]`<br>*(Discrepancia en código: añade opciones globales forzando lista).* |
-| 5 | Pulsa `[20]` (`quantity:20`) | Confirma adición de línea, muestra resumen del carrito y pregunta:<br>«¿Algo más para tu cotización?» | 3 botones según contrato D14:<br>• `more:add`: `[Agregar otro]`<br>• `more:view`: `[Ver cotizacion]` *(en código sin tilde)*<br>• `more:modify`: `[Modificar]` |
+| 4 | Selecciona `Cemento gris 50 kg` (`product:CEM-50`) | Pregunta por la cantidad deseada nombrando el producto:<br>«¿Cuántas unidades de Cemento gris 50 kg?» | 3 botones de cantidad (unidad bulto):<br>• `quantity:10`: `[10]`<br>• `quantity:20`: `[20]`<br>• `quantity:other`: `[Otra]` |
+| 5 | Pulsa `[20]` (`quantity:20`) | Confirma adición de línea, muestra resumen del carrito ($578.000 COP) y pregunta:<br>«¿Algo más para tu cotización?» | 3 botones de continuidad:<br>• `more:add`: `[Agregar otro]`<br>• `more:view`: `[Ver cotizacion]`<br>• `more:modify`: `[Modificar]` |
 | 6 | Pulsa `[Agregar otro]` (`more:add`) | Solicita el siguiente producto:<br>«¿Qué producto buscas? Escribe nombre o referencia.» | Campo de texto libre activo |
-| 7 | Escribe: `pala` | Presenta lista de productos coincidentes con «pala»:<br>«Elige una referencia:\n¿Qué producto buscas? Escribe nombre o referencia.» | Lista interactiva con opciones del catálogo, incluyendo:<br>• `product:PAL-RED-FIB`: `Pala redonda mango de fi`<br>*(Título truncado a 24 caracteres por límite de WhatsApp).* |
-| 8 | Selecciona `Pala redonda mango de fi` (`product:PAL-RED-FIB`) | Pregunta por la cantidad:<br>«¿Cuántas unidades necesitas?» | Opciones de cantidad:<br>• `quantity:10`: `[10]`<br>• `quantity:20`: `[20]`<br>• `quantity:other`: `[Otra]`<br>*(Discrepancia: código no ajusta opciones según unidad de herramienta).* |
-| 9 | Pulsa `[Otra]` (`quantity:other`) y escribe `1` (o escribe `1` directamente) | Confirma adición de pala, muestra carrito con total acumulado ($621.700 COP) y pregunta:<br>«¿Algo más para tu cotización?» | 3 botones según contrato D14:<br>• `more:add`: `[Agregar otro]`<br>• `more:view`: `[Ver cotizacion]`<br>• `more:modify`: `[Modificar]` |
-| 10 | Pulsa `[Ver cotizacion]` (`more:view`) | Pregunta método de entrega:<br>«¿Cómo lo recibes?» | 2 botones según contrato D14:<br>• `delivery:pickup`: `[Recoger en sede]`<br>• `delivery:home`: `[Domicilio]` |
-| 11 | Pulsa `[Recoger en sede]` (`delivery:pickup`) | Pregunta sede para retiro:<br>«¿En qué sede lo recoges? Stock sujeto a confirmación.» | Lista de sedes disponibles con estado de stock:<br>• `branch:sede-norte`: `Norte: disponible`<br>• `branch:sede-centro`: `Centro: disponible`<br>• `branch:sede-sur`: `Sur: disponible` |
-| 12 | Selecciona `[Norte: disponible]` (`branch:sede-norte`) | Pregunta método de pago:<br>«¿Cómo prefieres pagar?» | Lista de métodos de pago configurados en la política:<br>• `payment:0`: `Efectivo`<br>• `payment:1`: `Transferencia`<br>• `payment:2`: `Tarjeta débito/crédito`<br>• `payment:3`: `Nequi` |
-| 13 | Selecciona `[Efectivo]` (`payment:0`) | Muestra resumen del borrador con tabla detallada (2 líneas), total **$621.700 COP**, y detalles de política:<br>«Entrega: recogida (sede-norte). Pago: Efectivo. Vigencia: 3 días. IVA: pendiente.» | Botones según contrato D14:<br>• `summary:confirm`: `[Confirmar]`<br>• `summary:modify`: `[Modificar]`<br>• `global:cancel`: `[Cancelar]`<br>*(Discrepancia en código: añade `global:advisor` forzando lista).* |
+| 7 | Escribe: `pala` | Presenta lista de productos coincidentes con «pala»:<br>«Elige una referencia:\n¿Qué producto buscas? Escribe nombre o referencia.» | Lista interactiva con opciones del catálogo, incluyendo:<br>• `product:PAL-RED-FIB`: `Pala redonda mango de fi`<br>*(Título en lista limitado a 24 caracteres por tope de WhatsApp).* |
+| 8 | Selecciona `Pala redonda mango de fi` (`product:PAL-RED-FIB`) | Pregunta por la cantidad nombrando el producto completo:<br>«¿Cuántas unidades de Pala redonda mango de fibra?» | 3 botones de cantidad adaptados a herramienta unitaria:<br>• `quantity:1`: `[1]`<br>• `quantity:2`: `[2]`<br>• `quantity:other`: `[Otra]` |
+| 9 | Pulsa `[1]` (`quantity:1`) | Confirma adición de pala, muestra carrito con total acumulado ($621.700 COP) y pregunta:<br>«¿Algo más para tu cotización?» | 3 botones de continuidad:<br>• `more:add`: `[Agregar otro]`<br>• `more:view`: `[Ver cotizacion]`<br>• `more:modify`: `[Modificar]` |
+| 10 | Pulsa `[Ver cotizacion]` (`more:view`) | Pregunta método de entrega:<br>«¿Cómo lo recibes?» | 3 botones de entrega:<br>• `delivery:pickup`: `[Recoger en sede]`<br>• `delivery:home`: `[Domicilio]`<br>• `global:advisor`: `[Hablar con asesor]` |
+| 11 | Pulsa `[Recoger en sede]` (`delivery:pickup`) | Pregunta sede para retiro:<br>«¿En qué sede lo recoges? Stock sujeto a confirmación.» | Lista interactiva de sedes disponibles con estado de stock:<br>• `branch:sede-norte`: `Norte: disponible`<br>• `branch:sede-centro`: `Centro: disponible`<br>• `branch:sede-sur`: `Sur: disponible` |
+| 12 | Selecciona `[Norte: disponible]` (`branch:sede-norte`) | Pregunta método de pago:<br>«¿Cómo prefieres pagar?» | Lista interactiva de métodos según política:<br>• `payment:0`: `Efectivo`<br>• `payment:1`: `Transferencia`<br>• `payment:2`: `Tarjeta débito/crédito`<br>• `payment:3`: `Nequi` |
+| 13 | Selecciona `[Efectivo]` (`payment:0`) | Muestra resumen del borrador con tabla detallada (2 líneas), total **$621.700 COP**, y detalles de política:<br>«Entrega: recogida (sede-norte). Pago: Efectivo. Vigencia: 3 días. IVA: pendiente.» | 3 botones de cierre:<br>• `summary:confirm`: `[Confirmar]`<br>• `summary:modify`: `[Modificar]`<br>• `global:cancel`: `[Cancelar]` |
 | 14 | Pulsa `[Confirmar]` (`summary:confirm`) | Mensaje de confirmación final:<br>«Recibimos tu confirmación. Un asesor revisará y te contactará.» | Sin botones adicionales (`kind="text"`).<br>Estado registrado en base de datos: `CONFIRMADO_POR_CLIENTE`. |
 
 - **Criterio de aprobación:** El borrador queda en estado `CONFIRMADO_POR_CLIENTE` ante asesor (nunca `APPROVED_FOR_BILLING` ni «facturado»), con total exacto de $621.700 COP.
@@ -78,9 +82,9 @@ Para ejecutar estas pruebas desde un teléfono móvil real con WhatsApp conectad
 
 | Paso | Acción del probador | Respuesta esperada de XEON | Opciones interactivas esperadas |
 |---|---|---|---|
-| 1 | Se ubica en el paso `resumen` de R1 (20 cementos + 1 pala, total $621.700 COP) | Muestra resumen de cotización completo | Opciones de resumen:<br>• `summary:confirm`: `[Confirmar]`<br>• `summary:modify`: `[Modificar]`<br>• `global:cancel`: `[Cancelar]` |
-| 2 | Escribe comando libre: `déjalo en 15, quita la pala` (o pulsa `[Modificar]` / `summary:modify`) | El backend ejecuta `IntentKind.MODIFICAR_CANTIDAD` (15 bultos) y `IntentKind.QUITAR` (pala). Confirma la mutación, muestra carrito actualizado y retorna a `mas` | Opciones de paso `mas`:<br>• `more:add`: `[Agregar otro]`<br>• `more:view`: `[Ver cotizacion]`<br>• `more:modify`: `[Modificar]` |
-| 3 | Pulsa `[Ver cotizacion]` (`more:view`) y avanza por entrega/sede/pago hasta el nuevo resumen | Tabla con 1 sola línea (15 bultos Cemento gris 50 kg a $28.900 c/u).<br>**Total exacto: $433.500 COP** | Opciones de resumen:<br>• `summary:confirm`: `[Confirmar]`<br>• `summary:modify`: `[Modificar]`<br>• `global:cancel`: `[Cancelar]` |
+| 1 | Se ubica en el paso `resumen` de R1 (20 cementos + 1 pala, total $621.700 COP) | Muestra resumen de cotización completo | 3 botones de resumen:<br>• `summary:confirm`: `[Confirmar]`<br>• `summary:modify`: `[Modificar]`<br>• `global:cancel`: `[Cancelar]` |
+| 2 | Escribe comando libre: `déjalo en 15, quita la pala` (o pulsa `[Modificar]` / `summary:modify`) | El backend ejecuta `IntentKind.MODIFICAR_CANTIDAD` (15 bultos) y `IntentKind.QUITAR` (pala). Confirma la mutación, muestra carrito actualizado y retorna a `mas` | 3 botones de paso `mas`:<br>• `more:add`: `[Agregar otro]`<br>• `more:view`: `[Ver cotizacion]`<br>• `more:modify`: `[Modificar]` |
+| 3 | Pulsa `[Ver cotizacion]` (`more:view`) y avanza por entrega/sede/pago hasta el nuevo resumen | Tabla con 1 sola línea (15 bultos Cemento gris 50 kg a $28.900 c/u).<br>**Total exacto: $433.500 COP** | 3 botones de resumen:<br>• `summary:confirm`: `[Confirmar]`<br>• `summary:modify`: `[Modificar]`<br>• `global:cancel`: `[Cancelar]` |
 | 4 | Pulsa `[Confirmar]` (`summary:confirm`) | Mensaje de recepción de confirmación ante asesor:<br>«Recibimos tu confirmación. Un asesor revisará y te contactará.» | Estado final del borrador: `CONFIRMADO_POR_CLIENTE` por un total exacto de $433.500 COP |
 
 - **Criterio de aprobación:** La pala queda totalmente excluida, la cantidad de cemento pasa a 15 bultos y el total es estrictamente $433.500 COP (15 x $28.900).
@@ -94,8 +98,8 @@ Para ejecutar estas pruebas desde un teléfono móvil real con WhatsApp conectad
 
 | Paso en curso | Mensaje del probador (fuera de alcance) | Respuesta esperada de XEON |
 |---|---|---|
-| En paso `cantidad` | `¿Cómo está el clima hoy en Bogotá?` o `¿quién ganó el partido?` | 1. Mensaje de redirección estricto: «Solo puedo ayudarte con tu cotización.»<br>2. Reitera inmediatamente la pregunta del paso («¿Cuántas unidades necesitas?») y sus opciones (`[10]`, `[20]`, `[Otra]`). |
-| En paso `sede` | `¿Venden almuerzos ejecutivos cerca?` | 1. Mensaje de redirección estricto: «Solo puedo ayudarte con tu cotización.»<br>2. Reitera la pregunta («¿En qué sede lo recoges? Stock sujeto a confirmación.») y la lista de sedes. |
+| En paso `cantidad` | `¿Cómo está el clima hoy en Bogotá?` o `¿quién ganó el partido?` | 1. Mensaje de redirección estricto: «Solo puedo ayudarte con tu cotización.»<br>2. Reitera inmediatamente la pregunta del paso con su nombre («¿Cuántas unidades de Cemento gris 50 kg?») y sus 3 botones (`[10]`, `[20]`, `[Otra]`). |
+| En paso `sede` | `¿Venden almuerzos ejecutivos cerca?` | 1. Mensaje de redirección estricto: «Solo puedo ayudarte con tu cotización.»<br>2. Reitera la pregunta («¿En qué sede lo recoges? Stock sujeto a confirmación.») y la lista de sedes disponibles. |
 
 - **Criterio de aprobación:** Cero divagaciones sobre el tema externo, mensaje de redirección de una sola línea y persistencia del estado y opciones del paso actual.
 - **Resultado:** `[ ] PASS    [ ] FAIL`
@@ -104,23 +108,23 @@ Para ejecutar estas pruebas desde un teléfono móvil real con WhatsApp conectad
 
 ### R5. Consulta de políticas demo de la ferretería
 
-- **Objetivo:** Verificar que las consultas sobre condiciones comerciales se responden según las plantillas demo del contrato (`config/policies/<tenant>.yaml`) y que temas reservados a humanos quedan explícitamente marcados como pendientes de asesor.
+- **Objetivo:** Verificar que las consultas sobre condiciones comerciales se responden desde la configuración de políticas (`config/policies/whatsapp.yaml`), reiterando las opciones del paso en curso y manteniendo intacto el borrador.
 
-| Consulta del probador | Política evaluada | Respuesta esperada según contrato D14 |
+| Consulta del probador | Política evaluada | Respuesta esperada según YAML del tenant |
 |---|---|---|
-| `¿Qué horario de atención tienen?` | Horarios de atención | Informa según política: Lunes a viernes 7:00-18:00, sábados 7:00-13:00, domingos cerrado.<br>*(Discrepancia en código: no hay manejador de horarios en el embudo; responde «Solo puedo ayudarte con tu cotización»).* |
-| `¿Tienen servicio a domicilio y cuánto cuesta?` | Domicilios | Informa que el servicio está disponible y que el costo exacto lo confirma un asesor según la zona.<br>*(En código: disponible en preguntas de peso/domicilio combinadas o en paso `direccion`).* |
-| `¿El total incluye IVA?` | Tratamiento de IVA | Informa que los precios son de referencia y el valor final de IVA lo confirma un asesor humano.<br>*(En código: visible en línea de resumen `IVA: pendiente`).* |
-| `¿Qué descuento me dan por comprar 50 bultos?` | Política de descuentos | Informa según política y código:<br>«No hay politica de descuentos autorizada; pendiente de confirmar con un asesor.» |
+| `¿Qué horario de atención tienen?` | Horarios de atención | Responde según política:<br>«Horario: lunes a viernes: 7:00-18:00; sábado: 7:00-13:00; domingo: pendiente de confirmar con un asesor.»<br>Seguido de la pregunta y opciones del paso activo. |
+| `¿Tienen servicio a domicilio y cuánto cuesta?` | Domicilios | Responde según política:<br>«Domicilio: disponible; lo confirma un asesor según la zona.»<br>Seguido de la pregunta y opciones del paso activo. |
+| `¿El total incluye IVA?` | Tratamiento de IVA | Responde según política:<br>«IVA: pendiente.»<br>Seguido de la pregunta y opciones del paso activo. |
+| `¿Qué descuento me dan por comprar 50 bultos?` | Política de descuentos | Responde según política:<br>«Politica de descuentos: asesor.»<br>Seguido de la pregunta y opciones del paso activo. |
 
-- **Criterio de aprobación:** Respuestas exactas a las plantillas demo; nunca se prometen descuentos automáticos ni se liquida IVA sin respaldo.
+- **Criterio de aprobación:** Respuestas exactas a las plantillas demo del tenant; el borrador no se modifica y se repiten las opciones del paso en curso.
 - **Resultado:** `[ ] PASS    [ ] FAIL`
 
 ---
 
 ### R6. Salidas del flujo (asesor humano y cancelación)
 
-- **Objetivo:** Verificar que el usuario puede solicitar atención humana o cancelar el proceso en cualquier momento del recorrido.
+- **Objetivo:** Verificar que el usuario puede solicitar atención humana o cancelar el proceso en cualquier momento del recorrido, ya sea por botón interactivo o comando escrito.
 
 | Escenario | Acción del probador | Comportamiento esperado de XEON en código |
 |---|---|---|

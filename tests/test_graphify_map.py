@@ -2,6 +2,10 @@
 
 from pathlib import Path
 
+import pytest
+
+pytest.importorskip("graphify", reason="requiere el grupo graph")
+
 from scripts.build_graphify_map import (
     DEFAULT_PAGE_HUB,
     HUB_LAYERS,
