@@ -237,7 +237,8 @@ def test_offline_runner_isolated_and_reported(tmp_path: Path) -> None:
     assert path.joinpath("report.json").exists()
     journal = path.joinpath("cases.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(journal) == 2
-    assert [json.loads(line)["case"]["rep"] for line in journal] == [1, 2]
+    # Cases finish concurrently; the journal records completion order, not rep order.
+    assert sorted(json.loads(line)["case"]["rep"] for line in journal) == [1, 2]
     stored = json.loads(path.joinpath("report.json").read_text(encoding="utf-8"))
     assert stored["provenance"]["seed"]
     assert stored["cases"][0]["evidence"]["drafts"]
