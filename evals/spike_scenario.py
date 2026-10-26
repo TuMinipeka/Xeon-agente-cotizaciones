@@ -37,7 +37,10 @@ class XeonMock(scenario.AgentAdapter):  # type: ignore[misc]
     """Call XEON through ASGI while preserving its required UUID conversation ID."""
 
     def __init__(self) -> None:
-        self._app = create_app(Settings(_env_file=None, llm_provider="mock"))  # type: ignore[call-arg]
+        settings = Settings(  # type: ignore[call-arg]
+            _env_file=None, llm_provider="mock", xeon_api_auth_disabled=True
+        )
+        self._app = create_app(settings)
         self._conversation_id = str(uuid4())
 
     async def call(self, input: scenario.AgentInput) -> str:

@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     state_store: Literal["memory", "postgres"] = "memory"
     xeon_state_url_file: Path = Path("secrets/xeon_state_url.txt")
     default_timezone: str = "America/Bogota"
+    # Control de acceso de /v1/* (salvo el webhook firmado). Ver docs/PANEL_ASESOR.md y README.
+    xeon_api_key_file: Path = Path("secrets/xeon_api_key.txt")
+    xeon_api_auth_disabled: bool = False
+    trusted_proxies: str = ""
+    chat_rate_limit_ip_per_minute: int = Field(default=60, ge=1, le=10_000)
+    chat_rate_limit_conversation_per_minute: int = Field(default=20, ge=1, le=10_000)
 
     llm_provider: Literal["mock", "groq", "grok"] = "grok"
     llm_model: str = "llama-3.3-70b-versatile"
@@ -99,6 +105,22 @@ class Settings(BaseSettings):
         if len(code) != 3 or not code.isalpha():
             raise ValueError("CURRENCY debe ser un codigo monetario de tres letras.")
         return code
+
+    def read_api_key(self) -> str | None:
+        """The API key from secrets/, or None when the file does not exist."""
+        if "secrets" not in self.xeon_api_key_file.resolve().parts:
+            raise SettingsError("XEON_API_KEY_FILE debe estar dentro de secrets/.")
+        try:
+            value = self.xeon_api_key_file.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise SettingsError("No se pudo leer XEON_API_KEY_FILE.") from exc
+        if not value:
+            return None
+        if len(value) < 24:
+            raise SettingsError("La clave de API debe tener al menos 24 caracteres.")
+        return value
 
     def require_sql_url(self) -> str:
         if "secrets" not in self.sql_url_file.parts:

@@ -153,7 +153,9 @@ def build_container(
         resolved_carts = carts or InMemoryCartRepository(
             max_conversations=settings.conversation_max_conversations
         )
-        resolved_states = InMemoryFunnelRepository()
+        resolved_states = InMemoryFunnelRepository(
+            max_conversations=settings.conversation_max_conversations
+        )
         resolved_inbox = advisor_inbox or InMemoryAdvisorInbox()
     resolved_llm: LLMPort = MeteredLLM(
         llm or build_llm(settings), resolved_metrics, build_pricing(settings)

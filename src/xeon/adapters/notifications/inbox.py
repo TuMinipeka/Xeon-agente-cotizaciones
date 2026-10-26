@@ -19,7 +19,10 @@ _LOG = logging.getLogger(__name__)
 
 
 class InMemoryAdvisorInbox:
-    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(
+        self, *, clock: Callable[[], datetime] | None = None, max_events: int = 2_000
+    ) -> None:
+        self._max_events = max_events
         self._events: dict[UUID, AdvisorEvent] = {}
         self._clock = clock or (lambda: datetime.now(UTC))
         self._lock = RLock()
@@ -52,6 +55,20 @@ class InMemoryAdvisorInbox:
             quote_id=quote_id,
         )
         self._events[created.id] = created
+        self._trim()
+
+    def _trim(self) -> None:
+        """Bound memory: drop resolved events first, then the oldest advisor requests."""
+        for victims in (
+            lambda e: e.status is not AttentionStatus.PENDIENTE,
+            lambda e: e.kind == "advisor_requested",
+            lambda e: True,
+        ):
+            while len(self._events) > self._max_events:
+                candidate = next((e for e in self.list_events() if victims(e)), None)
+                if candidate is None:
+                    break
+                del self._events[candidate.id]
 
     def get(self, event_id: UUID) -> AdvisorEvent | None:
         return self._events.get(event_id)

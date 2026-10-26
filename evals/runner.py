@@ -425,6 +425,7 @@ async def run(
                         llm_provider="mock" if mode == "offline" else "grok",
                         grok_model="grok-4.6",
                         whatsapp_send_enabled=False,
+                        xeon_api_auth_disabled=True,  # in-process harness, no network exposure
                     )
                     sut = XEONSUT(settings, on_llm_call=budget.count)
                     canary = (

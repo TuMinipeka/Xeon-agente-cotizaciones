@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 
 from xeon.adapters.channels.kapso import parse_kapso_webhook, verify_kapso_signature
 from xeon.api.panel import build_panel_router
@@ -23,6 +23,13 @@ from xeon.api.schemas import (
     QuoteLineOut,
     QuoteOutcomeResponse,
     StockByBranchesOut,
+)
+from xeon.api.security import (
+    SlidingWindowLimiter,
+    api_key_guard,
+    build_api_auth,
+    client_ip,
+    trusted_hosts,
 )
 from xeon.application.container import AppContainer, build_container
 from xeon.application.observability import metric_context, record_stage
@@ -137,6 +144,14 @@ def create_app(
         whatsapp_channel=whatsapp_channel,
     )
     seen_kapso_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
+    # /v1/* (except the HMAC-signed webhook) needs the API key; production needs one to start.
+    api_auth = build_api_auth(runtime.settings)
+    require_key = Depends(api_key_guard(api_auth))
+    trusted = trusted_hosts(runtime.settings.trusted_proxies)
+    ip_limiter = SlidingWindowLimiter(limit=runtime.settings.chat_rate_limit_ip_per_minute)
+    conversation_limiter = SlidingWindowLimiter(
+        limit=runtime.settings.chat_rate_limit_conversation_per_minute
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -163,8 +178,15 @@ def create_app(
             model=runtime.llm.model,
         )
 
-    @application.post("/v1/chat", response_model=ChatResponse)
-    async def chat(request: ChatRequest) -> ChatResponse:
+    @application.post("/v1/chat", response_model=ChatResponse, dependencies=[require_key])
+    async def chat(request: ChatRequest, http_request: Request) -> ChatResponse:
+        ip = client_ip(http_request, trusted)
+        if not ip_limiter.allow(ip) or not conversation_limiter.allow(str(request.conversation_id)):
+            raise HTTPException(
+                status_code=429,
+                detail="Demasiadas solicitudes; espera un momento.",
+                headers={"Retry-After": str(ip_limiter.retry_after(ip))},
+            )
         try:
             reply = await runtime.agent.respond_reply(
                 request.message, conversation_key=str(request.conversation_id)
@@ -262,7 +284,7 @@ def create_app(
             accepted += 1
         return {"status": "processed" if accepted else "ignored"}
 
-    @application.post("/v1/quotes", response_model=QuoteOutcomeResponse)
+    @application.post("/v1/quotes", response_model=QuoteOutcomeResponse, dependencies=[require_key])
     async def create_quote(
         request: CreateQuoteDraftRequest,
         response: Response,
@@ -317,7 +339,7 @@ def create_app(
             )
         raise HTTPException(status_code=500, detail="Resultado comercial no reconocido.")
 
-    @application.get("/v1/stock", response_model=StockByBranchesOut)
+    @application.get("/v1/stock", response_model=StockByBranchesOut, dependencies=[require_key])
     async def get_stock(
         sku: str = Query(min_length=1, max_length=80),
         requested_branch_id: str = Query(min_length=1, max_length=80),
@@ -337,7 +359,9 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return _stock_out(result)
 
-    @application.get("/v1/quotes/{quote_id}", response_model=QuoteDraftOut)
+    @application.get(
+        "/v1/quotes/{quote_id}", response_model=QuoteDraftOut, dependencies=[require_key]
+    )
     async def get_quote(
         quote_id: UUID,
         tenant_id: str = Query(min_length=1, max_length=80),
