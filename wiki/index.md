@@ -56,6 +56,7 @@ En la bóveda de la raíz del repositorio también se colorean `docs/` (verde az
 ## Trabajo multi-agente
 
 - [Orquestación](pages/orquestacion.md) — roles de Claude, Codex y agy en herdr; ciclo y reglas de commit.
+- [Mapa del proyecto en el grafo](graph/mapa-proyecto.md) — nota raíz que enlaza la wiki, los documentos y una nota hub por capa del código.
 - [Grafo del proyecto](pages/grafo-proyecto.md) — mapa Graphify del código y qué herramienta usar: wiki, grafo o lectura directa.
 - [Canal Kapso](pages/canal-kapso.md) — WhatsApp oficial vía Kapso: decisiones, contrato del webhook y paso a paso.
 - [XEON CLI](pages/xeon-cli.md) — shell interactivo `xeon`: comandos, alias, diseño neón y criterios.

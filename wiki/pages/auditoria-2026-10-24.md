@@ -102,3 +102,5 @@ Impuestos, semáforo y aprobación de descuentos, verificación de cuenta para e
 - **Siguen abiertos** E15, E16 y los tres falsos positivos del evaluador.
 
 - **E19** (alta): en una misma conversación, un pedido de descuento sobre líneas ya cotizadas reutilizaba el borrador. Lo halló agy en el ensayo del video y se corrigió en `bd30ec0`: `CreateQuoteDraft` evalúa la falta de política antes de la idempotencia.
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

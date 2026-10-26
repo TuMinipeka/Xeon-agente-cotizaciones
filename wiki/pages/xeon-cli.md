@@ -86,3 +86,5 @@ La CLI es una capa de entrada: no calcula precios ni duplica reglas del dominio.
   - **QA-CLI-4:** `help` en modo plano repetía el banner. Corregido.
 - **Suite:** 144 aprobadas; `ruff` y `mypy` limpios.
 - **Lección de coordinación:** el orquestador envió `send-keys 1` a agy cuando su diálogo ya estaba cerrado y el carácter quedó en la caja de entrada; se borró. Desde entonces, cualquier `send-keys` a otro agente se envía solo si el estado `blocked` se comprueba en el mismo comando.
+
+Grafo: [capa canal](../graph/hub-canal.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

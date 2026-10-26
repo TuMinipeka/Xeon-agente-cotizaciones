@@ -25,3 +25,5 @@ El flujo de cotización crea un borrador y calcula en el dominio. En el chat, `I
 **Frontera importante:** el lenguaje natural puede ayudar a encontrar un SKU; los importes y estados comerciales no deben depender del texto generado por el modelo ([arquitectura](../../docs/ARCHITECTURE.md), líneas 92-99). El almacenamiento SQL/JSONB/vectorial del [documento funcional](../../docs/XeonContexto.md) pertenece a la evolución prevista, descrita en [estado del corte](estado-del-corte.md); la recuperación vectorial sería una herramienta más de un agente con herramientas (D12, propuesta). El embudo guiado con botones (D14) está aprobado y **no implementado**.
 
 Áreas sin evidencia de implementación en esta revisión: autenticación de vendedores, persistencia empresarial, aprobación, PDF, integración ERP. Véase [decisiones pendientes](decisiones-pendientes.md).
+
+Grafo: [capa aplicacion](../graph/hub-aplicacion.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

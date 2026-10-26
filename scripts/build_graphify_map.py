@@ -9,7 +9,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from typing import Any
+from urllib.parse import quote, unquote, urlsplit
 
 from graphify.detect import detect
 from graphify.export import _obsidian_safe_stem
@@ -90,13 +91,13 @@ def layer_for(source_file: str) -> str:
     return "config"
 
 
-def tag_generated_layers(directory: Path) -> dict[str, int]:
-    """Add one xeon-grafo/<layer> tag to every exported Obsidian note."""
-    counts: dict[str, int] = {}
+def tag_generated_layers(directory: Path) -> dict[str, list[str]]:
+    """Add one xeon-grafo/<layer> tag to every exported note; return note stems by layer."""
+    stems: dict[str, list[str]] = {}
     for note in sorted(directory.glob("*.md")):
         text = note.read_text(encoding="utf-8")
         match = re.match(r"---\n(.*?)\n---\n(.*)", text, re.DOTALL)
-        if not match or LAYER_PREFIX in match.group(1):
+        if not match:
             continue
         head, body = match.groups()
         source = re.search(r'^source_file: "(.*)"$', head, re.MULTILINE)
@@ -104,11 +105,193 @@ def tag_generated_layers(directory: Path) -> dict[str, int]:
             layer = "comunidad"
         else:
             layer = layer_for(source.group(1) if source else "")
-        head = head.replace("tags:\n", f"tags:\n  - {LAYER_PREFIX}{layer}\n", 1)
-        body = re.sub(r"(?m)^(#graphify/.*)$", rf"\1 #{LAYER_PREFIX}{layer}", body)
-        note.write_text(f"---\n{head}\n---\n{body}", encoding="utf-8", newline="\n")
-        counts[layer] = counts.get(layer, 0) + 1
-    return counts
+        if LAYER_PREFIX not in head:
+            head = head.replace("tags:\n", f"tags:\n  - {LAYER_PREFIX}{layer}\n", 1)
+            body = re.sub(r"(?m)^(#graphify/.*)$", rf"\1 #{LAYER_PREFIX}{layer}", body)
+            note.write_text(f"---\n{head}\n---\n{body}", encoding="utf-8", newline="\n")
+        stems.setdefault(layer, []).append(note.stem)
+    return stems
+
+
+HUB_LAYERS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "dominio": (
+        "Entidades, dinero Decimal e invariantes (`src/xeon/domain`).",
+        ("arquitectura-actual", "contratos-herramientas"),
+    ),
+    "aplicacion": (
+        "Casos de uso y puertos (`src/xeon/application`).",
+        ("arquitectura-actual", "contratos-herramientas"),
+    ),
+    "agente": (
+        "AgentService, intérprete, ejecutor y herramientas (`src/xeon/agent`).",
+        (
+            "arquitectura-actual",
+            "contratos-herramientas",
+            "embudo-cotizacion",
+            "qa-conde-2026-10-24",
+        ),
+    ),
+    "adaptadores": (
+        "LLM, catálogo, inventario, SQL, políticas y canales.",
+        ("arquitectura-actual", "conector-ferreteria", "canal-kapso"),
+    ),
+    "api": (
+        "Endpoints FastAPI (`src/xeon/api`).",
+        ("arquitectura-actual", "canal-kapso", "contratos-herramientas"),
+    ),
+    "canal": ("Shell `xeon` y CLI (`src/xeon/shell`, `cli.py`).", ("canal-kapso", "xeon-cli")),
+    "config": (
+        "Configuración, conectores YAML, pyproject y compose.",
+        ("conector-ferreteria", "arquitectura-actual"),
+    ),
+    "pruebas": (
+        "Pruebas automatizadas (`tests`).",
+        ("evaluacion-conversacional", "qa-conde-2026-10-24"),
+    ),
+    "evaluacion": (
+        "Escenarios, oráculo y checks (`evals`).",
+        ("evaluacion-conversacional", "qa-conde-2026-10-24"),
+    ),
+    "scripts": (
+        "Scripts de operación (`scripts`).",
+        ("grafo-proyecto", "orquestacion", "canal-kapso"),
+    ),
+    "docs": (
+        "Documentación del repositorio (`docs`, README, AGENTS).",
+        ("que-es-xeon", "estado-del-corte", "decisiones-pendientes"),
+    ),
+    "wiki": ("Notas de la wiki compartida (`wiki`).", ("grafo-proyecto", "orquestacion")),
+    "externo": (
+        "Librerías y símbolos sin archivo propio (httpx, Any, etc.).",
+        ("grafo-proyecto",),
+    ),
+    "comunidad": ("Comunidades detectadas por Graphify.", ("grafo-proyecto",)),
+}
+PAGE_HUB = {
+    "arquitectura-actual": "aplicacion",
+    "contratos-herramientas": "agente",
+    "embudo-cotizacion": "agente",
+    "conector-ferreteria": "adaptadores",
+    "canal-kapso": "canal",
+    "xeon-cli": "canal",
+    "evaluacion-conversacional": "evaluacion",
+    "qa-conde-2026-10-24": "pruebas",
+    "grafo-proyecto": "scripts",
+    "orquestacion": "scripts",
+}
+DEFAULT_PAGE_HUB = "docs"
+HUB_NOTE = "mapa-proyecto"
+BACKLINK_MARK = "Grafo: ["
+
+
+def _link(label: str, target: str) -> str:
+    return f"- [{label}]({quote(target, safe='/.#')})"
+
+
+def write_layer_hubs(stems: dict[str, list[str]]) -> dict[str, int]:
+    """Write deterministic hub notes: one per layer plus the project map."""
+    VAULT.mkdir(parents=True, exist_ok=True)
+    for layer, (description, pages) in HUB_LAYERS.items():
+        notes = [_link(stem, f"generated/{stem}.md") for stem in sorted(stems.get(layer, []))]
+        body = [
+            "---\ntags:\n  - xeon-grafo/hub\n---\n",
+            f"# Capa del grafo: {layer}\n",
+            f"{description} Regenerado por `scripts/build_graphify_map.py`; vuelve al "
+            f"[mapa del proyecto]({HUB_NOTE}.md).\n",
+            "## Páginas de la wiki\n",
+            *[_link(page.replace("-", " ").capitalize(), f"../pages/{page}.md") for page in pages],
+            f"\n## Notas del grafo ({len(notes)})\n",
+            *notes,
+            "",
+        ]
+        VAULT.joinpath(f"hub-{layer}.md").write_text(
+            "\n".join(body), encoding="utf-8", newline="\n"
+        )
+    roots = [
+        f"{name}.md"
+        for name in ("README", "AGENTS", "CLAUDE", "GEMINI", "CONTRIBUTING")
+        if (ROOT / f"{name}.md").exists()
+    ]
+    docs = sorted(f"docs/{path.name}" for path in (ROOT / "docs").glob("*.md"))
+    existing = {note.stem for note in GENERATED.glob("*.md")}
+    file_links = [
+        _link(rel, f"generated/{_obsidian_safe_stem(rel)}.md")
+        for rel in [*roots, *docs]
+        if _obsidian_safe_stem(rel) in existing
+    ]
+    wiki_pages = sorted(path.stem for path in (ROOT / "wiki" / "pages").glob("*.md"))
+    mapa = [
+        "---\ntags:\n  - xeon/hub\n---\n",
+        "# Mapa del proyecto XEON\n",
+        "Punto de entrada del grafo: enlaza la wiki, los documentos del repositorio y una nota "
+        "por capa del código. Se regenera con "
+        "`uv run --locked --group graph python scripts/build_graphify_map.py`.\n",
+        "## Wiki\n",
+        *[_link(name, f"../{name}.md") for name in ("index", "SCHEMA", "log", "sources")],
+        _link("inbox (capturas pendientes)", "../inbox/README.md"),
+        *[_link(page, f"../pages/{page}.md") for page in wiki_pages],
+        "\n## Capas del código\n",
+        *[_link(f"Capa {layer}", f"hub-{layer}.md") for layer in HUB_LAYERS],
+        "\n## Documentos del repositorio\n",
+        *file_links,
+        "\n## Puentes\n",
+        _link("Grafo local de XEON", "README.md"),
+        "",
+    ]
+    VAULT.joinpath(f"{HUB_NOTE}.md").write_text("\n".join(mapa), encoding="utf-8", newline="\n")
+    return {layer: len(stems.get(layer, [])) for layer in HUB_LAYERS}
+
+
+def link_wiki_pages_to_hubs() -> list[str]:
+    """Append one backlink line to each wiki page (idempotent). Needs wiki/.write-lock."""
+    changed = []
+    for page in sorted((ROOT / "wiki" / "pages").glob("*.md")):
+        text = page.read_text(encoding="utf-8")
+        if BACKLINK_MARK in text:
+            continue
+        hub = PAGE_HUB.get(page.stem, DEFAULT_PAGE_HUB)
+        line = (
+            f"{BACKLINK_MARK}capa {hub}](../graph/hub-{hub}.md) · "
+            f"[mapa del proyecto](../graph/{HUB_NOTE}.md)"
+        )
+        page.write_text(text.rstrip("\n") + "\n\n" + line + "\n", encoding="utf-8", newline="\n")
+        changed.append(page.name)
+    return changed
+
+
+_MD_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")
+_WIKILINK = re.compile(r"\[\[([^\]|#]+)")
+
+
+def link_stats(vault: Path) -> dict[str, Any]:
+    """Count notes and orphans (no resolvable inbound or outbound link) in an Obsidian vault."""
+    notes = [p for p in vault.rglob("*.md") if ".obsidian" not in p.parts]
+    by_path = {p.resolve(): p for p in notes}
+    by_stem: dict[str, Path] = {}
+    for note in notes:
+        by_stem.setdefault(note.stem.lower(), note)
+    linked: set[Path] = set()
+    for note in notes:
+        text = note.read_text(encoding="utf-8", errors="replace")
+        targets: list[Path] = []
+        for raw in _MD_LINK.findall(text):
+            parts = urlsplit(raw)
+            if parts.scheme or not parts.path:
+                continue
+            candidate = (note.parent / unquote(parts.path)).resolve()
+            if candidate.suffix == "":
+                candidate = candidate.with_suffix(".md")
+            if candidate in by_path:
+                targets.append(by_path[candidate])
+        for name in _WIKILINK.findall(text):
+            found = by_stem.get(Path(name.strip()).stem.lower())
+            if found:
+                targets.append(found)
+        for target in targets:
+            if target != note:
+                linked.update({note, target})
+    orphans = sorted(str(p.relative_to(vault)) for p in notes if p not in linked)
+    return {"notes": len(notes), "orphans": len(orphans), "orphan_paths": orphans}
 
 
 def is_blocked(relative: str) -> bool:
@@ -336,6 +519,7 @@ def write_vault_bridges() -> None:
     )
     VAULT.joinpath("README.md").write_text(
         "---\ntags:\n  - xeon/hub\n  - xeon-grafo/puente\n---\n\n# Grafo local de XEON\n\n"
+        "Empieza por el [mapa del proyecto](mapa-proyecto.md). "
         "Los nodos generados están en [generated](generated/). "
         "La [vista interactiva](../../graphify-out/graph.html) y el "
         "[grafo JSON](../../graphify-out/graph.json) se regeneran con "
@@ -357,7 +541,19 @@ def write_vault_bridges() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--force", action="store_true", help="Rebuild AST from all allowed files")
+    parser.add_argument(
+        "--link-wiki-pages", action="store_true", help="Append hub backlinks to wiki/pages"
+    )
+    parser.add_argument("--orphans", action="store_true", help="Only report orphans in wiki/")
     args = parser.parse_args()
+    if args.orphans:
+        stats = link_stats(ROOT / "wiki")
+        print(json.dumps({k: v for k, v in stats.items() if k != "orphan_paths"}))
+        print("\n".join(stats["orphan_paths"][:60]))
+        return
+    if args.link_wiki_pages:
+        print(json.dumps(link_wiki_pages_to_hubs()))
+        return
     files, unclassified = corpus()
     extract_args = ["extract", ".", "--code-only", "--no-dedup", "--out", str(AST_ROOT)]
     if args.force:
@@ -368,8 +564,11 @@ def main() -> None:
     write_report(result)
     call_graphify("export", "html", "--graph", str(GRAPH))
     call_graphify("export", "obsidian", "--dir", str(GENERATED))
-    result["layer_notes"] = tag_generated_layers(GENERATED)
     write_vault_bridges()
+    result["layer_notes"] = write_layer_hubs(tag_generated_layers(GENERATED))
+    stats = link_stats(ROOT / "wiki")
+    result["wiki_vault_notes"] = stats["notes"]
+    result["wiki_vault_orphans"] = stats["orphans"]
     print(json.dumps(result, ensure_ascii=False))
 
 

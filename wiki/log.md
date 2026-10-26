@@ -340,3 +340,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Sonnet (`4af2c69`):** el conector pasa en PostgreSQL 17.6 y MySQL 8.4.6 (9 de 9). Los hallazgos H1 y H2 en MySQL se delegaron otra vez a Sonnet. Detalle en el [conector de la ferretería](pages/conector-ferreteria.md).
 - **agy:** guía manual `docs/QA_EMBUDO.md` (`d3d4d37`) y segunda corrida en vivo con 3 PASS y 3 FAIL (`a47b7fc`), 128 de 150 llamadas. Los residuales de S15, S16 y S19 se delegaron a Codex.
 - **Codex:** el embudo D14 quedó implementado en `feat/guided-funnel`, por ahora detrás de `GUIDED_FUNNEL_ENABLED`. Está migrando el evaluador para que el embudo sea el único flujo.
+
+## [2026-10-26] operación | Hubs por capa y mapa del proyecto en el grafo
+
+- **Cambio:** `scripts/build_graphify_map.py` genera `wiki/graph/mapa-proyecto.md` y una nota `hub-<capa>.md` por capa (14 con comunidades), que enlazan las notas generadas y las páginas de la wiki que describen cada capa. Cada página de `wiki/pages` recibió al final una línea de enlace a su hub y al mapa (sin cambiar su contenido).
+- **Resultado:** notas sin enlaces entrantes ni salientes en la bóveda `wiki/`: de 101 a 1 (la nota abierta de agy en el inbox). Colores por capa y por hub en `scripts/apply_obsidian_graph_colors.py`.

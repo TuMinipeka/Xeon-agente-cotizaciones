@@ -36,3 +36,5 @@ Abre la raíz del repositorio como bóveda y entra por [grafo en la wiki](../gra
 
 - La extracción semántica de documentos con un modelo (skill `/graphify` completa) requiere la autorización del usuario: proveedor, archivos y presupuesto. La skill usa Gemini si existe `GEMINI_API_KEY`; si no, usa el agente anfitrión.
 - La skill copiada sugiere `pip install graphifyy` sin versión. En XEON se usa el grupo fijado `uv --group graph`.
+
+Grafo: [capa scripts](../graph/hub-scripts.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

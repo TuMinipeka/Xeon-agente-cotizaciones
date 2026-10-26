@@ -74,3 +74,5 @@ fuera_de_horario: "Tomamos tu cotización y un asesor te responde al abrir"
   - `options_offered`: el número de botones y de filas respeta los límites de WhatsApp;
   - `no_freeform_solution`: no hay texto de asesoría fuera de las plantillas;
   - `confirmation_state`: el estado final es `CONFIRMADO_POR_CLIENTE`, nunca aprobado.
+
+Grafo: [capa agente](../graph/hub-agente.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

@@ -99,3 +99,5 @@ Si un agente queda `blocked`, el orquestador inspecciona con `agent read` y cons
 
 - Los ID de panel cambian entre sesiones de herdr.
 - El modelo exacto de Grok y si Groq se retira (D3).
+
+Grafo: [capa scripts](../graph/hub-scripts.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

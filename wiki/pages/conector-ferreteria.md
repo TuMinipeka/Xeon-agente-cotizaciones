@@ -61,3 +61,5 @@ Revisado: 2026-10-26. Estado: **`implementado`** (Codex, `87ca4d2`; fusionado en
 - **Hallazgos en MySQL, en corrección:**
   - **H1:** `DATETIME` no guarda zona horaria, por eso el stock queda «pendiente». Se resuelve con un campo opcional del conector que declara la zona.
   - **H2:** la conexión no estaba en modo solo lectura. Se resuelve con `SET SESSION TRANSACTION READ ONLY`.
+
+Grafo: [capa adaptadores](../graph/hub-adaptadores.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

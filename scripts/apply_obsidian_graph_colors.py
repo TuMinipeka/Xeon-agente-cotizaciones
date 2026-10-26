@@ -40,7 +40,8 @@ LAYER_GROUPS: list[tuple[str, str]] = [
     ("tag:#xeon-grafo/docs", "#80CBC4"),
     ("tag:#xeon-grafo/wiki", "#D7CCC8"),
     ("tag:#xeon-grafo/externo", "#757575"),
-    ("tag:#xeon-grafo/comunidad", "#FAFAFA"),
+    ("tag:#xeon-grafo/comunidad", "#455A64"),
+    ("tag:#xeon-grafo/hub", "#FFFFFF"),
     ("tag:#xeon-grafo/puente", "#18FFFF"),
 ]
 ROOT_EXTRA: list[tuple[str, str]] = [
@@ -83,8 +84,12 @@ def main() -> int:
         graph = config_dir / "graph.json"
         data = json.loads(graph.read_text(encoding="utf-8")) if graph.exists() else {}
         data["colorGroups"] = [color_group(query, color) for query, color in groups]
+        data["collapse-color-groups"] = False
+        data["showOrphans"] = True
         graph.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        print(f"{graph.relative_to(ROOT)}: {len(groups)} grupos de color")
+        saved = len(json.loads(graph.read_text(encoding="utf-8"))["colorGroups"])
+        status = "OK" if saved == len(groups) else "REVISAR"
+        print(f"{graph.relative_to(ROOT)}: {saved}/{len(groups)} grupos de color ({status})")
     return 0
 
 

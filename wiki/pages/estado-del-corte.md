@@ -27,3 +27,5 @@ Revisado: 2026-10-26 (flujo actual en `fix/live-qa-defects`). La fuente funciona
 | Copiloto por Gmail y prefacturación             | Posterior al MVP                                                                                                | [Documento funcional](../../docs/XeonContexto.md), líneas 62-69                                                                                                              |
 
 **Límite de verificación:** inspección estática de archivos; Grok y WhatsApp vía Kapso tienen ensayos reales registrados; no hay base comercial real. La arquitectura proyectada se discute en [decisiones pendientes](decisiones-pendientes.md).
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

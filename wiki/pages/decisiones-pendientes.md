@@ -211,3 +211,5 @@ El usuario pidió el 2026-10-26 que XEON no divague ni ofrezca soluciones: debe 
   - **Desvíos:** se redirige con las opciones del paso y, si el cliente pide asesoría técnica, se ofrece [Hablar con asesor].
 - **Motivación:** la corrida en vivo S15–S20 dio 1 aprobado y 5 fallidos con texto libre.
 - **Contrato:** [embudo de cotización](embudo-cotizacion.md).
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)
