@@ -117,4 +117,4 @@ uv run --locked --group graph python scripts/build_graphify_map.py
 ```
 
 Resultados: Ruff y formato verdes; mypy verde en 89 archivos; pytest completo verde; offline **66 PASS / 0 FAIL / 0 ERROR**, S01–S22 con tres repeticiones y costo LLM **0**; enlaces relativos revisados **42**, rotos **0**. Graphify regeneró el mapa local por AST sin extracción semántica ni envío a LLM. `wiki/graph/` no se integró en este corte.
-Commits del cierre: `4a05826` (`Feat: :sparkles: UnifyGuidedConversationFlow`) integra el flujo único, los arreglos detectados al migrar y las regresiones de integración. El commit de evaluador y esta nota se registra inmediatamente después en la rama local.
+Commits del cierre: `4a05826` (`Feat: :sparkles: UnifyGuidedConversationFlow`) integra el flujo único, los arreglos detectados al migrar y las regresiones de integración. `c48f896` (`Test: :test_tube: StrengthenGuidedEvaluation`) incorpora los checks residuales y documenta la auditoría.
