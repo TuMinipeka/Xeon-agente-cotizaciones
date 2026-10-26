@@ -32,6 +32,7 @@ from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import ProductCatalog
 from xeon.application.ports.channels import WhatsAppChannelPort
 from xeon.application.ports.conversation_memory import ConversationMemory
+from xeon.application.ports.delivery import InboundQueue, OutboundQueue
 from xeon.application.ports.funnel import FunnelRepository
 from xeon.application.ports.inventory import BranchInventory
 from xeon.application.ports.llm import LLMPort
@@ -64,6 +65,8 @@ class AppContainer:
     sql_reader: object | None = None
     state_unit: StateTransaction | None = None
     processed_events: ProcessedEventStore | None = None
+    inbound_queue: InboundQueue | None = None
+    outbound_queue: OutboundQueue | None = None
     advisor_inbox: AdvisorInbox | None = None
     metrics: MetricsRecorder | None = None
 
@@ -93,6 +96,8 @@ def build_container(
     metrics: MetricsRecorder | None = None,
     advisor_inbox: AdvisorInbox | None = None,
 ) -> AppContainer:
+    if settings.app_env == "production" and settings.state_store != "postgres":
+        raise SettingsError("APP_ENV=production requiere STATE_STORE=postgres.")
     sql_reader = None
     if settings.data_source == "synthetic":
         if settings.currency.upper() != "COP":
@@ -122,8 +127,14 @@ def build_container(
     resolved_branches = branches or default_branches
     state_unit: StateTransaction | None = None
     processed_events: ProcessedEventStore | None = None
+    inbound_queue: InboundQueue | None = None
+    outbound_queue: OutboundQueue | None = None
     if settings.state_store == "postgres":
         from xeon.adapters.persistence.postgres.advisor import PostgresAdvisorInbox
+        from xeon.adapters.persistence.postgres.delivery import (
+            PostgresInboundQueue,
+            PostgresOutboundQueue,
+        )
         from xeon.adapters.persistence.postgres.memory import PostgresConversationMemory
         from xeon.adapters.persistence.postgres.repositories import (
             PostgresCartRepository,
@@ -143,6 +154,8 @@ def build_container(
         resolved_carts = carts or PostgresCartRepository(state_unit)
         resolved_states: FunnelRepository = PostgresFunnelRepository(state_unit)
         processed_events = PostgresProcessedEventStore(state_unit, settings.tenant_id)
+        inbound_queue = PostgresInboundQueue(state_unit)
+        outbound_queue = PostgresOutboundQueue(state_unit)
         resolved_inbox = advisor_inbox or PostgresAdvisorInbox(state_unit, settings.tenant_id)
     else:
         resolved_quotes = quotes or InMemoryQuoteDraftRepository()
@@ -232,6 +245,8 @@ def build_container(
         sql_reader=sql_reader,
         state_unit=state_unit,
         processed_events=processed_events,
+        inbound_queue=inbound_queue,
+        outbound_queue=outbound_queue,
         advisor_inbox=resolved_inbox,
         metrics=resolved_metrics,
     )
