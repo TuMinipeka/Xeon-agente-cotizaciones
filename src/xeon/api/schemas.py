@@ -17,6 +17,8 @@ class ChatResponse(BaseModel):
     reply: str
     provider: str
     model: str
+    step: str | None = None
+    options: tuple[dict[str, str], ...] = ()
 
 
 class HealthResponse(BaseModel):
@@ -54,7 +56,7 @@ class QuoteDraftOut(BaseModel):
     tenant_id: str
     request_id: str
     version: int
-    status: Literal["DRAFT"]
+    status: Literal["DRAFT", "CONFIRMADO_POR_CLIENTE"]
     currency: str
     subtotal: str
     total: str

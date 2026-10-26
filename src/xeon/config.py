@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     agent_max_steps: int = Field(default=6, ge=1, le=24)
     conversation_max_turns: int = Field(default=6, ge=1)
     conversation_max_conversations: int = Field(default=1000, ge=1)
+    guided_funnel_enabled: bool = False
 
     groq_api_key: SecretStr | None = None
     groq_api_key_file: Path | None = None

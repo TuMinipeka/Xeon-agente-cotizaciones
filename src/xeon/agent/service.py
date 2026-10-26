@@ -6,11 +6,13 @@ import re
 
 from xeon.agent.customer_safety import CustomerResponsePolicy
 from xeon.agent.executor import CommercialExecutor
+from xeon.agent.guided_funnel import GuidedFunnel
 from xeon.agent.intent import IntentInterpreter, IntentKind
 from xeon.application.plain_text import plain_text
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.conversation_memory import ConversationMemory
 from xeon.application.ports.llm import ChatMessage, LLMPort, LLMResponse
+from xeon.application.reply import Reply
 
 
 class AgentService:
@@ -22,12 +24,36 @@ class AgentService:
         executor: CommercialExecutor,
         branches: BranchDirectory | None = None,
         response_policy: CustomerResponsePolicy | None = None,
+        funnel: GuidedFunnel | None = None,
+        guided: bool = False,
     ) -> None:
         self._llm = llm
         self._memory = memory
         self._executor = executor
         self._interpreter = IntentInterpreter(branches)
         self._response_policy = response_policy or CustomerResponsePolicy()
+        self._funnel = funnel
+        self._guided = guided
+
+    async def respond_reply(
+        self,
+        user_message: str,
+        *,
+        conversation_key: str | None = None,
+        request_id: str | None = None,
+        option_id: str | None = None,
+    ) -> Reply:
+        if self._guided and self._funnel is not None:
+            return await self._funnel.handle(
+                conversation_key or "anonymous",
+                user_message,
+                option_id=option_id,
+                request_id=request_id,
+            )
+        response = await self.respond(
+            user_message, conversation_key=conversation_key, request_id=request_id
+        )
+        return Reply(text=response.text)
 
     async def respond(
         self,
@@ -36,6 +62,13 @@ class AgentService:
         conversation_key: str | None = None,
         request_id: str | None = None,
     ) -> LLMResponse:
+        if self._guided and self._funnel is not None:
+            reply = await self._funnel.handle(
+                conversation_key or "anonymous", user_message, request_id=request_id
+            )
+            return LLMResponse(
+                text=reply.numbered(), provider="local-guided", model="guided-funnel-v1"
+            )
         key = conversation_key or "anonymous"
         pending = self._memory.pending_candidates(key)
         history = tuple(

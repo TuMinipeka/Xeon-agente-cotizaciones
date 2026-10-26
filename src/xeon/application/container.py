@@ -11,12 +11,15 @@ from xeon.adapters.catalog.memory import InMemoryProductCatalog
 from xeon.adapters.catalog.synthetic_seed import SYNTHETIC_QUOTE_NOTE
 from xeon.adapters.channels.kapso import KapsoChannelAdapter
 from xeon.adapters.conversation.cart import InMemoryCartRepository
+from xeon.adapters.conversation.funnel import InMemoryFunnelRepository
 from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.llm import build_llm
+from xeon.adapters.notifications.logging import LoggingAdvisorNotifier
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.adapters.policies.yaml_store import YamlPolicyRepository
 from xeon.agent.executor import CommercialExecutor
+from xeon.agent.guided_funnel import GuidedFunnel
 from xeon.agent.service import AgentService
 from xeon.agent.toolbelt import CommercialToolbelt
 from xeon.application.ports.branches import BranchDirectory
@@ -134,11 +137,26 @@ def build_container(
         currency=settings.currency,
         synthetic=settings.data_source == "synthetic",
     )
+    funnel = GuidedFunnel(
+        llm=resolved_llm,
+        executor=executor,
+        tools=commercial_tools,
+        catalog=resolved_catalog,
+        carts=resolved_carts,
+        quotes=resolved_quotes,
+        states=InMemoryFunnelRepository(),
+        branches=resolved_branches,
+        policies=resolved_policies,
+        notifier=LoggingAdvisorNotifier(),
+        tenant_id=settings.tenant_id,
+    )
     agent = AgentService(
         resolved_llm,
         memory=resolved_memory,
         executor=executor,
         branches=resolved_branches,
+        funnel=funnel,
+        guided=settings.guided_funnel_enabled,
     )
 
     resolved_whatsapp = whatsapp_channel
