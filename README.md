@@ -98,13 +98,13 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 | Shell `xeon` (Rich) y subcomandos Typer `health`, `chat`, `quotes`, `stock` | Sin autenticación ni perfiles de usuario |
 | **Grok** por defecto (`grok-4.6`, verificado por el orquestador mediante XEON); `mock` en pruebas y Groq como respaldo | Costos de inferencia según la pasarela del reto |
 | Búsqueda por SKU, alias y puntuación de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial |
-| Stock sintético por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante | Sin lectura ni reserva de inventario real |
+| Stock por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante; fuente sintética o conector SQL de solo lectura | Sin reserva de inventario |
 | Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
-| Memoria por conversación (últimos turnos a Grok y último SKU), acotada con LRU | Local al proceso; no se comparte entre workers |
+| Memoria por conversación, carrito y paso del embudo, acotados al proceso | No se comparte entre workers |
 | Descuentos: sin política aprobada se rechazan, también cuando se piden por chat | Sin políticas versionadas |
-| `IntentInterpreter` (JSON validado con respaldo local; lo ajeno a la ferretería se responde sin llamar al modelo) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
-| `QuoteCart` versionado por conversación, `BranchDirectory` y políticas por ferretería en `config/policies/` | Carrito en memoria; las políticas de pago y entrega están en `null` hasta tener datos reales |
-| Conector SQL opcional por `DATA_SOURCE=sql` (SQLAlchemy de solo lectura, consultas parametrizadas en YAML) | Sin pruebas con una ferretería real; REST y CSV no implementados |
+| Embudo D14 con opciones cerradas, redirección local y respuestas desde plantillas | El modelo solo clasifica texto de pasos cerrados |
+| `QuoteCart` versionado por conversación, `BranchDirectory` y políticas por ferretería en `config/policies/` (plantilla demo) | Carrito y paso del embudo en memoria |
+| Conector SQL opcional por `DATA_SOURCE=sql` (SQLAlchemy de solo lectura, consultas parametrizadas en YAML) | Probado con SQLite, PostgreSQL 17 y MySQL 8.4 en contenedores; sin ferretería real; REST y CSV no implementados |
 | Webhook firmado de Kapso (`whatsapp.message.received`), lotes y deduplicación en memoria; ensayo en sandbox realizado | Acuse `processed` no confirma entrega al teléfono; sin cola durable |
 
 ---
@@ -118,41 +118,24 @@ flowchart LR
     U[Shell xeon] --> S
     C[POST /v1/chat] --> S
     W[Webhook Kapso con firma HMAC] --> F[Filtro y deduplicación] --> S
-    S[AgentService] --> N[IntentInterpreter]
-    S --> M[ConversationMemory]
-    S --> X[CommercialExecutor]
-    X --> B[QuoteCart y políticas]
-    X --> T[CommercialToolbelt]
+    S[AgentService] --> P[GuidedFunnel]
+    P --> M[ConversationMemory y QuoteCart]
+    P --> T[CommercialToolbelt]
     T --> K[Catálogo: sintético o SQL]
     T --> I[Inventario y BranchDirectory]
     T --> Q[Borrador DRAFT]
-    S --> L[LLMPort: Grok / Groq / mock]
-    L --> R[CustomerResponsePolicy]
-    R --> O[Respuesta / envío por WhatsApp]
+    P --> L[LLMPort: Grok / Groq / mock]
+    P --> O[Reply: texto / botones / lista]
+    O --> W
 ```
 
-1. **Interpretación.** `IntentInterpreter` pide a Grok un JSON de intenciones (agregar, cambiar
-   cantidad, quitar, elegir opción, consultar stock, fuera de alcance), lo valida y, si el
-   proveedor falla, usa un parser local. Lo ajeno a la ferretería se responde sin llamar al
-   modelo y la parte comercial de un mensaje mixto se atiende igual.
-2. **Ejecución.** `CommercialExecutor` atiende todas las intenciones del mensaje: busca el
-   producto (o usa el último SKU ante «ese mismo»), consulta stock por sede con `BranchDirectory`,
-   actualiza el `QuoteCart` versionado y crea el `DRAFT`. Las políticas de `config/policies/` y
-   el rechazo de descuentos sin política los aplica el backend.
-3. **Redacción.** Precios, totales y stock salen de plantillas deterministas; el LLM **no**
-   ejecuta herramientas ni calcula cifras. Solo redacta la asesoría preliminar de un proyecto,
-   sin cantidades ni precios.
-4. **Salida.** `plain_text` convierte la respuesta a texto plano una sola vez (API, CLI y
-   Kapso) y `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados del texto
-   de proveedores reales.
-
-Los marcadores `[XEON_TOOL:...]` son diagnóstico interno del perfil `mock`; no se muestran al
-comprador.
+1. **Embudo.** `GuidedFunnel` presenta producto, cantidad, entrega, sede, pago y resumen. El cliente responde con el id o número ofrecido.
+2. **Datos.** `CommercialToolbelt` busca referencias y `CommercialExecutor` modifica `QuoteCart` y crea borradores con `Decimal`.
+3. **Modelo.** Grok clasifica texto libre de pasos cerrados a un id permitido o `no_encaja`. Nunca calcula, aprueba ni redacta el resumen transaccional.
+4. **Salida.** `Reply` genera texto, botones o lista; Kapso transforma las opciones en mensajes interactivos y API/CLI las numeran.
 
 > [!WARNING]
-> Si una búsqueda descriptiva tiene varios candidatos, el ejecutor ofrece opciones y conserva la
-> pregunta pendiente; no los trates como referencia confirmada hasta que el comprador elija. Para
-> cotizar de forma explícita usa `xeon quotes create` o `POST /v1/quotes` con SKU o alias exacto.
+> El chat muestra candidatos y exige elegir una referencia antes de añadirla al carrito.
 
 Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no** significan
 «agotado».
@@ -166,7 +149,7 @@ src/xeon/
 ├── domain/                 Money, Product, Quote, StockSnapshot e invariantes
 ├── application/            Casos de uso, puertos (Protocol) y plain_text
 │   └── container.py        AppContainer: composición de adaptadores
-├── agent/                  AgentService, IntentInterpreter, CommercialExecutor, CommercialToolbelt, customer_safety
+├── agent/                  AgentService, GuidedFunnel, CommercialExecutor, CommercialToolbelt
 ├── adapters/
 │   ├── catalog/            Catálogo sintético (2000 productos con procedencia)
 │   ├── inventory/          Snapshots de stock en memoria (o SQL)

@@ -5,12 +5,26 @@
 `DATA_SOURCE` selecciona el adaptador en `AppContainer`. El valor predeterminado `synthetic`
 usa los datos de demostración; `sql` carga `connectors/<tenant>.yaml` y una URL local de `secrets/`.
 Los puertos `ProductCatalog`, `BranchInventory` y `BranchDirectory` aíslan el dominio del motor.
-`IntentInterpreter` resuelve nombres y alias contra `BranchDirectory`; `CommercialExecutor`
+`GuidedFunnel` resuelve las sedes ofrecidas contra `BranchDirectory`; `CommercialExecutor`
 consulta stock con el id verificado. Precio y subtotal siguen bajo `Money(Decimal)` y
 `CreateQuoteDraft`. SQLAlchemy se importa solo al seleccionar SQL. Ver
 [guía de conexión](CONECTOR_FERRETERIA.md) para mapeos, permisos y límites.
 
 ## Estado implementado
+
+### Embudo guiado D14
+
+`GuidedFunnel` es el único flujo para `/v1/chat`, CLI y Kapso. El estado
+`FunnelState` vive por conversación en memoria; `Reply` presenta opciones independientes del canal.
+El paso de producto consulta `search_products` y las operaciones del carrito pasan por el mismo
+`CommercialExecutor` y `QuoteCart`. Las respuestas de botones usan el id exacto;
+el texto de pasos cerrados se valida como una opción permitida o `no_encaja`. La configuración
+predeterminada usa el embudo y el evaluador recorre sus opciones por id o número.
+
+Las políticas de `config/policies/<tenant>.yaml` se validan con Pydantic. La plantilla `whatsapp`
+es demo para Colombia; un campo nulo queda pendiente de confirmar con un asesor. Confirmar cambia
+el borrador a `CONFIRMADO_POR_CLIENTE` y emite un evento sin datos del cliente a `AdvisorNotifier`;
+no aprueba, reserva ni factura. El adaptador inicial del notificador solo registra metadatos.
 
 El sistema conecta tres planos a traves de `AppContainer` (composition root) bajo arquitectura
 hexagonal:
@@ -21,7 +35,7 @@ POST /v1/chat   POST /v1/channels/whatsapp/kapso/webhook (Kapso, HMAC)
       +----------------+----------------+
                        |
                        v
-        AgentService -> IntentInterpreter -> CommercialExecutor
+        AgentService -> GuidedFunnel -> CommercialExecutor
                                             |          |
                                        QuoteCart  CommercialToolbelt
          /                             \
@@ -72,14 +86,10 @@ GET /v1/stock  CLI stock show
   identifica referencias candidatas mediante busqueda lexical en memoria (`search_products`), consulta stock
   por sede (`get_stock_by_branches`) y crea borradores (`create_quote_draft`).
 - El contexto verificado usa marcadores internos `[XEON_TOOL:...]`; no autorizan al modelo a
-  calcular precios ni a ejecutar herramientas. `CustomerResponsePolicy` filtra su exposicion en
-  respuestas de proveedores reales.
-- `IntentInterpreter` valida JSON de intenciones; si el proveedor falla, usa un parser local.
-  Las solicitudes totalmente ajenas se responden localmente. En mensajes mixtos, el ejecutor
-  procesa la parte comercial sin insertar un prefijo de rechazo.
-- `CustomerResponsePolicy` revisa las respuestas de proveedores reales y sustituye salidas que
-  exponen codigos internos, marcadores tecnicos o enlaces no autorizados. El perfil `mock` conserva
-  sus marcadores de diagnostico para las pruebas locales.
+  calcular precios ni a ejecutar herramientas. El embudo emite respuestas desde plantillas.
+- `GuidedFunnel` clasifica texto libre de los pasos cerrados a una opción permitida; los ids de
+  botón se procesan sin LLM. Las operaciones evidentes del carrito usan `CommercialExecutor`.
+- El texto del proveedor se limita a clasificar opciones cerradas; no se publica directamente.
 - `ConversationMemory` conserva historial corto, opciones pendientes y datos de proyecto.
   `CartRepository` guarda por conversacion un `QuoteCart` versionado en memoria del proceso;
   las lineas confirmadas producen borradores `DRAFT` calculados con `Decimal`. No hay
@@ -95,8 +105,9 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
 - `ConversationMemory` (puerto en `application/ports/conversation_memory.py`) guarda por
   conversacion los ultimos `conversation_max_turns` turnos y el ultimo SKU identificado;
   `adapters/conversation/memory.py` la implementa en proceso con expulsion LRU.
-- `AgentService.respond(message, *, conversation_key, request_id)` envia ese historial al LLM y,
-  ante referencias como «ese mismo», usa el ultimo SKU de forma determinista.
+- `AgentService.respond_reply(message, *, conversation_key, request_id, option_id)` delega al
+  embudo; `respond` adapta la misma respuesta al CLI. El historial y los datos de proyecto
+  permanecen en memoria por conversacion.
 - El webhook deriva `request_id=kapso-{message.id}`: un mensaje repetido reutiliza
   el mismo borrador gracias a la idempotencia `(tenant_id, request_id)`.
 - Un pedido de descuento detectado en el chat se propaga como `discount_requested=True`; sin
@@ -113,10 +124,11 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
 - Cuando `WHATSAPP_SEND_ENABLED=true`, el contenedor crea `KapsoChannelAdapter`; requiere
   `KAPSO_PHONE_NUMBER_ID` y clave explicita por valor o archivo.
 - `POST /v1/channels/whatsapp/kapso/webhook` comprueba HMAC-SHA256 del cuerpo crudo antes de
-  interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto, incluidos lotes;
+  interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto o respuesta interactiva,
+  incluidos lotes;
   deduplica IDs en memoria y programa el turno comercial y el envio en segundo plano.
   El acuse `processed` significa que se programo el trabajo, no que WhatsApp entrego el mensaje.
-- `KapsoChannelAdapter` envia texto a la API oficial de WhatsApp via Kapso Meta proxy con
+- `KapsoChannelAdapter` envia texto o `interactive` (botones/listas) a la API oficial de WhatsApp via Kapso Meta proxy con
   `X-API-Key`. El webhook requiere secreto configurado; no se admiten mensajes proactivos ni
   plantillas fuera de la ventana de 24 h.
 - La deduplicacion y el trabajo de fondo son locales al proceso. Persistencia, cola durable,
@@ -152,7 +164,7 @@ inventario y borradores viven en memoria; la arquitectura futura separa tres res
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
 | T10 | Webhook Kapso firmado: valida HMAC, ignora eventos ajenos y no-texto, deduplica mensajes | `POST /v1/channels/whatsapp/kapso/webhook`, `tests/test_kapso_channel.py`, `tests/test_multiturn_context.py` |
-| T11 | Consulta fuera del alcance comercial o salida insegura | `IntentInterpreter`, `CustomerResponsePolicy` y pruebas del arnes |
+| T11 | Consulta fuera del alcance comercial o salida insegura | `GuidedFunnel`, clasificación cerrada y pruebas del arnes |
 | T19 | Perfil mock: cero llamadas a proveedores LLM | `/health`, `/v1/chat`, webhook Kapso y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse

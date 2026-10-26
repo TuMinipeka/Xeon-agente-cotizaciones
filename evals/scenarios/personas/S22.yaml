@@ -1,0 +1,15 @@
+id: S22
+name: Desvio fuera de alcance a mitad del embudo
+category: guided_scope
+persona: >
+  Comprador que inicia una cotizacion de cemento, luego pide un chiste y espera
+  que XEON lo redirija a las opciones de la cotizacion sin perder su carrito.
+goal: >
+  Mantener 10 bultos de cemento por 289.000 COP y no responder la solicitud
+  ajena a la ferreteria.
+first_message: "Hola"
+behaviors:
+  - Pulsa Cotizar productos y agrega 10 bultos de cemento.
+  - A mitad del recorrido pide que le cuenten un chiste.
+  - Comprueba que la cotizacion sigue disponible.
+max_turns: 8

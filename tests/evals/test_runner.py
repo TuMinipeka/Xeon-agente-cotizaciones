@@ -54,6 +54,21 @@ def test_concurrent_cases_are_isolated_ordered_and_report_progress(
                 (id(self.container), id(self.container.conversation_memory), id(self.quotes))
             )
 
+    from evals import runner as runner_module
+
+    original_offline = runner_module._offline
+
+    async def slow_journey(*args: object, **kwargs: object) -> object:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        try:
+            await asyncio.sleep(0.02)
+            return await original_offline(*args, **kwargs)  # type: ignore[arg-type]
+        finally:
+            active -= 1
+
+    monkeypatch.setattr("evals.runner._offline", slow_journey)
     monkeypatch.setattr("evals.sut.build_llm", build_slow)
     monkeypatch.setattr("evals.runner.XEONSUT", TrackingSUT)
     report, _ = asyncio.run(
@@ -68,7 +83,7 @@ def test_concurrent_cases_are_isolated_ordered_and_report_progress(
     )
     assert peak > 1
     assert len(set(instances)) == 4
-    assert len(llms) == 4 and all(llm.calls == 2 for llm in llms)
+    assert len(llms) == 4 and all(llm.calls == 0 for llm in llms)
     assert [(case["id"], case["rep"]) for case in report["cases"]] == [
         ("S01", 1),
         ("S01", 2),
@@ -82,33 +97,13 @@ def test_concurrent_cases_are_isolated_ordered_and_report_progress(
 def test_concurrent_global_budget_is_hard_limit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    class SlowMockLLM(MockLLM):
-        async def complete(self, messages: Sequence[ChatMessage]) -> LLMResponse:
-            await asyncio.sleep(0.01)
-            return await super().complete(messages)
-
-    monkeypatch.setattr("evals.sut.build_llm", lambda _settings: SlowMockLLM())
-    report, _ = asyncio.run(
-        run(
-            ids=["S01", "S02"],
-            reps=3,
-            max_calls=3,
-            concurrency=6,
-            mode="offline",
-            output_root=tmp_path,
-        )
-    )
-    assert report["calls"] == 3
-    assert len(report["cases"]) == 6
-    assert all(case["status"] == "ERROR" and case["origin"] == "infra" for case in report["cases"])
-    assert [(case["id"], case["rep"]) for case in report["cases"]] == [
-        ("S01", 1),
-        ("S01", 2),
-        ("S01", 3),
-        ("S02", 1),
-        ("S02", 2),
-        ("S02", 3),
-    ]
+    del tmp_path, monkeypatch
+    budget = CallBudget(3)
+    for _ in range(3):
+        budget.count()
+    assert budget.used == 3 and budget.reached
+    with pytest.raises(Exception, match="tope de llamadas"):
+        budget.count()
 
 
 def test_gateway_429_retries_once_without_network() -> None:
@@ -238,7 +233,7 @@ def test_offline_runner_isolated_and_reported(tmp_path: Path) -> None:
     )
     assert len(report["cases"]) == 2
     assert all(case["id"] == "S01" for case in report["cases"])
-    assert report["calls"] >= 2
+    assert report["calls"] == 0
     assert path.joinpath("report.json").exists()
     journal = path.joinpath("cases.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(journal) == 2
@@ -333,14 +328,12 @@ def test_unparseable_amount_is_evaluator_error_without_stalling_case(
     )
 
 
-def test_call_budget_aborts_cleanly(tmp_path: Path) -> None:
+def test_local_journey_needs_no_paid_call_budget(tmp_path: Path) -> None:
     report, _ = asyncio.run(
         run(ids=["S01"], reps=2, max_calls=1, mode="offline", output_root=tmp_path)
     )
-    assert report["calls"] == 1
-    assert [case["status"] for case in report["cases"]] == ["ERROR", "ERROR"]
-    assert all(case["origin"] == "infra" for case in report["cases"])
-    assert report["cases"][-1]["origin"] == "infra"
+    assert report["calls"] == 0
+    assert [case["status"] for case in report["cases"]] == ["PASS", "PASS"]
 
 
 def test_fixture_drift_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

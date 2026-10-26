@@ -30,6 +30,7 @@ class InvalidQuoteError(ValueError):
 
 class QuoteStatus(StrEnum):
     DRAFT = "DRAFT"
+    CONFIRMADO_POR_CLIENTE = "CONFIRMADO_POR_CLIENTE"
 
 
 def as_positive_quantity(value: Decimal | int | str) -> Decimal:
@@ -98,8 +99,8 @@ class Quote:
         object.__setattr__(self, "currency", currency.upper())
         if self.version < INITIAL_QUOTE_VERSION:
             raise InvalidQuoteError("La version del borrador debe ser al menos 1.")
-        if self.status is not QuoteStatus.DRAFT:
-            raise InvalidQuoteError("Este corte solo admite cotizaciones en DRAFT.")
+        if self.status not in {QuoteStatus.DRAFT, QuoteStatus.CONFIRMADO_POR_CLIENTE}:
+            raise InvalidQuoteError("Estado de cotizacion invalido.")
         if not self.lines:
             raise EmptyQuoteError("Un borrador requiere al menos una linea.")
         if self.subtotal.currency != self.currency or self.total.currency != self.currency:

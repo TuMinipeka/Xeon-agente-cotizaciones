@@ -55,10 +55,26 @@ class XEONSUT:
             )
             response.raise_for_status()
             payload = dict(response.json())
+            self._last_options = list(payload.get("options", []))
             self.llm.observe_verified_reply(str(payload.get("reply", "")))
             for event in events:
                 self.llm.observe_tool_event(event)
             return payload
+
+    async def click(self, choice: str | int) -> dict[str, Any]:
+        """Choose an offered option by exact id or one-based displayed number."""
+        if not hasattr(self, "_last_options"):
+            raise ValueError("No hay opciones previas para pulsar.")
+        options = self._last_options
+        if isinstance(choice, int):
+            if not 1 <= choice <= len(options):
+                raise ValueError("Numero de opcion no ofrecido.")
+            message = str(choice)
+        else:
+            if choice not in {str(item["id"]) for item in options}:
+                raise ValueError("Id de opcion no ofrecido.")
+            message = choice
+        return await self.respond(message)
 
     def tool_contexts(self) -> list[str]:
         return self.llm.tool_contexts()

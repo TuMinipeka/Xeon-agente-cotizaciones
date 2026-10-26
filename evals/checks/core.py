@@ -30,6 +30,7 @@ class EvalView:
     mode: str
     user_messages: list[str]
     canary: str | None = None
+    expected_steps: tuple[str, ...] = ()
 
     @property
     def reply(self) -> str:
@@ -107,6 +108,128 @@ def _referenced_skus(view: EvalView) -> set[str]:
 def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
     name = str(spec.get("type", ""))
     try:
+        if name == "presentation_or_pending":
+            relevant = [
+                str(response.get("reply", ""))
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if re.search(r"(?i)\b(?:kilos?|kg|peso)\b", message)
+            ]
+            good = bool(relevant) and all(
+                re.search(r"(?i)\b\d+(?:[.,]\d+)?\s*kg\b", reply)
+                or "pendiente de confirmar" in _fold(reply)
+                for reply in relevant
+            )
+            return _result(name, good, f"Respuestas de presentacion: {relevant}")
+        if name == "adjustment_summary":
+            relevant = [
+                str(response.get("reply", ""))
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if re.search(r"(?i)\b(?:mejor|dejalo|dejame|cambia)\b", _fold(message))
+                and re.search(r"\b15\b", message)
+            ]
+            good = bool(relevant) and all("$433.500" in reply for reply in relevant)
+            thanks = [
+                response
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if "gracias" in _fold(message)
+            ]
+            good = good and all(
+                response.get("step") == "mas" and "$433.500" in str(response.get("reply", ""))
+                for response in thanks
+            )
+            return _result(name, good, f"Ajuste={relevant}; cierre={thanks}")
+        if name == "surface_not_reasked":
+            relevant = [
+                str(response.get("reply", ""))
+                for message, response in zip(view.user_messages, view.responses, strict=False)
+                if "toda la superficie" in _fold(message)
+            ]
+            good = bool(relevant) and all(
+                "600" in reply
+                and "toda la superficie confirmada" in _fold(reply)
+                and not re.search(r"(?i)\b(?:toda la superficie|medidas)\b[^.?]*\?", reply)
+                for reply in relevant
+            )
+            return _result(name, good, f"Respuesta a superficie completa: {relevant}")
+        if name == "step_flow":
+            actual_steps = tuple(str(item.get("step", "")) for item in view.responses)
+            if view.mode == "live" and not view.expected_steps:
+                allowed_steps = {
+                    "inicio",
+                    "producto",
+                    "cantidad",
+                    "mas",
+                    "modificar",
+                    "entrega",
+                    "sede",
+                    "direccion",
+                    "pago",
+                    "resumen",
+                    "proyecto",
+                    "asesor",
+                    "confirmado",
+                    "cancelado",
+                }
+                return _result(
+                    name,
+                    bool(actual_steps) and all(step in allowed_steps for step in actual_steps),
+                    "Pasos emitidos por el embudo durante simulacion libre.",
+                    "solo estados D14",
+                    str(actual_steps),
+                )
+            return _result(
+                name,
+                bool(view.expected_steps) and actual_steps == view.expected_steps,
+                "Secuencia completa de pasos del embudo.",
+                str(view.expected_steps),
+                str(actual_steps),
+            )
+        if name == "options_offered":
+            issues: list[str] = []
+            for index, response in enumerate(view.responses, 1):
+                kind = str(response.get("kind", "text"))
+                options = response.get("options", [])
+                if not isinstance(options, list):
+                    issues.append(f"turno {index}: opciones invalidas")
+                    continue
+                limit = 3 if kind == "buttons" else 10 if kind == "list" else 0
+                title_limit = 20 if kind == "buttons" else 24
+                if len(options) > limit or (kind != "text" and not options):
+                    issues.append(f"turno {index}: {len(options)} opciones en {kind}")
+                ids = [str(item.get("id", "")) for item in options if isinstance(item, dict)]
+                if len(ids) != len(options) or len(set(ids)) != len(ids):
+                    issues.append(f"turno {index}: ids invalidos")
+                if any(
+                    not isinstance(item, dict)
+                    or not str(item.get("title", ""))
+                    or len(str(item.get("title", ""))) > title_limit
+                    for item in options
+                ):
+                    issues.append(f"turno {index}: titulos invalidos")
+            return _result(name, not issues, f"Limites WhatsApp: {issues}")
+        if name == "no_freeform_solution":
+            offenders = [
+                index
+                for index, response in enumerate(view.responses, 1)
+                if response.get("provider") != "local-guided"
+                or re.search(r"\*\*|(?m:^\s*#{2,6}\s)", str(response.get("reply", "")))
+            ]
+            return _result(name, not offenders, f"Respuestas fuera de plantilla: {offenders}")
+        if name == "confirmation_state":
+            status = str(view.drafts[-1]["status"]) if view.drafts else "missing"
+            closure_claim = re.search(r"(?i)\b(?:aprobada?|reservada?|facturada?)\b", view.reply)
+            return _result(
+                name,
+                status == "CONFIRMADO_POR_CLIENTE"
+                and closure_claim is None
+                and all(
+                    draft["status"] not in {"APPROVED", "APPROVED_FOR_BILLING"}
+                    for draft in view.drafts
+                ),
+                f"Confirmacion del cliente sin aprobacion, reserva ni factura: {closure_claim}.",
+                "CONFIRMADO_POR_CLIENTE",
+                status,
+            )
         if name == "quote_matches_oracle":
             product = view.oracle.find_product(str(spec["product"]))
             if product is None:
@@ -223,11 +346,21 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
                     r"\[XEON_TOOL:search_products status=(clarification_required|not_found)\]",
                     "\n".join(view.contexts),
                 )
-                good = bool(statuses) and not view.drafts
+                candidate_choice = any(
+                    response.get("step") == "producto"
+                    and any(
+                        str(option.get("id", "")).startswith("product:")
+                        for option in response.get("options", [])
+                        if isinstance(option, dict)
+                    )
+                    for response in view.responses
+                )
+                good = (bool(statuses) or candidate_choice) and not view.drafts
                 return _result(
                     name,
                     good,
-                    f"Evidencia offline por contexto XEON_TOOL: status={statuses}; "
+                    f"Evidencia offline por contexto XEON_TOOL: status={statuses}, "
+                    f"seleccion_requerida={candidate_choice}; "
                     f"borradores={len(view.drafts)}.",
                     "clarification_required/not_found; 0 borradores",
                     f"status={statuses}; borradores={len(view.drafts)}",
@@ -274,13 +407,28 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
             good = any(item.get("provider") == "local-policy" for item in view.responses) or bool(
                 re.search(
                     r"(?i)(no manejo informacion sobre ese tema|no puedo ayudarte con|"
-                    r"solo puedo ayudar con|te ayudo con materiales)",
+                    r"solo puedo ayudar(?:te)? con|te ayudo con materiales)",
                     view.reply,
                 )
             )
             return _result(name, good, "Politica local o redireccion al alcance comercial.")
         if name == "branch_matches":
             branch = str(spec["branch"]).replace(" ", "-")
+            selected: list[str] = []
+            for index, message in enumerate(view.user_messages):
+                if message.startswith("branch:"):
+                    selected.append(message.removeprefix("branch:"))
+                elif message.isdigit() and index > 0:
+                    options = view.responses[index - 1].get("options", [])
+                    position = int(message) - 1
+                    if isinstance(options, list) and 0 <= position < len(options):
+                        option = options[position]
+                        if isinstance(option, dict) and str(option.get("id", "")).startswith(
+                            "branch:"
+                        ):
+                            selected.append(str(option["id"]).removeprefix("branch:"))
+            if selected:
+                return _result(name, branch in selected, f"Sedes elegidas: {selected}", branch)
             cited = re.findall(r"sede_solicitada=([\w-]+)", "\n".join(view.contexts))
             return _result(name, branch in cited, f"Sedes verificadas: {cited}", branch, str(cited))
         if name == "no_out_of_scope_on_commercial":

@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Sequence
 from decimal import Decimal
 
+from tests.guided_steps import add_product, select_pickup
 from xeon.application.container import build_container
 from xeon.application.ports.llm import ChatMessage, LLMResponse
 from xeon.config import Settings
@@ -15,22 +16,20 @@ def test_cart_revision_and_attribute_choice_preserve_verified_total() -> None:
     async def run() -> None:
         container = build_container(Settings(llm_provider="mock", _env_file=None))
         try:
-            replies = [
-                (await container.agent.respond(message, conversation_key="qa-cart")).text
-                for message in (
-                    "cemento x20",
-                    "cambialo a 15 y deja dos palas",
-                    "quita una",
-                    "redonda con mango de fibra",
-                    "cuanto llevo producto por producto",
-                )
-            ]
-            assert "$433.500" in replies[-1]
-            assert "$43.700" in replies[-1]
-            assert "TOTAL confirmado: $477.200" in replies[-1]
-            assert all("fuera de alcance" not in text.casefold() for text in replies)
+            await add_product(container, "qa-cart", "cemento", "CEM-50", 20)
+            await container.agent.respond_reply(
+                "cambialo a 15 bultos de cemento", conversation_key="qa-cart"
+            )
+            await add_product(container, "qa-cart", "pala", "PAL-RED-FIB", 2)
+            reply = await container.agent.respond_reply(
+                "quita una pala", conversation_key="qa-cart"
+            )
+            assert "$433.500" in reply.text
+            assert "$43.700" in reply.text
+            assert "TOTAL confirmado: $477.200" in reply.text
+            assert "fuera de alcance" not in reply.text.casefold()
             cart = container.carts.get("qa-cart")
-            assert cart is not None and cart.quote_version == 3
+            assert cart is not None and cart.quote_version == 4
             assert sum(
                 (line.line_total.amount for line in cart.confirmed_lines()), Decimal(0)
             ) == Decimal("477200.00")
@@ -70,8 +69,8 @@ def test_transactional_turn_uses_one_interpreter_call() -> None:
             llm=llm,
         )
         try:
-            await container.agent.respond("10 bultos de cemento", conversation_key="one-call")
-            assert llm.calls == 1
+            await add_product(container, "one-call", "cemento", "CEM-50", 10)
+            assert llm.calls == 0
             cart = container.carts.get("one-call")
             assert cart is not None and cart.confirmed_lines()[0].quantity == Decimal(10)
         finally:
@@ -84,20 +83,14 @@ def test_stock_and_policy_followups_preserve_quote() -> None:
     async def run() -> None:
         container = build_container(Settings(llm_provider="mock", _env_file=None))
         try:
-            replies = [
-                (await container.agent.respond(message, conversation_key="qa-policy")).text
-                for message in (
-                    "10 bultos",
-                    "disponibles en sede Norte?",
-                    "que opciones tengo para pagar y recoger?",
-                    "resumeme mi cotizacion",
-                )
-            ]
-            assert "sede-norte" in replies[1]
-            assert "Pagos: pendiente de confirmar" in replies[2]
-            assert "Recogida: pendiente de confirmar" in replies[2]
-            assert "TOTAL confirmado: $289.000" in replies[3]
-            assert all("fuera de alcance" not in text.casefold() for text in replies)
+            await add_product(container, "qa-policy", "cemento", "CEM-50", 10)
+            payment = await select_pickup(container, "qa-policy", "sede-norte")
+            assert payment.step == "pago"
+            assert any(option.id == "payment:0" for option in payment.options)
+            summary = await container.agent.respond_reply("payment:0", conversation_key="qa-policy")
+            assert "sede-norte" in summary.text
+            assert "TOTAL confirmado: $289.000" in summary.text
+            assert "fuera de alcance" not in summary.text.casefold()
         finally:
             await container.aclose()
 
@@ -108,23 +101,20 @@ def test_hypothetical_and_project_data_do_not_change_cart() -> None:
     async def run() -> None:
         container = build_container(Settings(llm_provider="mock", _env_file=None))
         try:
-            await container.agent.respond("10 bultos", conversation_key="qa-project")
+            await add_product(container, "qa-project", "cemento", "CEM-50", 10)
             before = container.carts.get("qa-project")
             assert before is not None
-            await container.agent.respond(
+            await container.agent.respond_reply(
                 "que descuento por 50 bultos?", conversation_key="qa-project"
             )
-            advice = await container.agent.respond(
+            advice = await container.agent.respond_reply(
                 "Tengo un corral para ganado de 20 x 30 m", conversation_key="qa-project"
-            )
-            stock = await container.agent.respond(
-                "hay disponibilidad?", conversation_key="qa-project"
             )
             after = container.carts.get("qa-project")
             assert after == before
             assert container.conversation_memory.project_data("qa-project").area_m2 == Decimal(600)
             assert "validación técnica" in advice.text
-            assert "¿En qué sede" in stock.text
+            assert advice.step == "proyecto"
         finally:
             await container.aclose()
 
@@ -139,7 +129,7 @@ def test_weight_and_delivery_questions_are_both_addressed() -> None:
                 "cuantos kilos contiene un bulto de arena o gravilla y si domicilio es gratis?",
                 conversation_key="qa-multi",
             )
-            assert "peso por bulto" in result.text.casefold()
+            assert "peso del bulto" in result.text.casefold()
             assert "domicilio:" in result.text.casefold()
             assert "pendiente de confirmar" in result.text.casefold()
         finally:

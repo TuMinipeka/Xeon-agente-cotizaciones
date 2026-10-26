@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from xeon.application.reply import Reply
+
 
 class ChannelDeliveryError(RuntimeError):
     """Sanitized channel delivery failure."""
@@ -16,6 +18,7 @@ class IncomingWhatsAppMessage:
     sender_number: str
     text: str
     raw_payload: dict[str, Any]
+    option_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,5 +31,7 @@ class WhatsAppSendReceipt:
 
 class WhatsAppChannelPort(Protocol):
     async def send_text(self, *, recipient_number: str, text: str) -> WhatsAppSendReceipt: ...
+
+    async def send_reply(self, *, recipient_number: str, reply: Reply) -> WhatsAppSendReceipt: ...
 
     async def aclose(self) -> None: ...

@@ -5,10 +5,12 @@ from collections.abc import Sequence
 from decimal import Decimal
 
 from xeon.adapters.conversation.memory import InMemoryConversationMemory
-from xeon.agent.intent import IntentInterpreter, IntentKind, fallback_intents
+from xeon.agent.intent import IntentKind, fallback_intents
 from xeon.agent.toolbelt import _pending_selection
+from xeon.application.container import build_container
 from xeon.application.ports.conversation_memory import PendingCandidates, ProjectContext
 from xeon.application.ports.llm import ChatMessage, LLMResponse
+from xeon.config import Settings
 
 
 class JsonLLM:
@@ -71,12 +73,15 @@ def test_pending_question_resolves_short_attribute_reply_and_project_area() -> N
     assert memory.project_data("corral").area_m2 == Decimal(600)
 
 
-def test_model_json_is_validated_once_then_bad_json_uses_fallback() -> None:
-    valid = JsonLLM('{"intents":[{"kind":"ver_resumen_total","source_text":"resumen"}]}')
-    batch, _ = asyncio.run(IntentInterpreter().interpret("Resúmeme mi cotización", llm=valid))
-    assert valid.calls == 1
-    assert batch.intents[0].kind is IntentKind.VER_RESUMEN_TOTAL
-    invalid = JsonLLM("respuesta libre sin JSON")
-    batch, _ = asyncio.run(IntentInterpreter().interpret("Resúmeme mi cotización", llm=invalid))
-    assert invalid.calls == 1
-    assert batch.intents[0].kind is IntentKind.VER_RESUMEN_TOTAL
+def test_closed_step_model_json_is_validated_once_then_bad_json_redirects() -> None:
+    async def run(text: str) -> tuple[int, str]:
+        llm = JsonLLM(text)
+        container = build_container(Settings(llm_provider="mock", _env_file=None), llm=llm)
+        try:
+            reply = await container.agent.respond_reply("continuar", conversation_key="choice")
+            return llm.calls, reply.step
+        finally:
+            await container.aclose()
+
+    assert asyncio.run(run('{"choice":"start:products"}')) == (1, "producto")
+    assert asyncio.run(run("respuesta libre sin JSON")) == (1, "inicio")

@@ -20,10 +20,10 @@ def test_imported_app_uses_mock_during_tests() -> None:
     assert chat.status_code == 200
     assert health.json()["provider"] == "mock"
     assert health.json()["model"] == "mock-xeon-v1"
-    assert (health.json()["provider"], health.json()["model"]) == (
-        chat.json()["provider"],
-        chat.json()["model"],
-    )
+    assert chat.json()["provider"] == "local-guided"
+    assert chat.json()["model"] == "guided-funnel-v1"
+    assert chat.json()["step"] == "inicio"
+    assert {option["id"] for option in chat.json()["options"]} >= {"start:products"}
 
 
 def test_mock_chat_runs_end_to_end_without_external_calls() -> None:
@@ -37,9 +37,10 @@ def test_mock_chat_runs_end_to_end_without_external_calls() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["provider"] == "mock"
-    assert payload["model"] == "mock-xeon-v1"
-    assert "soy XEON" in payload["reply"]
+    assert payload["provider"] == "local-guided"
+    assert payload["model"] == "guided-funnel-v1"
+    assert payload["step"] == "inicio"
+    assert "Cotizar productos" in payload["reply"]
 
 
 def test_health_does_not_expose_secrets() -> None:

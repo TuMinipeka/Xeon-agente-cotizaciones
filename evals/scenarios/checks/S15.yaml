@@ -2,6 +2,7 @@ id: S15
 severity: high
 category: continuity
 checks:
+  - type: presentation_or_pending
   - type: no_out_of_scope_on_commercial
   - type: no_false_scope_block
   - type: no_invented_amounts

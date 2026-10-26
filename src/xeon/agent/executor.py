@@ -290,6 +290,12 @@ class CommercialExecutor:
         digest = hashlib.sha256(f"{key}:{version}".encode()).hexdigest()[:24]
         return f"xeon-{digest}"
 
+    def current_quote_request_id(self, key: str) -> str | None:
+        cart = self._carts.get(key)
+        if cart is None or cart.quote_version == 0:
+            return None
+        return self._quote_request_id(key, cart.quote_version)
+
     def _draft_marker(self, cart: QuoteCart) -> str:
         first = cart.confirmed_lines()[0]
         return (

@@ -12,6 +12,7 @@ from xeon.application.ports.channels import (
     IncomingWhatsAppMessage,
     WhatsAppSendReceipt,
 )
+from xeon.application.reply import Reply
 
 
 def verify_kapso_signature(raw_body: bytes, signature: str | None, secret: str) -> bool:
@@ -31,12 +32,23 @@ def parse_kapso_webhook(
     conversation = payload.get("conversation")
     if not isinstance(message, dict) or not isinstance(conversation, dict):
         return None
-    if message.get("type") != "text":
+    option_id = None
+    if message.get("type") == "interactive":
+        interactive = message.get("interactive")
+        if not isinstance(interactive, dict):
+            return None
+        choice = interactive.get("button_reply") or interactive.get("list_reply")
+        if not isinstance(choice, dict) or not isinstance(choice.get("id"), str):
+            return None
+        option_id = choice["id"].strip()
+        text = str(choice.get("title") or option_id).strip()
+    elif message.get("type") == "text":
+        text_obj = message.get("text")
+        if not isinstance(text_obj, dict) or not isinstance(text_obj.get("body"), str):
+            return None
+        text = text_obj["body"].strip()
+    else:
         return None
-    text_obj = message.get("text")
-    if not isinstance(text_obj, dict) or not isinstance(text_obj.get("body"), str):
-        return None
-    text = text_obj["body"].strip()
     phone_id = payload.get("phone_number_id")
     phone = conversation.get("phone_number")
     message_id = message.get("id") or idempotency_key
@@ -55,11 +67,12 @@ def parse_kapso_webhook(
         sender_number=number,
         text=text,
         raw_payload=payload,
+        option_id=option_id,
     )
 
 
 class KapsoChannelAdapter:
-    """Send WhatsApp text through Kapso's Meta proxy."""
+    """Send text and interactive replies through Kapso's Meta proxy."""
 
     def __init__(
         self,
@@ -84,19 +97,58 @@ class KapsoChannelAdapter:
         self._formatter = WhatsAppFormatter()
 
     async def send_text(self, *, recipient_number: str, text: str) -> WhatsAppSendReceipt:
+        return await self.send_reply(recipient_number=recipient_number, reply=Reply(text))
+
+    async def send_reply(self, *, recipient_number: str, reply: Reply) -> WhatsAppSendReceipt:
         number = recipient_number.strip().lstrip("+")
         if not number.isdigit():
             raise ChannelDeliveryError("Numero de destino invalido para Kapso.")
+        body: dict[str, Any] = {"messaging_product": "whatsapp", "to": number}
+        if reply.kind == "text":
+            body.update({"type": "text", "text": {"body": self._formatter.format(reply.text)}})
+        elif reply.kind == "buttons":
+            body.update(
+                {
+                    "type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": self._formatter.format(reply.text)},
+                        "action": {
+                            "buttons": [
+                                {"type": "reply", "reply": {"id": item.id, "title": item.title}}
+                                for item in reply.options
+                            ]
+                        },
+                    },
+                }
+            )
+        else:
+            body.update(
+                {
+                    "type": "interactive",
+                    "interactive": {
+                        "type": "list",
+                        "body": {"text": self._formatter.format(reply.text)},
+                        "action": {
+                            "button": "Ver opciones",
+                            "sections": [
+                                {
+                                    "title": "Opciones",
+                                    "rows": [
+                                        {"id": item.id, "title": item.title}
+                                        for item in reply.options
+                                    ],
+                                }
+                            ],
+                        },
+                    },
+                }
+            )
         try:
             response = await self._client.post(
                 self._url,
                 headers={"X-API-Key": self._api_key},
-                json={
-                    "messaging_product": "whatsapp",
-                    "to": number,
-                    "type": "text",
-                    "text": {"body": self._formatter.format(text)},
-                },
+                json=body,
             )
             response.raise_for_status()
             body = response.json()
