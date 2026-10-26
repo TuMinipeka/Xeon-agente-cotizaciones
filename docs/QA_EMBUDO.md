@@ -7,7 +7,9 @@
 > - Los pasos `inicio`, `cantidad`, `mas`, `entrega` y `resumen` ofrecen exactamente **3 botones** de respuesta rápida (*reply buttons*).
 > - El paso `cantidad` interpola el nombre completo del producto y ofrece opciones sugeridas según su unidad (`bulto`: 10/20/Otra; `metro`: 10/50/Otra; `unidad`: 1/2/Otra).
 > - Las consultas sobre políticas de la ferretería (horario, domicilio, recogida, pago, IVA, descuentos, vigencia) se responden desde `config/policies/whatsapp.yaml` y repiten las opciones del paso activo sin alterar el carrito.
-> - Los comandos de texto `cancelar` y `asesor` están disponibles en cualquier paso de la conversación.
+> - El comando de texto `asesor` está disponible en cualquier paso. `Cancelar` y `Confirmar` se eligen solo
+>   por su botón (`global:cancel`, `summary:confirm`) o por su número; escribir «cancelar» o «confirmar» no
+>   las activa (revisión de seguridad M7).
 
 ---
 
@@ -129,7 +131,7 @@ Para ejecutar estas pruebas desde un teléfono móvil real con WhatsApp conectad
 | Escenario | Acción del probador | Comportamiento esperado de XEON en código |
 |---|---|---|
 | Solicitud de asesor | En cualquier paso, pulsa `[Hablar con asesor]` (`global:advisor`) o escribe «asesor» | Responde: «Un asesor te contactará.» y notifica el evento `advisor_requested`. Estado pasa a `asesor`. |
-| Cancelación de cotización | En cualquier paso, pulsa `[Cancelar]` (`global:cancel`) o escribe «cancelar» | Responde: «Cotización cancelada.» Estado pasa a `cancelado`. |
+| Cancelación de cotización | Pulsa `[Cancelar]` (`global:cancel`) o responde con su número; escribir «cancelar» no la activa | Responde: «Cotización cancelada.» Estado pasa a `cancelado`. |
 
 - **Criterio de aprobación:** Transición limpia hacia atención humana o descarte del borrador sin bloqueos ni reintentos forzados.
 - **Resultado:** `[ ] PASS    [ ] FAIL`

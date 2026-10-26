@@ -52,6 +52,24 @@ mensajes, prompts ni variables de entorno.
   nonce), `X-Content-Type-Options`, `Referrer-Policy: no-referrer` y `Cache-Control: no-store`.
 - El teléfono no se escribe en logs (el evento solo registra tenant y tipo) ni en la bandeja.
 
+## Endurecimiento (revisión de seguridad, 2026-10-26)
+
+- **Tiempo constante:** un usuario inexistente se verifica contra un hash con las mismas
+  iteraciones PBKDF2 que uno real, así que el tiempo de respuesta no revela qué usuarios existen.
+- **Bloqueo por (IP, usuario) con retardo progresivo:** tras `ADVISOR_PANEL_MAX_ATTEMPTS` fallos el
+  par queda bloqueado 30 s, luego 60 s, 120 s… hasta una hora (`Retry-After`). Otra IP no se ve
+  afectada, de modo que un extraño no puede dejar fuera al asesor real. Además cada IP tiene un
+  tope global de fallos (4 veces el anterior) contra la prueba de muchos usuarios.
+- **IP real detrás de un proxy:** declara el proxy en `TRUSTED_PROXIES`; solo desde esas IP se leen
+  `X-Forwarded-For` y `X-Forwarded-Proto`. Sin eso todos los clientes comparten la IP del proxy.
+- **Solo HTTPS fuera de localhost:** el panel responde 403 a cualquier cliente remoto que no llegue
+  por HTTPS (directo o reenviado por un proxy de confianza). Desde loopback (desarrollo) funciona
+  por HTTP; las cookies llevan `Secure` siempre que la petición sea HTTPS o `APP_ENV=production`.
+- **Contraseña:** máximo 128 caracteres, sin truncar (el script lo comprueba al crearla). Las
+  sesiones caducadas y los contadores de fallos se purgan, con topes de memoria.
+- **Bandeja:** 50 filas por página (`?page=N`) y como máximo 2.000 eventos en memoria (se descartan
+  primero los resueltos y luego las peticiones de asesor más antiguas).
+
 ## PDF del borrador
 
 `GET /panel/quotes/{id}/pdf` (solo con sesión; el detalle de cada evento tiene el enlace «Descargar

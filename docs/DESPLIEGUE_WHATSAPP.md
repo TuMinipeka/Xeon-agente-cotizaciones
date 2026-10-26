@@ -46,6 +46,18 @@ uv sync --locked
 3. En [app.kapso.ai](https://app.kapso.ai) crea una **clave de API** y pégala **a mano** en `.env`:
    `KAPSO_API_KEY=<tu clave>`.
 4. En `.env`, activa el envío de respuestas: `WHATSAPP_SEND_ENABLED=true`.
+5. Crea la clave de la API de XEON (protege `/v1/*`; el webhook de Kapso usa su propia firma):
+
+   ```powershell
+   uv run python scripts/create_api_key.py
+   ```
+
+   Escribe `secrets/xeon_api_key.txt` sin mostrar la clave. El CLI (`xeon --api …`) la lee del
+   mismo archivo. En producción (`APP_ENV=production`) la API no arranca sin ella.
+6. Detrás de un proxy o túnel que termine TLS, define `TRUSTED_PROXIES=<IP del proxy>` en `.env`
+   para que el panel y los límites de tasa vean la IP real y el esquema HTTPS. Con Docker
+   Compose, `secrets/xeon_api_key.txt` debe existir antes de `docker compose up` (se monta como
+   `/run/secrets/xeon_api_key`).
 
 ### 2.3. Skills de Kapso (diagnóstico y descubrimiento)
 

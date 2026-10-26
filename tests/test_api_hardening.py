@@ -282,3 +282,20 @@ def test_cli_reads_the_key_from_the_secrets_file(
     assert result.exit_code == 0
     assert seen["headers"] == {"Authorization": f"Bearer {KEY}"}
     assert KEY not in result.output
+
+
+def test_create_api_key_never_prints_the_key_and_refuses_to_overwrite(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from scripts.create_api_key import create_api_key, main
+
+    target = tmp_path / "secrets" / "xeon_api_key.txt"
+    assert main(["--file", str(target)]) == 0
+    key = target.read_text(encoding="utf-8").strip()
+    assert len(key) >= 24 and key not in capsys.readouterr().out
+    assert Settings(xeon_api_key_file=target, _env_file=None).read_api_key() == key
+    assert create_api_key(target) is False and target.read_text(encoding="utf-8").strip() == key
+    assert create_api_key(target, rotate=True) is True
+    assert target.read_text(encoding="utf-8").strip() != key
+    with pytest.raises(ValueError, match="secrets"):
+        create_api_key(tmp_path / "fuera.txt")

@@ -85,7 +85,8 @@ xeon > q                                         # Sale del shell
 
 **Opciones útiles**
 
-- `uv run xeon --api http://127.0.0.1:8000`: usa una API XEON en marcha en lugar del motor en proceso.
+- `uv run xeon --api http://127.0.0.1:8000`: usa una API XEON en marcha en lugar del motor en proceso
+  (envía la clave de `secrets/xeon_api_key.txt`; ver [Clave de API](#clave-de-api)).
 - `$env:LLM_PROVIDER = "mock"; uv run xeon`: ensayo sin red ni costo de inferencia.
 - `$env:NO_COLOR = "1"`, salida redirigida, `TERM=dumb` o consola sin UTF-8: modo texto plano.
 - `"help" | uv run xeon`: con stdin sin TTY, lee comandos línea por línea (útil en scripts).
@@ -216,8 +217,32 @@ uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
 | `uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00 --requested-quantity 50` | Origen, tipo, vigencia y faltante. |
 
 **Endpoints:** `GET /health`, `POST /v1/chat`, `POST /v1/quotes`, `GET /v1/quotes/{id}`,
-`GET /v1/stock`, `POST /v1/channels/whatsapp/kapso/webhook`. Contrato interactivo en
-`http://127.0.0.1:8000/docs`.
+`GET /v1/stock`, `POST /v1/channels/whatsapp/kapso/webhook` y el panel `/panel`. Contrato
+interactivo en `http://127.0.0.1:8000/docs`.
+
+### Clave de API
+
+Todo `/v1/*` salvo el webhook firmado de Kapso exige `Authorization: Bearer <clave>`; `/health` y
+el panel (que tiene su propio inicio de sesión) no. La clave vive en `secrets/xeon_api_key.txt`
+(mínimo 24 caracteres, ignorada por Git) y se compara en tiempo constante.
+
+```powershell
+uv run python scripts/create_api_key.py   # crea secrets/xeon_api_key.txt sin mostrar la clave
+uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
+uv run xeon --api http://127.0.0.1:8000   # el CLI lee la misma clave del archivo
+```
+
+- **Nunca** pases la clave como argumento o variable de entorno ni la pegues en un chat: el CLI y
+  los subcomandos (`chat`, `quotes`, `stock`) leen `XEON_API_KEY_FILE` (por defecto el archivo
+  anterior). Para rotarla: `uv run python scripts/create_api_key.py --rotate` y reinicia la API.
+- Con `APP_ENV=production` la API **se niega a arrancar** sin clave y no admite
+  `XEON_API_AUTH_DISABLED`. En desarrollo, sin clave `/v1/*` responde 503; para trabajar sin ella
+  en local, y solo ahí, usa `$env:XEON_API_AUTH_DISABLED = "true"`.
+- `/v1/chat` aplica un límite de tasa (60 por minuto por IP y 20 por conversación; configurables con
+  `CHAT_RATE_LIMIT_IP_PER_MINUTE` y `CHAT_RATE_LIMIT_CONVERSATION_PER_MINUTE`) y acepta mensajes de
+  hasta 1.000 caracteres.
+- Detrás de un proxy inverso, declara su IP en `TRUSTED_PROXIES` (separadas por coma): solo de esas
+  IP se acepta `X-Forwarded-For`/`X-Forwarded-Proto`.
 
 ### WhatsApp con Kapso
 
