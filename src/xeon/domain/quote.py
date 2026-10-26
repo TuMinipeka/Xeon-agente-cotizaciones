@@ -139,6 +139,7 @@ def build_draft_quote(
     tenant_id: str,
     request_id: str,
     quote_id: UUID | None = None,
+    version: int = INITIAL_QUOTE_VERSION,
     notes: str = "Datos sinteticos de Ferreteria Demo XEON. No atribuir a una empresa real.",
 ) -> Quote:
     if not lines:
@@ -161,7 +162,7 @@ def build_draft_quote(
         id=quote_id or uuid4(),
         tenant_id=tenant_id,
         request_id=request_id,
-        version=INITIAL_QUOTE_VERSION,
+        version=version,
         status=QuoteStatus.DRAFT,
         currency=currency or DEFAULT_CURRENCY,
         lines=lines,

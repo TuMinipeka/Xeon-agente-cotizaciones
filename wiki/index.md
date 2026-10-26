@@ -37,6 +37,8 @@ En la bóveda de la raíz del repositorio también se colorean `docs/` (verde az
 - [XEON CLI](pages/xeon-cli.md) — shell interactivo `xeon`: comandos, alias, diseño neón y criterios.
 - [Evaluación conversacional](pages/evaluacion-conversacional.md) — cliente simulado, oráculo, checks deterministas y regresiones (contrato).
 - [Video HITO #2](pages/video-hito2.md) — decisiones, evidencia de herramientas, guion y reparto del video demostrativo.
+- [Reporte QA de Conde](pages/qa-conde-2026-10-24.md) — 23 fallos conversacionales, 4 causas raíz y su estado de corrección.
+- [Conector de la ferretería](pages/conector-ferreteria.md) — conectar XEON a la base de datos de cualquier ferretería (D13).
 - [Auditoría 2026-10-24](pages/auditoria-2026-10-24.md) — comportamiento real confirmado, defectos E1–E6, incompleto, hipótesis y riesgos.
 - [Contratos de herramientas](pages/contratos-herramientas.md) — `search_products`, `get_stock_by_branches`, `create_quote_draft`.
 

@@ -289,3 +289,23 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Auditoría del orquestador:** barrido de claves y rutas de `secrets/` sobre la salida con 0 coincidencias; `explain` y `query` funcionan; avance rápido a `developer/daniel`.
 - **Nueva página:** [grafo del proyecto](pages/grafo-proyecto.md), con la clasificación de qué herramienta usar. `AGENTS.md` incluye ahora la sección «Navegar el proyecto sin leer cada archivo».
 - **Inbox:** se integró y retiró la nota `codex-graphify`.
+
+## [2026-10-26] decisión | Reporte QA de Conde, RAG (D12) y conector de la ferretería (D13)
+
+- **Ramas:** `origin/develop` y `origin/QA/testing` se fusionaron en `developer/daniel` (`3c56547`). El reporte se movió a `docs/qa/` (`da20d43`).
+- **Diagnóstico:** los 23 fallos salen de 4 causas raíz. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
+- **Decisiones:** [D12 y D13](pages/decisiones-pendientes.md). XEON es un agente con herramientas; el RAG será solo una herramienta de búsqueda y conocimiento; el conector será declarativo con SQLAlchemy.
+- **Delegación:** Codex hace la fase 1 en `fix/qa-conde-cart` y agy los escenarios S15–S20.
+
+## [2026-10-26] auditoría | Fase 1 de las correcciones de QA de Conde
+
+- **Codex:** seis commits, de `d29c45a` a `8503a15`. Carrito versionado, intérprete de intenciones, ejecutor comercial, formato para WhatsApp y flujo único.
+- **agy:** escenarios S15–S20 y 5 checks nuevos (`aaca88f`).
+- **Auditoría:** B1, el evaluador probaba el flujo viejo (corregido); A1, el oráculo agregaba productos en código (enviado a agy).
+- **Resultado:** S01–S20 dan 60/60 offline. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
+- **Inbox:** se integraron las notas `codex-qa-conde` y `agy-qa-conde-evals`. La de agy sigue abierta hasta cerrar A1.
+
+## [2026-10-26] corrección | Modelo de agy y precisión de D12
+
+- **agy:** pasa de Gemini 4 Argon a **Gemini 3.8 Flash con razonamiento medio** (decisión del usuario). Se añadió en [orquestación](pages/orquestacion.md) una guía para asignarle tareas según su nivel de razonamiento.
+- **D12:** se corrigió la afirmación «XEON no es un RAG». XEON tiene un RAG estructurado (recupera del catálogo y aumenta el prompt) dentro de un agente con herramientas. La decisión no cambia: no se convierte en un RAG de texto puro.

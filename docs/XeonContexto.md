@@ -57,7 +57,9 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 - Catálogo sintético en memoria con unidades, alias, `specs` y búsqueda lexical; `JSONB` y RAG vectorial con `pgvector` están planeados.
 - Inventario por sucursal/bodega con clasificación de vigencia (`fresh`, `stale`, `unknown`) y tipo (`local`, `transfer`, `delivery`).
 - Precios y borradores calculados en el backend con `Decimal`; la política de descuentos y la logística empresarial están planeadas.
-- Borrador de cotización (`DRAFT`) versión 1; revisión humana, versionado de aprobaciones y generación de PDF planeados.
+- Borrador de cotización (`DRAFT`) versión 1 por la API directa; el flujo conversacional
+  versiona revisiones del carrito en memoria. Revisión humana, versionado de aprobaciones
+  y generación de PDF siguen planeados.
 - Operación interna por CLI (`Typer`), sin exigir un frontend pesado.
 - Datos sintéticos verificados antes de conectar un ERP real.
 

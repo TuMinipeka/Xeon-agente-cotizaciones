@@ -1,0 +1,6 @@
+# Complete only with policies approved by the tenant. Null means unverified.
+pagos: null
+recogida: null
+domicilio: null
+horarios: null
+facturacion: null

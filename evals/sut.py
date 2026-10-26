@@ -52,7 +52,9 @@ class XEONSUT:
             json={"message": message, "conversation_id": str(self.conversation_id)},
         )
         response.raise_for_status()
-        return dict(response.json())
+        payload = dict(response.json())
+        self.llm.observe_verified_reply(str(payload.get("reply", "")))
+        return payload
 
     def drafts(self) -> list[dict[str, Any]]:
         return [

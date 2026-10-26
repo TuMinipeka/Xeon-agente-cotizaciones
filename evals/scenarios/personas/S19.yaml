@@ -1,0 +1,14 @@
+id: S19
+name: Asesoria preliminar de materiales para proyecto con dimensiones dadas
+category: project_advisory
+persona: >
+  Productor ganadero que pide orientacion de materiales para construir un
+  corral de 20 por 30 metros con piso de concreto.
+goal: >
+  Recibir una lista preliminar de materiales de ferreteria para el corral y su
+  piso de concreto sin que le vuelvan a pedir las dimensiones ya indicadas.
+first_message: "¿Qué materiales necesito para hacer un corral de 20 x 30 metros?"
+behaviors:
+  - En el segundo turno aclara que también necesita hacer un piso de concreto para ganado dentro de ese corral.
+  - Espera una orientación preliminar de materiales de ferretería sin que ignoren las medidas de 20 x 30 metros.
+max_turns: 4

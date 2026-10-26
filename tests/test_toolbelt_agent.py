@@ -26,10 +26,14 @@ def test_injected_clock_controls_stock_freshness() -> None:
     settings = Settings(llm_provider="mock", _env_file=None)
     fresh = build_container(settings, clock=lambda: datetime(2026, 10, 8, 15, 0, tzinfo=UTC))
     stale = build_container(settings, clock=lambda: datetime(2026, 10, 24, 15, 0, tzinfo=UTC))
-    fresh_context, _, _, _ = fresh.commercial_tools.prepare_verified_context("10 bultos de cemento")
-    stale_context, _, _, _ = stale.commercial_tools.prepare_verified_context("10 bultos de cemento")
-    assert fresh_context is not None and "vigencia=fresh" in fresh_context
-    assert stale_context is not None and "vigencia=stale" in stale_context
+    fresh_reply = asyncio.run(
+        fresh.agent.respond("hay 10 bultos de cemento en sede norte?", conversation_key="fresh")
+    )
+    stale_reply = asyncio.run(
+        stale.agent.respond("hay 10 bultos de cemento en sede norte?", conversation_key="stale")
+    )
+    assert "vigencia=fresh" in fresh_reply.text
+    assert "vigencia=stale" in stale_reply.text
 
 
 def test_quote_failure_is_visible_without_exception_details(
@@ -41,9 +45,9 @@ def test_quote_failure_is_visible_without_exception_details(
         raise RuntimeError("private detail")
 
     monkeypatch.setattr(container.create_quote_draft, "execute", fail)
-    context, _, _, _ = container.commercial_tools.prepare_verified_context("10 bultos de cemento")
-    assert context is not None and "status=quote_unavailable" in context
-    assert "private detail" not in context
+    reply = asyncio.run(container.agent.respond("10 bultos de cemento", conversation_key="error"))
+    assert "No pude actualizar el borrador" in reply.text
+    assert "private detail" not in reply.text
 
 
 def test_commercial_search_resolves_semantic_and_specs_queries_with_db_prices() -> None:
@@ -156,4 +160,4 @@ def test_chat_endpoint_surfaces_verified_candidates() -> None:
     assert response.status_code == 200
     reply = response.json()["reply"]
     assert "CEM-50" in reply
-    assert "28900.00" in reply
+    assert "28900.00" not in reply  # An unchosen candidate has no quoted price.

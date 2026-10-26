@@ -13,10 +13,25 @@ class PendingCandidates:
     names: tuple[str, ...]
     quantity: Decimal | None
     branch: str
+    attributes: tuple[dict[str, str], ...] = ()
+    question: str = ""
 
 
 @dataclass(frozen=True, slots=True)
-class ResolvedLine:
+class ProjectContext:
+    length_m: Decimal | None = None
+    width_m: Decimal | None = None
+    purpose: str | None = None
+
+    @property
+    def area_m2(self) -> Decimal | None:
+        if self.length_m is None or self.width_m is None:
+            return None
+        return self.length_m * self.width_m
+
+
+@dataclass(frozen=True, slots=True)
+class ProposedLine:
     sku: str
     quantity: Decimal
 
@@ -30,16 +45,14 @@ class ConversationMemory(Protocol):
 
     def set_pending_candidates(self, key: str, pending: PendingCandidates | None) -> None: ...
 
-    def commercial_active(self, key: str) -> bool: ...
+    def project_data(self, key: str) -> ProjectContext: ...
 
-    def mark_commercial(self, key: str) -> None: ...
+    def remember_project_data(self, key: str, data: ProjectContext) -> None: ...
 
-    def resolved_lines(self, key: str) -> tuple[ResolvedLine, ...]: ...
+    def proposal_lines(self, key: str) -> tuple[ProposedLine, ...]: ...
 
-    def remember_lines(self, key: str, lines: tuple[ResolvedLine, ...]) -> None: ...
+    def remember_proposal(self, key: str, line: ProposedLine) -> None: ...
 
-    def unresolved_quantity(self, key: str) -> Decimal | None: ...
-
-    def remember_unresolved_quantity(self, key: str, quantity: Decimal) -> None: ...
+    def clear_proposal(self, key: str) -> None: ...
 
     def record(self, key: str, user: str, assistant: str, sku: str | None) -> None: ...

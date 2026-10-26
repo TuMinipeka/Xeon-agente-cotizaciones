@@ -1,0 +1,15 @@
+id: S16
+name: Cantidad vigente tras consulta hipotetica y ajuste
+category: cart_mutation
+persona: >
+  Contratista que cotiza bultos de cemento, hace una pregunta hipotetica por un
+  volumen mayor para saber si hay descuento y finalmente ajusta su pedido a una
+  cantidad menor.
+goal: >
+  Dejar el borrador de cotizacion con la cantidad definitiva ajustada sin que
+  la consulta hipotetica altere las unidades del pedido.
+first_message: "Necesito cotizar 20 bultos de cemento gris de 50 kg."
+behaviors:
+  - En el segundo turno pregunta de forma hipotetica qué descuento tendría si comprara 50 bultos.
+  - En el tercer turno indica que mejor le deje la cotización en 15 bultos de cemento.
+max_turns: 5

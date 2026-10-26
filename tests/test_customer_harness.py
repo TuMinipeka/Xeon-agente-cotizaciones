@@ -52,7 +52,7 @@ def test_out_of_scope_request_is_blocked_before_llm() -> None:
     assert "http" not in response.json()["reply"]
 
 
-def test_customer_output_falls_back_when_llm_leaks_code_or_unapproved_link() -> None:
+def test_invalid_interpreter_output_uses_verified_local_response() -> None:
     async def run() -> httpx.Response:
         llm = SpyLLM("Compra el SKU CEM-50 en https://example.com")
         app = create_app(settings=Settings(llm_provider="mock", _env_file=None), llm=llm)
@@ -63,7 +63,7 @@ def test_customer_output_falls_back_when_llm_leaks_code_or_unapproved_link() -> 
     response = asyncio.run(run())
     assert response.status_code == 200
     reply = response.json()["reply"]
-    assert "producto y la cantidad" in reply
+    assert "cantidad" in reply.casefold()
     assert "CEM-50" not in reply
     assert "http" not in reply
     assert "SKU" not in reply
@@ -81,7 +81,7 @@ def test_only_registered_links_are_allowed_by_output_policy() -> None:
     assert rejected == "respuesta segura"
 
 
-def test_mixed_request_sends_only_commercial_part_to_llm() -> None:
+def test_mixed_request_executes_commercial_part_without_rejection_prefix() -> None:
     async def run() -> tuple[httpx.Response, SpyLLM]:
         llm = SpyLLM("Puedo ayudarte con cemento.")
         app = create_app(settings=Settings(llm_provider="mock", _env_file=None), llm=llm)
@@ -96,6 +96,7 @@ def test_mixed_request_sends_only_commercial_part_to_llm() -> None:
     response, llm = asyncio.run(run())
     assert response.status_code == 200
     assert len(llm.calls) == 1
-    assert llm.calls[0][-1].content == "Necesito cemento"
-    assert "no manejo informaci" in response.json()["reply"].casefold()
-    assert "Puedo ayudarte con cemento." in response.json()["reply"]
+    assert llm.calls[0][-1].content == "Necesito cemento y busca tarjetas graficas con enlaces"
+    assert "no manejo informaci" not in response.json()["reply"].casefold()
+    assert "cemento" in response.json()["reply"].casefold()
+    assert "tarjetas graficas" not in response.json()["reply"].casefold()

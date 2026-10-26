@@ -11,7 +11,6 @@ from uuid import UUID
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 
 from xeon.adapters.channels.kapso import parse_kapso_webhook, verify_kapso_signature
-from xeon.adapters.llm.openai_compatible import LLMProviderError
 from xeon.api.schemas import (
     AvailabilityItemOut,
     ChatRequest,
@@ -31,7 +30,7 @@ from xeon.application.ports.channels import (
     WhatsAppChannelPort,
 )
 from xeon.application.ports.inventory import BranchInventory
-from xeon.application.ports.llm import LLMPort
+from xeon.application.ports.llm import LLMPort, LLMProviderError
 from xeon.application.ports.quotes import QuoteDraftRepository
 from xeon.application.quote_draft import (
     CatalogUnavailable,

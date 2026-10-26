@@ -1,0 +1,15 @@
+id: S18
+name: Cierre comercial con stock en sede, politicas y resumen
+category: closure
+persona: >
+  Comprador que cotiza cemento, valida disponibilidad en sede norte, consulta
+  las opciones de pago y recogida y pide el resumen final de su cotizacion.
+goal: >
+  Verificar stock en sede norte, conocer las opciones comerciales de pago y
+  recogida sin datos inventados y recibir el resumen completo del borrador.
+first_message: "Necesito 10 bultos de cemento gris de 50 kg."
+behaviors:
+  - Pregunta si esos 10 bultos están disponibles en la sede Norte.
+  - Pregunta qué opciones tiene para pagar y recoger el pedido.
+  - Pide que le resuman su cotización actual antes de pasar a validación humana.
+max_turns: 5

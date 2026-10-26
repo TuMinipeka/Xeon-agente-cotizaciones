@@ -211,7 +211,7 @@ def test_shell_run_new_logs_and_config_hide_secrets() -> None:
 def test_tools_command_shows_last_turn_and_new_clears_it() -> None:
     session = _mock_session()
     console, output = _console()
-    lines = iter(["r Necesito 2 bultos de cemento", "tools", "new", "t", "quit"])
+    lines = iter(["r Necesito 2 bultos de cemento en sede norte", "tools", "new", "t", "quit"])
 
     assert (
         run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0

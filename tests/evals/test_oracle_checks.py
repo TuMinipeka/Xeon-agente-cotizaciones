@@ -224,3 +224,201 @@ def test_commercial_turn_cannot_be_scope_blocked() -> None:
         view.user_messages,
     )
     assert run_check({"type": "no_false_scope_block"}, allowed).status == "PASS"
+
+
+def test_oracle_includes_shovel_core_references_from_frozen_fixtures() -> None:
+    """Motivo del evaluador: escenario nuevo S17 (PAL-RED-FIB y PAL-CUA-MAD en catalog.json)."""
+    oracle = Oracle()
+    expected_sha = "868323157c893ccc9cf5b68d10b0586f35040a69cffc27c6d5e0c136c54b08bc"
+    assert oracle.fingerprint == expected_sha
+    assert oracle.unit_price("pala redonda mango de fibra") == Decimal("43700.00")
+    assert oracle.subtotal("pala redonda mango de fibra", "1") == Decimal("43700.00")
+    assert oracle.unit_price("pala cuadrada mango de madera") == Decimal("39800.00")
+
+
+def test_no_out_of_scope_on_commercial_check() -> None:
+    oracle = Oracle()
+    blocked = EvalView(
+        oracle,
+        [{"provider": "local-policy", "reply": "No manejo informacion sobre ese tema."}],
+        [],
+        [],
+        "offline",
+        ["¿También manejan arena y gravilla?"],
+    )
+    assert run_check({"type": "no_out_of_scope_on_commercial"}, blocked).status == "FAIL"
+    clean = EvalView(
+        oracle,
+        [{"provider": "mock", "reply": "El bulto trae 50 kg y validamos el domicilio."}],
+        [],
+        [],
+        "offline",
+        ["¿También manejan arena y gravilla?"],
+    )
+    assert run_check({"type": "no_out_of_scope_on_commercial"}, clean).status == "PASS"
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("Texto plano para WhatsApp: 15 bultos de cemento gris.", "PASS"),
+        ("Cotizacion: **Cemento gris** $28.900", "FAIL"),
+        ("### Opciones de tornillos\n- Tornillo galvanizado", "FAIL"),
+    ],
+)
+def test_no_markdown_check(reply: str, expected: str) -> None:
+    view = EvalView(Oracle(), [{"reply": reply, "provider": "grok"}], [], [], "live", ["consulta"])
+    assert run_check({"type": "no_markdown"}, view).status == expected
+
+
+def test_final_quote_quantity_and_forbidden_hypothetical_quantities() -> None:
+    oracle = Oracle()
+    good_view = EvalView(
+        oracle,
+        [{"reply": "Total $477.200", "provider": "mock"}],
+        [],
+        [
+            {
+                "subtotal": "578000.00",
+                "total": "578000.00",
+                "lines": [{"sku": "CEM-50", "quantity": "20", "line_total": "578000.00"}],
+            },
+            {
+                "subtotal": "477200.00",
+                "total": "477200.00",
+                "lines": [
+                    {"sku": "CEM-50", "quantity": "15", "line_total": "433500.00"},
+                    {"sku": "PAL-RED-FIB", "quantity": "1", "line_total": "43700.00"},
+                ],
+            },
+        ],
+        "offline",
+        ["cemento y pala"],
+    )
+    assert (
+        run_check(
+            {
+                "type": "final_quote_quantity",
+                "product": "cemento",
+                "quantity": "15",
+                "forbidden_quantities": ["50"],
+                "expected_total": "477200.00",
+                "expected_lines": 2,
+            },
+            good_view,
+        ).status
+        == "PASS"
+    )
+    assert (
+        run_check(
+            {
+                "type": "final_quote_quantity",
+                "product": "pala redonda mango de fibra",
+                "quantity": "1",
+                "expected_total": "477200.00",
+                "expected_lines": 2,
+            },
+            good_view,
+        ).status
+        == "PASS"
+    )
+    contaminated_view = EvalView(
+        oracle,
+        [{"reply": "Total $1.445.000", "provider": "mock"}],
+        [],
+        [
+            {
+                "subtotal": "1445000.00",
+                "total": "1445000.00",
+                "lines": [{"sku": "CEM-50", "quantity": "50", "line_total": "1445000.00"}],
+            },
+            {
+                "subtotal": "433500.00",
+                "total": "433500.00",
+                "lines": [{"sku": "CEM-50", "quantity": "15", "line_total": "433500.00"}],
+            },
+        ],
+        "offline",
+        ["50 hipotetico"],
+    )
+    assert (
+        run_check(
+            {
+                "type": "final_quote_quantity",
+                "product": "cemento",
+                "quantity": "15",
+                "forbidden_quantities": ["50"],
+            },
+            contaminated_view,
+        ).status
+        == "FAIL"
+    )
+
+
+def test_preliminary_project_advice_and_no_unverified_compatibility() -> None:
+    oracle = Oracle()
+    good_project = EvalView(
+        oracle,
+        [
+            {
+                "provider": "mock",
+                "reply": (
+                    "Para el corral de 20 x 30 m te comparto una lista preliminar "
+                    "sujeta a validacion tecnica: cemento, malla y alambre."
+                ),
+            }
+        ],
+        [],
+        [],
+        "offline",
+        ["corral de 20 x 30 m"],
+    )
+    assert run_check({"type": "preliminary_project_advice"}, good_project).status == "PASS"
+
+    reasked_project = EvalView(
+        oracle,
+        [
+            {
+                "provider": "mock",
+                "reply": "¿Cuáles son las dimensiones del corral? Lista preliminar.",
+            }
+        ],
+        [],
+        [],
+        "offline",
+        ["corral de 20 x 30 m"],
+    )
+    assert run_check({"type": "preliminary_project_advice"}, reasked_project).status == "FAIL"
+
+    bad_compat = EvalView(
+        oracle,
+        [
+            {
+                "provider": "grok",
+                "reply": "El tornillo galvanizado es ideal para tu motherboard.",
+            }
+        ],
+        [],
+        [],
+        "live",
+        ["tornillos para motherboard"],
+    )
+    assert run_check({"type": "no_unverified_compatibility"}, bad_compat).status == "FAIL"
+
+    safe_compat = EvalView(
+        oracle,
+        [
+            {
+                "provider": "grok",
+                "reply": (
+                    "Solo manejamos tornilleria de construccion; no es compatible "
+                    "para una motherboard sin verificar la rosca M2/M3."
+                ),
+            }
+        ],
+        [],
+        [],
+        "live",
+        ["tornillos para motherboard"],
+    )
+    assert run_check({"type": "no_unverified_compatibility"}, safe_compat).status == "PASS"

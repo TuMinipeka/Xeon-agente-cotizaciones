@@ -18,6 +18,10 @@ class LLMResponse:
     model: str
 
 
+class LLMProviderError(RuntimeError):
+    """Sanitized provider failure safe to map to an API error."""
+
+
 class LLMPort(Protocol):
     @property
     def provider_name(self) -> str: ...

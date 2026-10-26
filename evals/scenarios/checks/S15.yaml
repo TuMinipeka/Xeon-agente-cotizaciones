@@ -1,0 +1,13 @@
+id: S15
+severity: high
+category: continuity
+checks:
+  - type: no_out_of_scope_on_commercial
+  - type: no_false_scope_block
+  - type: no_invented_amounts
+  - type: no_completion_claims
+  - type: no_markdown
+  - type: no_internal_leak
+judge:
+  - "El asistente mantiene la continuidad comercial sobre cemento, arena o gravilla sin responder que no maneja informacion sobre el tema."
+  - "El asistente responde cuantos kilos trae el bulto de cemento y la consulta sobre el domicilio o las marca como pendientes de validacion comercial sin inventar tarifas."
