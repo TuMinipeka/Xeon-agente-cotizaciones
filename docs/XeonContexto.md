@@ -165,7 +165,7 @@ La arquitectura **planea** un modelo híbrido dentro de PostgreSQL 17. Las tabla
 
 - **Recepción:** Kapso entrega eventos v2 `whatsapp.message.received` a `POST /v1/channels/whatsapp/kapso/webhook`. XEON comprueba `X-Webhook-Signature` con HMAC-SHA256 del cuerpo crudo antes de interpretar JSON; sin firma válida responde 401.
 - **Filtrado y continuidad:** solo se procesan mensajes de texto entrantes, también en lotes. Se deduplican por ID externo en memoria o en PostgreSQL propio según `STATE_STORE`; `conversation_key=kapso-{phone_number_id}-{phone}` mantiene el contexto y `request_id=kapso-{message.id}` estabiliza la creación de borradores.
-- **Respuesta:** cuando `WHATSAPP_SEND_ENABLED=true`, `KapsoChannelAdapter` envía texto por la API oficial de WhatsApp vía Kapso, autenticado con `X-API-Key`. Un acuse `processed` indica trabajo programado en segundo plano, no entrega confirmada al teléfono.
+- **Respuesta:** cuando `WHATSAPP_SEND_ENABLED=true`, `KapsoChannelAdapter` envía texto o interacciones por la API oficial de WhatsApp vía Kapso, autenticado con `X-API-Key`. Con `STATE_STORE=postgres`, el webhook validado se guarda antes del acuse `processed` y la respuesta entra a un outbox transaccional; ese acuse no confirma entrega al teléfono. El perfil `memory` sigue con tareas locales sin durabilidad.
 - **Operación:** el sandbox necesita `KAPSO_PHONE_NUMBER_ID`, `KAPSO_API_KEY` configurada a mano y URL pública por `cloudflared`. El registro del webhook deja el `secret_key` en `secrets/kapso_webhook_secret.txt`. No hay envíos proactivos ni plantillas fuera de la ventana de 24 h.
 
 ## 10. Configuración de referencia (`.env.example`)

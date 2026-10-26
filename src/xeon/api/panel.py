@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hmac
 import secrets
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from html import escape
@@ -28,6 +29,7 @@ from xeon.application.container import AppContainer
 from xeon.application.ports.advisor import AdvisorEvent, AttentionStatus
 from xeon.application.ports.channels import ChannelDeliveryError
 from xeon.application.quote_document import build_quote_pdf_document, quote_number
+from xeon.application.reply import Reply
 from xeon.domain.quote import QuoteStatus
 
 SESSION_COOKIE = "xeon_panel_session"
@@ -104,7 +106,31 @@ def build_panel_router(container: AppContainer) -> APIRouter:
         window_seconds=settings.advisor_panel_lockout_minutes * 60,
     )
     inbox = container.advisor_inbox
-    review = AdvisorReview(inbox, container.quotes) if inbox is not None else None
+
+    def enqueue_decision(event: AdvisorEvent, message: str) -> None:
+        if container.outbound_queue is None:
+            return
+        phone = phone_from_key(event.conversation_key)
+        if phone is None:
+            if inbox is not None:
+                inbox.save(replace(event, client_notified=False))
+            return
+        container.outbound_queue.put(
+            key=f"advisor:{event.id}:decision",
+            recipient_number=phone,
+            reply=Reply(message),
+            advisor_event_id=event.id,
+        )
+
+    review = (
+        AdvisorReview(
+            inbox,
+            container.quotes,
+            on_decision=enqueue_decision if container.outbound_queue is not None else None,
+        )
+        if inbox is not None
+        else None
+    )
 
     def secure_cookie(request: Request) -> bool:
         return settings.app_env == "production" or is_secure_request(request, trusted)
@@ -396,7 +422,7 @@ def build_panel_router(container: AppContainer) -> APIRouter:
                 ),
                 status=409,
             )
-        if outcome.client_message is not None:
+        if outcome.client_message is not None and container.outbound_queue is None:
             phone = phone_from_key(outcome.event.conversation_key)
             delivered = False
             if phone is not None and container.whatsapp_channel is not None:

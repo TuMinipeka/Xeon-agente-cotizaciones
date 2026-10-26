@@ -146,13 +146,16 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
 - `POST /v1/channels/whatsapp/kapso/webhook` comprueba HMAC-SHA256 del cuerpo crudo antes de
   interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto o respuesta interactiva,
   incluidos lotes;
-  deduplica IDs en memoria o PostgreSQL propio y programa el turno comercial y el envio en segundo plano.
-  El acuse `processed` significa que se programo el trabajo, no que WhatsApp entrego el mensaje.
+  deduplica IDs en memoria o PostgreSQL propio. En PostgreSQL, la migracion `0003_kapso_outbox`
+  guarda el evento validado antes del acuse y un trabajador procesa el turno y entrega la respuesta.
+  El acuse `processed` significa persistencia local, no entrega al telefono.
 - `KapsoChannelAdapter` envia texto o `interactive` (botones/listas) a la API oficial de WhatsApp via Kapso Meta proxy con
   `X-API-Key`. El webhook requiere secreto configurado; no se admiten mensajes proactivos ni
   plantillas fuera de la ventana de 24 h.
-- La deduplicacion usa memoria local o una clave unica en PostgreSQL propio. El trabajo de fondo sigue local al proceso; cola durable,
-  observabilidad de entregas y prueba de carga quedan pendientes. El usuario confirmo un ensayo
+- La deduplicacion usa memoria local o una clave unica en PostgreSQL propio. La cola durable de
+  entrada y salida existe en el perfil PostgreSQL; un trabajador puede correr dentro de la API o
+  aparte. La entrega es al menos una vez, porque Kapso no documenta idempotencia de envio.
+  Observabilidad operativa de entregas y prueba de carga quedan pendientes. El usuario confirmo un ensayo
   real en el sandbox con respuesta comercial por WhatsApp; eso no prueba entrega general.
 - El procesamiento usa `conversation_key=kapso-{phone_number_id}-{phone}` y
   `request_id=kapso-{message.id}`; el repositorio de borradores conserva la idempotencia por

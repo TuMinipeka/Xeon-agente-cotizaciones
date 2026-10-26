@@ -385,7 +385,7 @@ def test_policy_questions_keep_step_and_options_and_use_tenant_yaml(tmp_path: Pa
 
 @pytest.mark.parametrize(
     ("command", "expected_step"),
-    [("global:cancel", "cancelado"), ("asesor", "asesor")],
+    [("global:cancel", "cancelado"), ("asesor", "asesor"), ("reiniciar", "inicio")],
 )
 def test_global_text_commands_work_without_occupying_quantity_buttons(
     command: str, expected_step: str
@@ -467,6 +467,115 @@ def test_s19_whole_surface_answer_is_not_reasked() -> None:
             assert "¿Se trabajará toda la superficie" not in reply.text
             repeat = await container.agent.respond_reply("toda la superficie", conversation_key=key)
             assert "¿Se trabajará toda la superficie" not in repeat.text
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_new_quote_after_confirmed_resets_funnel_and_empties_cart_keeping_draft() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "guided-reset-confirmed"
+        try:
+            path = (
+                ("start:products", "producto"),
+                ("cemento gris 50kg", "producto"),
+                ("product:CEM-50", "cantidad"),
+                ("quantity:10", "mas"),
+                ("more:view", "entrega"),
+                ("delivery:pickup", "sede"),
+                ("branch:sede-norte", "pago"),
+                ("payment:0", "resumen"),
+                ("summary:confirm", "confirmado"),
+            )
+            for message, expected_step in path:
+                reply = await container.agent.respond_reply(message, conversation_key=key)
+                assert reply.step == expected_step
+
+            # Borrador confirmado registrado en repositorio
+            confirmed = [
+                q
+                for q in container.quotes._quotes.values()  # type: ignore[attr-defined]
+                if q.status is QuoteStatus.CONFIRMADO_POR_CLIENTE
+            ]
+            assert len(confirmed) == 1
+            quote_id = confirmed[0].id
+
+            # Mensaje nuevo ("hola") inicia conversacion nueva en inicio
+            reply_after = await container.agent.respond_reply("hola", conversation_key=key)
+            assert reply_after.step == "inicio"
+            assert reply_after.options[0].id == "start:products"
+
+            # El carrito de la conversacion queda vacio
+            cart = container.carts.get(key)
+            assert cart is None or cart.lines == ()
+
+            # El borrador confirmado previo sigue intacto en el repositorio
+            quote_after = container.quotes.get(quote_id)
+            assert quote_after is not None
+            assert quote_after.status is QuoteStatus.CONFIRMADO_POR_CLIENTE
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_cancel_empties_cart() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "guided-cancel-empty-cart"
+        try:
+            await container.agent.respond_reply("start:products", conversation_key=key)
+            await container.agent.respond_reply("cemento gris 50kg", conversation_key=key)
+            await container.agent.respond_reply("product:CEM-50", conversation_key=key)
+            amount_reply = await container.agent.respond_reply("quantity:10", conversation_key=key)
+            assert amount_reply.step == "mas"
+
+            cart_before = container.carts.get(key)
+            assert cart_before is not None and len(cart_before.lines) > 0
+
+            # Cancelar desde cualquier paso vacia el carrito ademas de pasar a cancelado
+            cancel_reply = await container.agent.respond_reply(
+                "global:cancel", conversation_key=key
+            )
+            assert cancel_reply.step == "cancelado"
+
+            cart_after = container.carts.get(key)
+            assert cart_after is None or cart_after.lines == ()
+
+            # Desde cancelado, un mensaje nuevo reinicia en inicio
+            restart_reply = await container.agent.respond_reply(
+                "nueva cotizacion", conversation_key=key
+            )
+            assert restart_reply.step == "inicio"
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_restart_mid_flow_returns_to_inicio_with_empty_cart() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "guided-restart-mid-flow"
+        try:
+            await container.agent.respond_reply("start:products", conversation_key=key)
+            await container.agent.respond_reply("cemento gris 50kg", conversation_key=key)
+            await container.agent.respond_reply("product:CEM-50", conversation_key=key)
+            amount_reply = await container.agent.respond_reply("quantity:10", conversation_key=key)
+            assert amount_reply.step == "mas"
+
+            cart_before = container.carts.get(key)
+            assert cart_before is not None and len(cart_before.lines) > 0
+
+            # Reiniciar a mitad del flujo vacia el carrito y vuelve a inicio
+            restart_reply = await container.agent.respond_reply("reiniciar", conversation_key=key)
+            assert restart_reply.step == "inicio"
+            assert restart_reply.options[0].id == "start:products"
+
+            cart_after = container.carts.get(key)
+            assert cart_after is None or cart_after.lines == ()
         finally:
             await container.aclose()
 

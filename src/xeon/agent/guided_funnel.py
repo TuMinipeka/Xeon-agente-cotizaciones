@@ -95,6 +95,16 @@ class GuidedFunnel:
         self._states.save(key, state)
         return state
 
+    def _clear_cart(self, key: str) -> None:
+        cart = self._carts.get(key)
+        if cart is not None:
+            self._carts.save(cart.clear())
+
+    def _reset_to_start(self, key: str) -> Reply:
+        self._clear_cart(key)
+        self._save(key, FunnelState(step="inicio"))
+        return self.render(key)
+
     def _cart(self, key: str) -> str:
         return self._executor.execute(
             IntentBatch(intents=(Intent(kind=IntentKind.VER_RESUMEN_TOTAL),)),
@@ -448,10 +458,17 @@ class GuidedFunnel:
             ]
             if len(matching) == 1:
                 option_id = matching[0].id
+        clean_raw = _normalized(raw).strip(" !.?¿¡")
         if raw == "global:cancel":
+            self._clear_cart(key)
             self._save(key, replace(state, step="cancelado"))
             return self.render(key)
-        if _normalized(raw) in {"asesor", "hablar con asesor"} or raw == "global:advisor":
+        if (
+            clean_raw in {"reiniciar", "reinicia", "nueva cotizacion", "empezar de nuevo"}
+            or raw == "global:restart"
+        ):
+            return self._reset_to_start(key)
+        if clean_raw in {"asesor", "hablar con asesor"} or raw == "global:advisor":
             self._notifier.notify(
                 tenant_id=self._tenant_id, event="advisor_requested", conversation_key=key
             )
@@ -462,7 +479,7 @@ class GuidedFunnel:
                 return self.render(key, prefix="Solo puedo ayudarte con tu cotización.\n")
             raw = option_id
         if state.step in {"confirmado", "cancelado", "asesor"}:
-            return self.render(key)
+            return self._reset_to_start(key)
         normalized_message = _normalized(message)
         if (
             option_id is None

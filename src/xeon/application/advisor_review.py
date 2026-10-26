@@ -39,10 +39,12 @@ class AdvisorReview:
         quotes: QuoteDraftRepository,
         *,
         clock: Callable[[], datetime] | None = None,
+        on_decision: Callable[[AdvisorEvent, str], None] | None = None,
     ) -> None:
         self._inbox = inbox
         self._quotes = quotes
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._on_decision = on_decision
 
     def _pending(self, event_id: UUID) -> AdvisorEvent:
         event = self._inbox.get(event_id)
@@ -99,6 +101,8 @@ class AdvisorReview:
                     reason=reason,
                 )
             )
+            if self._on_decision is not None:
+                self._on_decision(saved, APPROVED_TEXT if approved else REJECTED_TEXT)
         return ReviewOutcome(saved, APPROVED_TEXT if approved else REJECTED_TEXT)
 
     def mark_client_notified(self, event_id: UUID, *, delivered: bool) -> AdvisorEvent:

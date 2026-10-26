@@ -21,6 +21,14 @@ Las versiones salen de PyPI y de los README consultados el 2026-10-26; los preci
 
 ### A. Persistencia del estado operativo en un PostgreSQL propio de XEON
 
+- **Estado (2026-10-26): implementado** (`f234e89`, `60a0974`, `2917ec4`, `dd65283`, `9e06c6b`; merge `4dc5945`; ver [persistencia](../../docs/PERSISTENCIA.md)). Hecho:
+  - `STATE_STORE=memory|postgres` (memoria como predeterminado); la URL de escritura de PostgreSQL 17 se lee solo desde `XEON_STATE_URL_FILE` en `secrets/` (separada de `SQL_URL_FILE` del conector D13).
+  - Migraciones Alembic `0001_operational_state` (cinco tablas, embudo, carrito versionado, memoria y deduplicación de webhooks con JSONB versionado) y `0002_advisor_inbox` (bandeja del asesor en PostgreSQL con índice único por conversación, tipo y borrador).
+  - Idempotencia entre workers ante webhooks duplicados (`(tenant_id, instance, message_id)`); aislamiento estricto por tenant mediante claves prefijadas y columna `tenant_id`.
+  - Concurrencia atómica: transacción serializada por conversación en el embudo, rechazo de escrituras con versión obsoleta ante carreras de carrito y orden atómico de bloqueos en carreras de revisión (`review_transaction`).
+  - Bandeja del asesor compartida en PostgreSQL (`PostgresAdvisorInbox`), mientras las sesiones del panel permanecen en memoria con expiración y huella HMAC (requiere afinidad de sesión con múltiples workers).
+  - **Límites conocidos (fieles al corte):** retención **POR DEFINIR** por el usuario (sin TTL ni limpieza automática); sin cifrado en reposo ni backup de producción; sin outbox de envío ante caídas entre Kapso y el commit (en curso por Codex); sin cola durable para webhooks en tareas de fondo (en curso).
+
 - **Problema:** perder embudo, carrito y borradores en cada reinicio; doble respuesta si dos workers reciben el mismo `message.id`.
 - **Diseño hexagonal:**
   - Puertos que ya existen: `CartRepository`, `QuoteDraftRepository`, `ConversationMemory`. Se añaden `FunnelStateStore` (estado por conversación), `ProcessedEventStore` (deduplicación por `message.id` con `INSERT … ON CONFLICT DO NOTHING`) y `AdvisorOutbox` (ver B).
@@ -39,7 +47,7 @@ Las versiones salen de PyPI y de los README consultados el 2026-10-26; los preci
 
 ### B. Notificación real al asesor, aprobación humana y PDF
 
-- **Estado (2026-10-26): implementado parcialmente** (Sonnet, `cedb9d9` y `9b38e86`, merge `f2097ae`; ver [panel del asesor](../../docs/PANEL_ASESOR.md)). Hecho: panel web `/panel` autenticado, revisión humana `APPROVED_FOR_BILLING` / `RECHAZADO_POR_ASESOR` y aviso al cliente por Kapso con plantilla. Pendiente: PDF, roles, persistencia de la bandeja y las sesiones, y verificar el aviso en el sandbox de Kapso.
+- **Estado (2026-10-26): implementado** (panel, revisión humana y PDF; Sonnet, merges `f2097ae` y `f61ec87`; ver [panel del asesor](../../docs/PANEL_ASESOR.md)). Hecho: panel web `/panel` autenticado, revisión humana `APPROVED_FOR_BILLING` / `RECHAZADO_POR_ASESOR`, aviso al cliente por Kapso con plantilla fija y descarga de PDF del borrador (`GET /panel/quotes/{id}/pdf`) con ReportLab 5.1.0 (`COT-XXXXXXXX`, sin teléfono del cliente). Pendiente: roles y sesiones distribuidas (bandeja persistente implementada en A con `0002_advisor_inbox`).
 
 - **Problema:** hoy `CONFIRMADO_POR_CLIENTE` solo escribe un log; nadie se entera. Faltan los estados humanos `PENDING_APPROVAL → APPROVED_FOR_BILLING` y un documento para el cliente.
 - **Diseño hexagonal:**

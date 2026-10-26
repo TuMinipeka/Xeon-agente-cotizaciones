@@ -18,8 +18,12 @@ from xeon.application.reply import Reply
 def verify_kapso_signature(raw_body: bytes, signature: str | None, secret: str) -> bool:
     if not signature or len(signature) != 64:
         return False
-    expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature.lower())
+    try:
+        supplied = bytes.fromhex(signature)
+    except ValueError:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).digest()
+    return hmac.compare_digest(expected, supplied)
 
 
 def parse_kapso_webhook(
@@ -154,7 +158,8 @@ class KapsoChannelAdapter:
             body = response.json()
         except httpx.HTTPStatusError as exc:
             raise ChannelDeliveryError(
-                f"Kapso respondio con HTTP {exc.response.status_code}."
+                f"Kapso respondio con HTTP {exc.response.status_code}.",
+                status_code=exc.response.status_code,
             ) from exc
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             raise ChannelDeliveryError(

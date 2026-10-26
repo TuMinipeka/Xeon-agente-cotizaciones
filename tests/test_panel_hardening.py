@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import time
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -166,10 +167,13 @@ def test_panel_refuses_plain_http_from_remote_peers(tmp_path: Path) -> None:
     hardened = _settings(
         tmp_path,
         app_env="production",
+        state_store="postgres",
         xeon_api_auth_disabled=False,
         xeon_api_key_file=_key_file(tmp_path),
     )
-    production = _client(hardened, peer="127.0.0.1").get("/panel/login")
+    base = build_container(_settings(tmp_path))  # production needs PostgreSQL: swap settings only
+    app = create_app(container=replace(base, settings=hardened))
+    production = TestClient(app, client=("127.0.0.1", 5000)).get("/panel/login")
     assert "secure" in production.headers["set-cookie"].lower()
 
 

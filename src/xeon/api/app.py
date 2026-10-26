@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import time
 from collections import OrderedDict
 from collections.abc import AsyncIterator
@@ -32,6 +34,7 @@ from xeon.api.security import (
     trusted_hosts,
 )
 from xeon.application.container import AppContainer, build_container
+from xeon.application.delivery_worker import DeliveryWorker
 from xeon.application.observability import metric_context, record_stage
 from xeon.application.ports.catalog import ProductCatalog
 from xeon.application.ports.channels import (
@@ -62,6 +65,9 @@ from xeon.domain.quote import EmptyQuoteError, InvalidQuantityError, Quote
 _MAX_SEEN_WEBHOOK_IDS = 1024
 # Ids the funnel and the WhatsApp channel derive themselves; the public API may not claim them.
 RESERVED_REQUEST_PREFIXES = ("xeon-", "kapso-")
+_MAX_WEBHOOK_BODY_BYTES = 1_048_576
+_MAX_WEBHOOK_EVENTS = 100
+_LOG = logging.getLogger(__name__)
 
 
 def _quote_out(quote: Quote, *, replayed: bool = False) -> QuoteDraftOut:
@@ -145,6 +151,8 @@ def create_app(
         llm=llm,
         whatsapp_channel=whatsapp_channel,
     )
+    if runtime.settings.app_env == "production" and runtime.settings.state_store != "postgres":
+        raise SettingsError("APP_ENV=production requiere STATE_STORE=postgres.")
     seen_kapso_messages: OrderedDict[tuple[str, str], None] = OrderedDict()
     # /v1/* (except the HMAC-signed webhook) needs the API key; production needs one to start.
     api_auth = build_api_auth(runtime.settings)
@@ -154,11 +162,38 @@ def create_app(
     conversation_limiter = SlidingWindowLimiter(
         limit=runtime.settings.chat_rate_limit_conversation_per_minute
     )
+    worker = (
+        DeliveryWorker(
+            inbound=runtime.inbound_queue,
+            outbound=runtime.outbound_queue,
+            state=runtime.state_unit,
+            processed=runtime.processed_events,
+            agent=runtime.agent,
+            channel=runtime.whatsapp_channel,
+            poll_seconds=runtime.settings.delivery_poll_seconds,
+        )
+        if runtime.inbound_queue is not None
+        and runtime.outbound_queue is not None
+        and runtime.state_unit is not None
+        and runtime.processed_events is not None
+        else None
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        yield
-        await runtime.aclose()
+        stop = asyncio.Event()
+        task = (
+            asyncio.create_task(worker.run_forever(stop))
+            if worker is not None and runtime.settings.delivery_worker_enabled
+            else None
+        )
+        try:
+            yield
+        finally:
+            stop.set()
+            if task is not None:
+                await task
+            await runtime.aclose()
 
     application = FastAPI(
         title="XEON API",
@@ -222,27 +257,13 @@ def create_app(
                         record_stage(runtime.metrics, "envio_kapso", sent_at)
 
         try:
-            if runtime.state_unit is not None and runtime.processed_events is not None:
-                async with runtime.state_unit.conversation(key):
-                    if not runtime.processed_events.claim(
-                        incoming.instance, incoming.external_message_id
-                    ):
-                        return
-                    reply = await runtime.agent.respond_reply(
-                        incoming.text,
-                        conversation_key=key,
-                        request_id=f"kapso-{incoming.external_message_id}",
-                        option_id=incoming.option_id,
-                    )
-                    await send(reply)
-            else:
-                reply = await runtime.agent.respond_reply(
-                    incoming.text,
-                    conversation_key=key,
-                    request_id=f"kapso-{incoming.external_message_id}",
-                    option_id=incoming.option_id,
-                )
-                await send(reply)
+            reply = await runtime.agent.respond_reply(
+                incoming.text,
+                conversation_key=key,
+                request_id=f"kapso-{incoming.external_message_id}",
+                option_id=incoming.option_id,
+            )
+            await send(reply)
         except LLMProviderError, ChannelDeliveryError:
             # The signed webhook was accepted; provider errors cannot be returned after the ack.
             seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)
@@ -254,7 +275,21 @@ def create_app(
         signature = request.headers.get("X-Webhook-Signature")
         if signature is None:
             raise HTTPException(status_code=401, detail="Firma de webhook invalida.")
-        raw_body = await request.body()
+        content_length = request.headers.get("Content-Length")
+        if content_length is not None:
+            try:
+                if int(content_length) > _MAX_WEBHOOK_BODY_BYTES:
+                    raise HTTPException(status_code=413, detail="Webhook demasiado grande.")
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="Content-Length invalido.") from exc
+        chunks: list[bytes] = []
+        body_size = 0
+        async for chunk in request.stream():
+            body_size += len(chunk)
+            if body_size > _MAX_WEBHOOK_BODY_BYTES:
+                raise HTTPException(status_code=413, detail="Webhook demasiado grande.")
+            chunks.append(chunk)
+        raw_body = b"".join(chunks)
         try:
             secret = runtime.settings.require_kapso_webhook_secret().get_secret_value()
         except SettingsError as exc:
@@ -267,15 +302,37 @@ def create_app(
             payload = json.loads(raw_body)
         except (ValueError, UnicodeDecodeError) as exc:
             raise HTTPException(status_code=400, detail="Payload JSON invalido.") from exc
-        events = payload if isinstance(payload, list) else [payload]
+        events = (
+            payload.get("data", [])
+            if isinstance(payload, dict) and payload.get("batch") is True
+            else payload
+            if isinstance(payload, list)
+            else [payload]
+        )
+        if not isinstance(events, list):
+            raise HTTPException(status_code=400, detail="Lote Kapso invalido.")
+        if len(events) > _MAX_WEBHOOK_EVENTS:
+            raise HTTPException(status_code=413, detail="Lote Kapso demasiado grande.")
         accepted = 0
-        for event in events:
+        delivery_key = request.headers.get("X-Idempotency-Key")
+        for index, event in enumerate(events):
             incoming = parse_kapso_webhook(
-                event, idempotency_key=request.headers.get("X-Idempotency-Key")
+                event,
+                idempotency_key=(
+                    f"{delivery_key}:{index}" if delivery_key and len(events) > 1 else delivery_key
+                ),
             )
             if incoming is None:
                 continue
-            if runtime.state_unit is None:
+            configured_phone_id = runtime.settings.kapso_phone_number_id.strip()
+            if configured_phone_id and incoming.instance != configured_phone_id:
+                _LOG.info("Webhook Kapso ignorado: phone_number_id distinto del configurado.")
+                continue
+            if runtime.inbound_queue is not None:
+                if runtime.inbound_queue.put(incoming):
+                    accepted += 1
+                continue
+            else:
                 dedup_key = (incoming.instance, incoming.external_message_id)
                 if dedup_key in seen_kapso_messages:
                     continue
@@ -284,6 +341,8 @@ def create_app(
                     seen_kapso_messages.popitem(last=False)
             background_tasks.add_task(process_kapso_message, incoming)
             accepted += 1
+        if accepted and worker is not None and runtime.settings.delivery_worker_enabled:
+            background_tasks.add_task(worker.drain)
         return {"status": "processed" if accepted else "ignored"}
 
     @application.post("/v1/quotes", response_model=QuoteOutcomeResponse, dependencies=[require_key])

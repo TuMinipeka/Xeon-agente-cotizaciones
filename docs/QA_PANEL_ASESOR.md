@@ -162,6 +162,24 @@ Esta guía detalla los procedimientos de verificación manual para el **panel we
 
 ---
 
+### P9. Descargar PDF del borrador
+
+- **Objetivo:** Validar la generación y descarga segura del documento PDF adjunto desde el detalle de una cotización confirmada por el cliente.
+
+| Paso | Acción del probador | Resultado esperado |
+|---|---|---|
+| 1 | Desde el detalle de un borrador en `CONFIRMADO_POR_CLIENTE` (`/panel/events/{id}`), haga clic en el enlace «Descargar PDF» (o realice `GET /panel/quotes/{quote_id}/pdf`). | El navegador inicia la descarga de un archivo adjunto con cabeceras `Content-Type: application/pdf`, `Content-Disposition: attachment; filename="cotizacion-COT-XXXXXXXX-vN.pdf"` (`COT-` seguido de los primeros 8 caracteres del UUID de la cotización y su versión), `Cache-Control: no-store` y `X-Content-Type-Options: nosniff`. |
+| 2 | Abra el documento PDF descargado y verifique su contenido comercial. | El PDF contiene: datos de la ferretería emisora (`nombre_comercial`, `nit`, `direccion`, `telefono_tienda`), número `COT-XXXXXXXX`, versión, fecha de emisión, estado, tabla detallada de líneas (producto, cantidad con unidad, precio unitario y subtotal), total exacto en COP formateado con `Decimal`, condiciones comerciales (entrega, sede, forma de pago, vigencia e IVA) y la leyenda visible arriba y abajo: «Borrador de cotización — no es factura ni reserva de inventario». |
+| 3 | Inspeccione rigurosamente el documento en busca de datos personales del comprador. | **Invariante de privacidad:** el documento PDF **NO** incluye el teléfono ni número de WhatsApp del cliente. |
+| 4 | Intente descargar el PDF sin haber iniciado sesión (`GET /panel/quotes/{quote_id}/pdf` sin cookie de sesión). | La API responde HTTP 401 («Acceso no autorizado»). |
+| 5 | Intente solicitar el PDF de un borrador que permanezca en estado `DRAFT` (no confirmado por el cliente). | La API responde HTTP 409 con el mensaje «El borrador aún no fue confirmado por el cliente». |
+| 6 | Si el entorno de ejecución no tiene instalado el grupo opcional `pdf` (ReportLab). | La API responde HTTP 503 con el mensaje «PDF no disponible. Instala el grupo pdf.». |
+
+- **Criterio de aprobación:** Descarga exitosa del PDF con nombre `cotizacion-COT-XXXXXXXX-vN.pdf`, totales y líneas exactas, leyenda de advertencia arriba y abajo, sin teléfono del cliente; 401 sin sesión, 409 en `DRAFT` y 503 si falta la dependencia opcional.
+- **Resultado:** `[ ] PASS    [ ] FAIL`
+
+---
+
 ## 3. Plantilla para reporte de defectos del panel del asesor
 
 Si durante la validación manual se detecta alguna anomalía:
@@ -170,8 +188,8 @@ Si durante la validación manual se detecta alguna anomalía:
 ### Defecto de panel: [DEF-PANEL-XXX] <Título breve>
 
 - **Fecha y hora:** AAAA-MM-DD HH:MM
-- **Prueba:** [ ] P1 (Sin sesión) / [ ] P2 (Rate Limit) / [ ] P3 (Bandeja) / [ ] P4 (Detalle) / [ ] P5 (Aprobar) / [ ] P6 (Rechazar) / [ ] P7 (Blindaje chat) / [ ] P8 (CSRF)
-- **URL y método:** (ej. POST /panel/events/123/approve)
+- **Prueba:** [ ] P1 (Sin sesión) / [ ] P2 (Rate Limit) / [ ] P3 (Bandeja) / [ ] P4 (Detalle) / [ ] P5 (Aprobar) / [ ] P6 (Rechazar) / [ ] P7 (Blindaje chat) / [ ] P8 (CSRF) / [ ] P9 (Descargar PDF)
+- **URL y método:** (ej. GET /panel/quotes/123/pdf)
 - **Usuario utilizado:** asesor1
 - **Comportamiento obtenido:**
   `<código HTTP o pantalla obtenida>`

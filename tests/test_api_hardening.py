@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -103,11 +104,19 @@ def test_signed_webhook_does_not_use_the_api_key(tmp_path: Path) -> None:
 
 
 def test_production_refuses_to_start_without_a_key_or_with_auth_disabled(tmp_path: Path) -> None:
+    # Production also demands STATE_STORE=postgres; the container is built in test mode and only
+    # its settings are swapped, so these checks reach the API-key rule without a database.
+    def production(**extra: Any) -> Any:
+        base = build_container(_settings(tmp_path, **extra))
+        prod = _settings(tmp_path, app_env="production", state_store="postgres", **extra)
+        return replace(base, settings=prod)
+
     with pytest.raises(SettingsError, match="requiere la clave"):
-        create_app(_settings(tmp_path, key=None, app_env="production"))
+        create_app(container=production(key=None))
     with pytest.raises(SettingsError, match="no se admite"):
-        create_app(_settings(tmp_path, app_env="production", xeon_api_auth_disabled=True))
-    assert _client(_settings(tmp_path, app_env="production")).get("/health").status_code == 200
+        create_app(container=production(xeon_api_auth_disabled=True))
+    served = TestClient(create_app(container=production()), follow_redirects=False)
+    assert served.get("/health").status_code == 200
 
 
 def test_development_without_key_fails_closed_unless_explicitly_disabled(tmp_path: Path) -> None:
