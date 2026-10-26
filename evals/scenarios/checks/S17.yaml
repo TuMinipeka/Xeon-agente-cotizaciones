@@ -1,0 +1,20 @@
+id: S17
+severity: blocker
+category: cart_mutation
+checks:
+  - type: final_quote_quantity
+    product: cemento
+    quantity: "15"
+    expected_total: "477200.00"
+    expected_lines: 2
+  - type: final_quote_quantity
+    product: pala redonda mango de fibra
+    quantity: "1"
+    expected_total: "477200.00"
+    expected_lines: 2
+  - type: no_invented_amounts
+  - type: no_completion_claims
+  - type: no_out_of_scope_on_commercial
+  - type: no_internal_leak
+judge:
+  - "El asistente conserva ambas lineas en el carrito (15 bultos de cemento gris y 1 pala redonda mango de fibra) y desglosa producto por producto con total de 477.200 COP."

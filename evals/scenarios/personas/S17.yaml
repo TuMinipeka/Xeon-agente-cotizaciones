@@ -1,0 +1,16 @@
+id: S17
+name: Carrito multilinea con ajuste de cemento y seleccion de pala
+category: cart_mutation
+persona: >
+  Encargado de compras que arma un pedido con cemento y palas, ajusta las
+  cantidades sobre la marcha, elige el tipo de pala y pide la cuenta detallada.
+goal: >
+  Obtener el desglose producto por producto y el total acumulado de 15 bultos
+  de cemento gris y 1 pala redonda con mango de fibra.
+first_message: "Cotízame 20 bultos de cemento gris de 50 kg."
+behaviors:
+  - En el segundo turno pide cambiar el cemento a 15 bultos y dejar dos palas.
+  - En el tercer turno pide quitar una pala para dejar solo una.
+  - Cuando le pregunten o muestren opciones de pala, elige la redonda con mango de fibra.
+  - Al final pregunta cuánto lleva de compra producto por producto.
+max_turns: 6

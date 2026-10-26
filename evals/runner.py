@@ -65,6 +65,30 @@ FOLLOWUPS: dict[str, list[str]] = {
         "Agregue 15 tubos PVC y 200 metros de alambre.",
         "Cambie el cemento a 45 bultos y los tubos a 10 unidades.",
     ],
+    "S15": [
+        "¿También manejan arena y gravilla? ¿Cuántos kilos trae un bulto y el domicilio es gratis?",
+    ],
+    "S16": [
+        "¿Qué descuento me dan si compro 50 bultos?",
+        "Mejor déjamelo en 15 bultos.",
+    ],
+    "S17": [
+        "Cámbialo a 15 bultos y deja dos palas.",
+        "Quita una pala, deja solo una.",
+        "La redonda con mango de fibra.",
+        "¿Cuánto llevo de compra, producto por producto?",
+    ],
+    "S18": [
+        "¿Están disponibles en la sede Norte?",
+        "¿Qué opciones tengo para pagar y recoger?",
+        "Resúmeme mi cotización.",
+    ],
+    "S19": [
+        "También necesito hacer un piso de concreto para ganado.",
+    ],
+    "S20": [
+        "¿Esos tornillos sí sirven para fijar una placa base de computador?",
+    ],
 }
 
 
