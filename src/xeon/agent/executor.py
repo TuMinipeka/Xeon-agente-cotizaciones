@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from dataclasses import dataclass, replace
 from decimal import Decimal
 
-from xeon.agent.intent import Intent, IntentBatch, IntentKind
+from xeon.agent.intent import (
+    Intent,
+    IntentBatch,
+    IntentKind,
+    is_absolute_quantity,
+    is_explicit_addition,
+)
 from xeon.agent.toolbelt import (
     CommercialToolbelt,
     _explicit_product_query,
@@ -21,6 +28,7 @@ from xeon.application.ports.catalog import CatalogUnavailableError, ProductCatal
 from xeon.application.ports.conversation_memory import (
     ConversationMemory,
     PendingCandidates,
+    PendingStockQuery,
     ProjectContext,
     ProposedLine,
 )
@@ -91,6 +99,8 @@ class CommercialExecutor:
         pending = self._memory.pending_candidates(key)
         if pending is not None:
             entries.append("opciones_pendientes=" + ",".join(pending.skus))
+        if self._memory.unverified_pc_context(key):
+            entries.append("compatibilidad_pc=no_verificada")
         project = self._memory.project_data(key)
         if project.area_m2 is not None:
             entries.append(f"area_proyecto_m2={project.area_m2}")
@@ -107,6 +117,8 @@ class CommercialExecutor:
         cart = self._carts.get(conversation_key) or QuoteCart(conversation_key)
         if request_id is not None and cart.last_request_id == request_id:
             return ExecutionResult(self._summary(cart))
+        if re.search(r"\btoda\s+la\s+superficie\b", message, re.I):
+            self._memory.remember_project_data(conversation_key, ProjectContext(whole_surface=True))
         initial_quote_version = cart.quote_version
         diagnostics: list[str] = []
         replies: list[str] = []
@@ -146,13 +158,19 @@ class CommercialExecutor:
                             "Puedo revisar esa opción sin cambiar tu cotización vigente."
                         )
                 case IntentKind.ASESORIA_PROYECTO:
-                    self._remember_project(conversation_key, intent)
+                    self._remember_project(conversation_key, intent, message)
                     data = self._memory.project_data(conversation_key)
                     if data.area_m2 is not None:
-                        replies.append(
-                            f"Tengo registrado un proyecto de {_quantity(data.area_m2)} m². "
-                            "¿Se trabajará toda esa superficie o solo una parte?"
-                        )
+                        if data.whole_surface is True:
+                            replies.append(
+                                f"Tengo registrado un proyecto de {_quantity(data.area_m2)} m² "
+                                "para toda la superficie."
+                            )
+                        else:
+                            replies.append(
+                                f"Tengo registrado un proyecto de {_quantity(data.area_m2)} m². "
+                                "¿Se trabajará toda esa superficie o solo una parte?"
+                            )
                     else:
                         replies.append("Cuéntame las dimensiones y el uso para orientar la lista.")
                     replies.append("Lista preliminar de materiales; requiere validación técnica.")
@@ -199,6 +217,21 @@ class CommercialExecutor:
                     cart, chosen = self._choose(intent, cart, pending, conversation_key, replies)
                     selected_sku = chosen or selected_sku
                     pending = self._memory.pending_candidates(conversation_key)
+                    stock_request = self._memory.pending_stock(conversation_key)
+                    if chosen is not None and stock_request is not None:
+                        self._stock(
+                            Intent(
+                                kind=IntentKind.CONSULTAR_STOCK,
+                                product=chosen,
+                                quantity=stock_request.quantity,
+                                branch=stock_request.branch_id,
+                                source_text=chosen,
+                            ),
+                            cart,
+                            conversation_key,
+                            replies,
+                            diagnostics,
+                        )
                 case IntentKind.AGREGAR | IntentKind.CONSULTAR_PRODUCTO:
                     if discount_requested:
                         if intent.kind is IntentKind.AGREGAR:
@@ -303,15 +336,21 @@ class CommercialExecutor:
         parts.append(f"TOTAL confirmado: {_money(total, self._currency)}")
         return "\n".join(parts)
 
-    def _remember_project(self, key: str, intent: Intent) -> None:
-        if intent.project is None:
+    def _remember_project(self, key: str, intent: Intent, message: str) -> None:
+        whole = bool(re.search(r"\btoda\s+la\s+superficie\b", message, re.I))
+        if intent.project is None and not whole:
             return
         self._memory.remember_project_data(
             key,
             ProjectContext(
-                length_m=intent.project.length_m,
-                width_m=intent.project.width_m,
-                purpose=intent.project.purpose,
+                length_m=intent.project.length_m if intent.project else None,
+                width_m=intent.project.width_m if intent.project else None,
+                purpose=intent.project.purpose if intent.project else None,
+                whole_surface=True
+                if whole
+                else intent.project.whole_surface
+                if intent.project
+                else None,
             ),
         )
 
@@ -340,6 +379,9 @@ class CommercialExecutor:
             replies.append("No pude identificar de forma única el producto a modificar.")
             return cart
         replies.append(f"Cantidad actualizada a {_quantity(intent.quantity)}.")
+        for pending in self._memory.all_pending_candidates(key):
+            if pending.line_key == reference:
+                self._memory.set_pending_candidates(key, replace(pending, quantity=intent.quantity))
         return updated
 
     def _remove(self, intent: Intent, cart: QuoteCart, key: str, replies: list[str]) -> QuoteCart:
@@ -360,11 +402,15 @@ class CommercialExecutor:
             return cart
         replies.append("Actualicé la cantidad del producto en tu cotización.")
         if pending is not None:
-            pending_line = next((line for line in updated.lines if line.product is None), None)
+            pending_line = next(
+                (line for line in updated.lines if line.key == pending.line_key), None
+            )
             if pending_line is not None:
                 self._memory.set_pending_candidates(
                     key, replace(pending, quantity=pending_line.quantity)
                 )
+            else:
+                self._memory.clear_pending_candidate(key, pending.line_key)
         return updated
 
     def _choose(
@@ -375,8 +421,17 @@ class CommercialExecutor:
         key: str,
         replies: list[str],
     ) -> tuple[QuoteCart, str | None]:
-        sku = _pending_selection(intent.product or intent.source_text, pending)
-        if sku is None or pending is None:
+        options = self._memory.all_pending_candidates(key)
+        phrase = (intent.product or intent.source_text).casefold()
+        target = next(
+            (option for option in options if option.line_key and option.line_key in phrase),
+            None,
+        )
+        if target is None and "pala" in phrase:
+            target = next((option for option in options if "pala" in option.line_key), None)
+        target = target or (options[0] if options else pending)
+        sku = _pending_selection(intent.product or intent.source_text, target)
+        if sku is None or target is None:
             replies.append("Indícame cuál de las opciones quieres conservar.")
             return cart, None
         try:
@@ -386,12 +441,15 @@ class CommercialExecutor:
         if product is None:
             replies.append("No pude confirmar la referencia elegida; consulta con un asesor.")
             return cart, None
-        pending_line = next((line for line in cart.lines if line.product is None), None)
+        pending_line = next(
+            (line for line in cart.lines if line.key == target.line_key and line.product is None),
+            None,
+        )
         if pending_line is not None:
             cart = cart.choose_variant(pending_line.key, product)
-        elif pending.quantity is not None:
-            cart = cart.add_item(product, pending.quantity)
-        self._memory.set_pending_candidates(key, None)
+        elif target.quantity is not None and not target.stock_only:
+            cart = cart.add_item(product, target.quantity)
+        self._memory.clear_pending_candidate(key, target.line_key)
         replies.append(f"Elegiste {product.name}.")
         return cart, sku
 
@@ -405,10 +463,13 @@ class CommercialExecutor:
         *,
         add: bool,
     ) -> tuple[QuoteCart, str | None]:
-        if any(
-            phrase in intent.source_text.casefold()
-            for phrase in ("motherboard", "placa base", "computador")
-        ):
+        wording = " ".join((intent.source_text, intent.product or "")).casefold()
+        pc_query = bool(re.search(r"\b(?:motherboard|placa base|computador|pc)\b", wording))
+        threaded_screws = self._memory.unverified_pc_context(key) and bool(
+            re.search(r"\b(?:tornillos?|m3|6-32|rosca)\b", wording)
+        )
+        if pc_query or threaded_screws:
+            self._memory.set_unverified_pc_context(key, True)
             self._memory.set_pending_candidates(key, None)
             replies.append(
                 "No tengo una referencia con compatibilidad verificada para esa placa base. "
@@ -448,18 +509,40 @@ class CommercialExecutor:
         diagnostics.append(f"[XEON_TOOL:search_products status={outcome.status}]")
         candidates = outcome.candidates
         if len(candidates) > 1:
+            if not add and not intent.quantity:
+                selection = _pending_selection(
+                    query,
+                    PendingCandidates(
+                        skus=tuple(item.sku for item in candidates),
+                        names=tuple(item.name for item in candidates),
+                        quantity=None,
+                        branch="",
+                        attributes=tuple(item.specs for item in candidates),
+                    ),
+                )
+                if selection is not None and any(line.key == selection for line in cart.lines):
+                    chosen = next(item for item in candidates if item.sku == selection)
+                    replies.append(f"Ya tienes {chosen.name} en tu cotización.")
+                    return cart, selection
+            label = "pala" if "pala" in query.casefold() else query.strip()
+            line_key = label.casefold()
+            if add and intent.quantity is not None:
+                existing = next((line for line in cart.lines if line.key == line_key), None)
+                if existing is None or is_explicit_addition(intent.source_text):
+                    cart = cart.add_item(None, intent.quantity, label=label)
+                else:
+                    cart = cart.set_quantity(line_key, intent.quantity)
+            current_line = next((line for line in cart.lines if line.key == line_key), None)
             pending = PendingCandidates(
                 skus=tuple(item.sku for item in candidates),
                 names=tuple(item.name for item in candidates),
-                quantity=intent.quantity,
+                quantity=current_line.quantity if current_line is not None else intent.quantity,
                 branch=intent.branch or "",
                 attributes=tuple(item.specs for item in candidates),
                 question="¿Cuál opción eliges?",
+                line_key=line_key,
             )
             self._memory.set_pending_candidates(key, pending)
-            if add and intent.quantity is not None:
-                label = "pala" if "pala" in query.casefold() else query.strip()
-                cart = cart.add_item(None, intent.quantity, label=label)
             choices = "; ".join(f"{index}. {item.name}" for index, item in enumerate(candidates, 1))
             replies.append(f"Encontré varias opciones: {choices}. ¿Cuál eliges?")
             diagnostics.append("[XEON_TOOL:search_products status=clarification_required]")
@@ -484,17 +567,37 @@ class CommercialExecutor:
                     "¿Qué cantidad deseas agregar?"
                 )
             else:
-                if referential and any(line.key == product.sku for line in cart.lines):
-                    cart = cart.set_quantity(product.sku, intent.quantity)
+                if any(line.key == product.sku for line in cart.lines):
+                    if is_explicit_addition(intent.source_text) and not is_absolute_quantity(
+                        intent.source_text
+                    ):
+                        cart = cart.add_item(product, intent.quantity)
+                    else:
+                        cart = cart.set_quantity(product.sku, intent.quantity)
                 else:
                     cart = cart.add_item(product, intent.quantity)
-                replies.append(f"Agregué {_quantity(intent.quantity)} de {product.name}.")
+                replies.append(f"Cantidad vigente: {_quantity(intent.quantity)} de {product.name}.")
         else:
             replies.append(
                 f"{product.name}: {_money(product.list_price.amount)} por {product.unit}."
             )
         if intent.branch is not None:
             self._stock(intent, cart, key, replies, diagnostics, product=product)
+        elif stock_request := self._memory.pending_stock(key):
+            self._stock(
+                Intent(
+                    kind=IntentKind.CONSULTAR_STOCK,
+                    product=product.sku,
+                    quantity=stock_request.quantity or intent.quantity,
+                    branch=stock_request.branch_id,
+                    source_text=product.sku,
+                ),
+                cart,
+                key,
+                replies,
+                diagnostics,
+                product=product,
+            )
         return cart, product.sku
 
     def _stock(
@@ -512,16 +615,46 @@ class CommercialExecutor:
             replies.append("¿En qué sede quieres comprobar existencias?")
             return
         if product is None:
-            reference = self._reference(intent, cart, key) or self._memory.last_sku(key)
-            if reference is None:
-                reference = _explicit_product_query(intent.source_text)
-            if reference is not None:
+            explicit = _explicit_product_query(intent.source_text) or intent.product
+            if explicit is not None:
                 try:
-                    product = self._catalog.find_exact(reference)
+                    product = self._catalog.find_exact(explicit)
                 except CatalogUnavailableError:
                     product = None
+            if product is None:
+                reference = self._reference(intent, cart, key) or self._memory.last_sku(key)
+                if reference is not None:
+                    try:
+                        product = self._catalog.find_exact(reference)
+                    except CatalogUnavailableError:
+                        product = None
         if product is None:
-            replies.append("Indícame qué producto deseas comprobar en esa sede.")
+            self._memory.set_pending_stock(
+                key, PendingStockQuery(branch_id=branch.id, quantity=intent.quantity)
+            )
+            choices = self._tools.search_products(
+                _explicit_product_query(intent.source_text) or "bulto"
+            )
+            if choices.candidates:
+                names = "; ".join(
+                    f"{index}. {candidate.name}"
+                    for index, candidate in enumerate(choices.candidates, 1)
+                )
+                self._memory.set_pending_candidates(
+                    key,
+                    PendingCandidates(
+                        skus=tuple(item.sku for item in choices.candidates),
+                        names=tuple(item.name for item in choices.candidates),
+                        quantity=intent.quantity,
+                        branch=branch.id,
+                        attributes=tuple(item.specs for item in choices.candidates),
+                        line_key="stock",
+                        stock_only=True,
+                    ),
+                )
+                replies.append(f"¿De qué producto son esos bultos? Opciones: {names}.")
+            else:
+                replies.append("¿De qué producto son esos bultos? Indícame el nombre o referencia.")
             return
         amount = intent.quantity or next(
             (line.quantity for line in cart.lines if line.key == product.sku), None
@@ -548,6 +681,8 @@ class CommercialExecutor:
         else:
             status = "disponible"
         replies.append(f"{product.name} en {branch.name}: {status}.")
+        self._memory.set_pending_stock(key, None)
+        self._memory.clear_pending_candidate(key, "stock")
         diagnostics.append(
             f"[XEON_TOOL:get_stock_by_branches sku={product.sku} "
             f"sede_solicitada={branch.id} disponible_local={stock.local_available} "

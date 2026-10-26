@@ -38,6 +38,7 @@ class ProjectEntities(BaseModel):
     length_m: Decimal | None = None
     width_m: Decimal | None = None
     purpose: str | None = None
+    whole_surface: bool | None = None
 
 
 class Intent(BaseModel):
@@ -84,7 +85,9 @@ _POLICY = re.compile(
     r"domicilio|envio|entrega|horario|facturaci[oó]n)\b",
     re.I,
 )
-_PROJECT = re.compile(r"\b(?:corral|ganado|proyecto|piso de concreto|pavimentar)\b", re.I)
+_PROJECT = re.compile(
+    r"\b(?:corral|ganado|proyecto|superficie|piso de concreto|pavimentar)\b", re.I
+)
 _STOCK = re.compile(r"\b(?:disponib|existencias?|inventario|hay\s+stock|agotad)\w*", re.I)
 _SUMMARY = re.compile(
     r"\b(?:resum|total|cu[aá]nto llevo|producto por producto|mi cotizaci[oó]n|"
@@ -97,7 +100,9 @@ _HYPOTHETICAL = re.compile(
 _REMOVE = re.compile(r"\b(?:quita|quitar|elimina|saca|retira)\w*|\bno\s+(?:quiero|va)\b", re.I)
 _MODIFY = re.compile(
     r"\b(?:cambia|cambie|c[aá]mbialo|modifica|ajusta|reduce|sube)\w*|"
-    r"\bd[eé]jamelo\s+en\b",
+    r"\b(?:mejor\s+)?(?:d[eé]jala|d[eé]jalo|d[eé]jamelo|ponle|pon|deja)\s+(?:solo\s+|en\s+)?\d+|"
+    r"\bno\s+es\s+\d+\s+son\s+\d+\b|\bsolo\s+\d+\b|"
+    r"\bnom[aá]s\s+(?:en\s+)?\d+\b",
     re.I,
 )
 _ADD = re.compile(r"\b(?:agrega|a[nñ]ade|suma|deja|quiero|necesito|dame|cotiza)\w*", re.I)
@@ -109,6 +114,11 @@ def _normalize(text: str) -> str:
 
 
 def _quantity(text: str) -> Decimal | None:
+    correction = re.search(
+        r"\bno\s+es\s+\d+(?:[.,]\d+)?\s+son\s+(\d+(?:[.,]\d+)?)", _normalize(text)
+    )
+    if correction is not None:
+        return Decimal(correction.group(1).replace(",", "."))
     if re.search(r"\b\d+\s*/\s*\d+\b", text) and not re.search(
         r"\b\d+\s+(?:tubos?|unidades?|bultos?)\b", text, re.I
     ):
@@ -131,6 +141,76 @@ def _quantity(text: str) -> Decimal | None:
     for word, value in _WORD_NUMBERS.items():
         if re.search(rf"\b{word}\b", normalized):
             return value
+    return None
+
+
+def is_absolute_quantity(text: str) -> bool:
+    normalized = _normalize(text)
+    return bool(
+        _MODIFY.search(normalized)
+        or re.search(r"\b(?:en|a)\s+\d+\s+(?:bultos?|palas?)\b", normalized)
+    )
+
+
+def is_explicit_addition(text: str) -> bool:
+    return re.search(r"\b(?:agrega|agregame|suma|otros?|m[aá]s)\b", _normalize(text)) is not None
+
+
+def _compound_cart_intents(message: str) -> IntentBatch | None:
+    normalized = _normalize(message)
+    if match := re.search(r"\belige\s+([1-3])\s+y\s+pala\s+([1-3])\b", normalized):
+        intents = [
+            Intent(
+                kind=IntentKind.ELEGIR_OPCION,
+                product=match.group(1),
+                source_text=f"elige {match.group(1)}",
+            ),
+            Intent(
+                kind=IntentKind.ELEGIR_OPCION,
+                product=f"pala opcion {match.group(2)}",
+                source_text=f"pala {match.group(2)}",
+            ),
+        ]
+        if cement := re.search(r"\bpon\s+(\d+)\s+bultos?\b", normalized):
+            intents.append(
+                Intent(
+                    kind=IntentKind.MODIFICAR_CANTIDAD,
+                    product="cemento",
+                    quantity=Decimal(cement.group(1)),
+                    source_text=cement.group(),
+                )
+            )
+        if shovels := re.search(r"\by\s+(\d+)\s+palas?\b", normalized):
+            intents.append(
+                Intent(
+                    kind=IntentKind.MODIFICAR_CANTIDAD,
+                    product="pala",
+                    quantity=Decimal(shovels.group(1)),
+                    source_text=shovels.group(),
+                )
+            )
+        return IntentBatch(intents=tuple(intents))
+    if "pala" in normalized and (
+        match := re.search(r"\bdeja\s+solo\s+(\d+)\s+palas?\b", normalized)
+    ):
+        intents = [
+            Intent(
+                kind=IntentKind.MODIFICAR_CANTIDAD,
+                product="pala",
+                quantity=Decimal(match.group(1)),
+                source_text=match.group(),
+            )
+        ]
+        if cement := re.search(r"\b(\d+)\s+cemento\b", normalized):
+            intents.append(
+                Intent(
+                    kind=IntentKind.MODIFICAR_CANTIDAD,
+                    product="cemento",
+                    quantity=Decimal(cement.group(1)),
+                    source_text=cement.group(),
+                )
+            )
+        return IntentBatch(intents=tuple(intents))
     return None
 
 
@@ -263,6 +343,7 @@ def fallback_intents(
                 length_m=Decimal(dimensions.group(1).replace(",", ".")) if dimensions else None,
                 width_m=Decimal(dimensions.group(2).replace(",", ".")) if dimensions else None,
                 purpose="corral para ganado" if "corral" in normalized else None,
+                whole_surface=True if "toda la superficie" in normalized else None,
             )
             intents.append(
                 Intent(kind=IntentKind.ASESORIA_PROYECTO, project=project, source_text=clause)
@@ -322,6 +403,7 @@ class IntentInterpreter:
         history: Sequence[ChatMessage] = (),
     ) -> tuple[IntentBatch, LLMResponse | None]:
         local = fallback_intents(message, pending=pending, branches=self._branches)
+        compound = _compound_cart_intents(message)
         if all(intent.kind is IntentKind.FUERA_DE_ALCANCE for intent in local.intents):
             return local, None
         try:
@@ -334,10 +416,34 @@ class IntentInterpreter:
                 )
             )
             parsed = IntentBatch.model_validate_json(response.text)
+            if compound is not None:
+                return compound, response
+            if _STOCK.search(message) and any(
+                item.kind is IntentKind.CONSULTAR_STOCK for item in local.intents
+            ):
+                return local, response
+            if len(local.intents) == 1 and local.intents[0].kind is IntentKind.ASESORIA_PROYECTO:
+                return local, response
+            if (
+                len(parsed.intents) == 1
+                and len(local.intents) > 1
+                and all(item.kind is IntentKind.AGREGAR for item in local.intents)
+            ):
+                return local, response
             return IntentBatch(
                 intents=tuple(
                     intent.model_copy(
                         update={
+                            "source_text": intent.source_text
+                            or (message if len(parsed.intents) == 1 else ""),
+                            "kind": IntentKind.MODIFICAR_CANTIDAD
+                            if is_absolute_quantity(intent.source_text or message)
+                            and intent.kind in {IntentKind.AGREGAR, IntentKind.CONSULTAR_PRODUCTO}
+                            and len(parsed.intents) == 1
+                            else intent.kind,
+                            "quantity": _quantity(message)
+                            if len(parsed.intents) == 1 and is_absolute_quantity(message)
+                            else intent.quantity,
                             "branch": resolved.id
                             if (
                                 resolved := resolve_branch(
@@ -345,11 +451,11 @@ class IntentInterpreter:
                                     self._branches,
                                 )
                             )
-                            else None
+                            else None,
                         }
                     )
                     for intent in parsed.intents
                 )
             ), response
         except ValidationError, ValueError, LLMProviderError:
-            return fallback_intents(message, pending=pending, branches=self._branches), None
+            return compound or local, None

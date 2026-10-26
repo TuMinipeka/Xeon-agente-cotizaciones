@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import re
+from xeon.application.plain_text import plain_text
 
 
 class WhatsAppFormatter:
@@ -12,20 +12,4 @@ class WhatsAppFormatter:
         self._max_length = max_length
 
     def format(self, text: str) -> str:
-        plain = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
-        plain = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", plain)
-        plain = re.sub(r"(?m)^\s*[-*+]\s+", "• ", plain)
-        plain = re.sub(r"(?m)^\s*\d+[.)]\s+", "• ", plain)
-        plain = re.sub(
-            r"\*\*([^*]+)\*\*|__([^_]+)__",
-            lambda match: match.group(1) or match.group(2) or "",
-            plain,
-        )
-        plain = plain.replace("```", "").replace("`", "")
-        plain = re.sub(r"\n{3,}", "\n\n", plain).strip()
-        if len(plain) <= self._max_length:
-            return plain
-        clipped = plain[: self._max_length - 1].rsplit("\n", 1)[0]
-        if len(clipped) < self._max_length // 2:
-            clipped = plain[: self._max_length - 1]
-        return clipped.rstrip() + "…"
+        return plain_text(text, max_length=self._max_length)

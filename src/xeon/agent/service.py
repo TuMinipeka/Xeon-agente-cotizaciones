@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import re
+
 from xeon.agent.customer_safety import CustomerResponsePolicy
 from xeon.agent.executor import CommercialExecutor
 from xeon.agent.intent import IntentInterpreter, IntentKind
+from xeon.application.plain_text import plain_text
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.conversation_memory import ConversationMemory
 from xeon.application.ports.llm import ChatMessage, LLMPort, LLMResponse
@@ -70,6 +73,7 @@ class AgentService:
         if result.advice_requested and not transactional and self._llm.provider_name != "mock":
             project = self._memory.project_data(key)
             area = str(project.area_m2) if project.area_m2 is not None else "no confirmada"
+            coverage = "toda la superficie" if project.whole_surface else "sin confirmar"
             advice = await self._llm.complete(
                 (
                     ChatMessage(
@@ -77,6 +81,8 @@ class AgentService:
                         content=(
                             "Redacta una orientacion breve para un proyecto de ferreteria. "
                             "La superficie informada es " + area + " m2. "
+                            "Cobertura: " + coverage + ". "
+                            "Si la cobertura ya esta confirmada, no vuelvas a preguntarla. "
                             "No calcules cantidades, precios ni stock. "
                             "Es una lista preliminar que requiere validacion tecnica."
                         ),
@@ -85,8 +91,16 @@ class AgentService:
                 )
             )
             safe_advice = self._response_policy.sanitize(advice.text, fallback="")
+            if project.whole_surface:
+                safe_advice = re.sub(
+                    r"¿[^?\n]*\bsuperficie\b[^?\n]*\?",
+                    "",
+                    safe_advice,
+                    flags=re.I,
+                ).strip()
             if safe_advice:
                 rendered += "\n" + safe_advice
+        rendered = plain_text(rendered)
         if self._llm.provider_name == "mock" and result.diagnostics:
             rendered += "\n" + "\n".join(result.diagnostics)
         self._memory.record(key, user_message, rendered, result.selected_sku)

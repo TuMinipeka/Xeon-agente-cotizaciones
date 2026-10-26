@@ -355,6 +355,13 @@ def _explicit_product_query(clause: str) -> str | None:
         return "tubos pvc"
     if re.search(r"\bcemento\b", clause, re.I) and re.search(r"\b50\s*kg\b", clause, re.I):
         return "cemento 50kg"
+    trailing_quantity = re.search(
+        r"^\s*(.+?)\s+\d+(?:[.,]\d+)?\s+(?:bultos?|unidades?|palas?)\s*$",
+        clause,
+        re.I,
+    )
+    if trailing_quantity is not None:
+        return trailing_quantity.group(1).strip()
     without_logistics = re.split(
         r"\s+y\s+(?:entrega|recogida|retiro|lo recojo|lo retiro)\b",
         clause,
@@ -376,6 +383,8 @@ def _explicit_product_query(clause: str) -> str | None:
         flags=re.I,
     )[0].strip(" .,?!")
     product = re.sub(r"\s+por\s+favor$", "", product, flags=re.I)
+    if re.match(r"(?i)^(?:en\s+(?:la\s+)?sede|disponibles?\b)", product):
+        return None
     return product
 
 
