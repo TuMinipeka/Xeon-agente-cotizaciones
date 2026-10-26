@@ -1,6 +1,7 @@
 ---
 tags:
   - xeon/hub
+  - xeon-grafo/puente
 ---
 
 # Arquitectura actual en el grafo

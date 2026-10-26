@@ -42,6 +42,73 @@ WIKI_PAGES = (
     "xeon-cli",
     "evaluacion-conversacional",
 )
+LAYER_PREFIX = "xeon-grafo/"
+LAYER_BY_SRC_DIR = {
+    "domain": "dominio",
+    "application": "aplicacion",
+    "agent": "agente",
+    "adapters": "adaptadores",
+    "connectors": "adaptadores",
+    "api": "api",
+    "shell": "canal",
+    "cli": "canal",
+}
+LAYER_BY_ROOT_DIR = {
+    "tests": "pruebas",
+    "evals": "evaluacion",
+    "scripts": "scripts",
+    "docs": "docs",
+    "wiki": "wiki",
+    "connectors": "config",
+    "config": "config",
+}
+CONFIG_ROOT_FILES = {"pyproject.toml", "uv.lock", "dockerfile", "skills-lock.json"}
+
+
+def layer_for(source_file: str) -> str:
+    """Return the deterministic architecture layer for a node's source_file."""
+    path = Path(source_file.replace("\\", "/"))
+    parts = path.parts
+    if not source_file or not parts:
+        return "externo"
+    if parts[0] == "src" and len(parts) > 2 and parts[1] == "xeon":
+        name = Path(parts[2]).stem
+        if name == "config" or name.startswith("__"):
+            return "config"
+        return LAYER_BY_SRC_DIR.get(name, "agente")
+    first = parts[0].lower()
+    if first in LAYER_BY_ROOT_DIR:
+        return LAYER_BY_ROOT_DIR[first]
+    if len(parts) == 1 and (
+        first in CONFIG_ROOT_FILES
+        or path.suffix.lower() in {".yaml", ".yml", ".toml"}
+        or first.startswith(".")
+    ):
+        return "config"
+    if len(parts) == 1 and path.suffix.lower() == ".md":
+        return "docs"
+    return "config"
+
+
+def tag_generated_layers(directory: Path) -> dict[str, int]:
+    """Add one xeon-grafo/<layer> tag to every exported Obsidian note."""
+    counts: dict[str, int] = {}
+    for note in sorted(directory.glob("*.md")):
+        text = note.read_text(encoding="utf-8")
+        match = re.match(r"---\n(.*?)\n---\n(.*)", text, re.DOTALL)
+        if not match or LAYER_PREFIX in match.group(1):
+            continue
+        head, body = match.groups()
+        source = re.search(r'^source_file: "(.*)"$', head, re.MULTILINE)
+        if note.name.startswith("_COMMUNITY_"):
+            layer = "comunidad"
+        else:
+            layer = layer_for(source.group(1) if source else "")
+        head = head.replace("tags:\n", f"tags:\n  - {LAYER_PREFIX}{layer}\n", 1)
+        body = re.sub(r"(?m)^(#graphify/.*)$", rf"\1 #{LAYER_PREFIX}{layer}", body)
+        note.write_text(f"---\n{head}\n---\n{body}", encoding="utf-8", newline="\n")
+        counts[layer] = counts.get(layer, 0) + 1
+    return counts
 
 
 def is_blocked(relative: str) -> bool:
@@ -268,7 +335,7 @@ def write_vault_bridges() -> None:
         f"- [{page.replace('-', ' ').capitalize()}](../pages/{page}.md)" for page in WIKI_PAGES
     )
     VAULT.joinpath("README.md").write_text(
-        "---\ntags:\n  - xeon/hub\n---\n\n# Grafo local de XEON\n\n"
+        "---\ntags:\n  - xeon/hub\n  - xeon-grafo/puente\n---\n\n# Grafo local de XEON\n\n"
         "Los nodos generados están en [generated](generated/). "
         "La [vista interactiva](../../graphify-out/graph.html) y el "
         "[grafo JSON](../../graphify-out/graph.json) se regeneran con "
@@ -279,7 +346,7 @@ def write_vault_bridges() -> None:
     for page in WIKI_PAGES:
         node_note = _obsidian_safe_stem(f"wiki/pages/{page}.md")
         (VAULT / f"{page}.md").write_text(
-            "---\ntags:\n  - xeon/hub\n---\n\n"
+            "---\ntags:\n  - xeon/hub\n  - xeon-grafo/puente\n---\n\n"
             f"# {page.replace('-', ' ').capitalize()} en el grafo\n\n"
             f"[Síntesis vigente](../pages/{page}.md) · "
             f"[Nodo del archivo](generated/{node_note}.md)\n",
@@ -301,6 +368,7 @@ def main() -> None:
     write_report(result)
     call_graphify("export", "html", "--graph", str(GRAPH))
     call_graphify("export", "obsidian", "--dir", str(GENERATED))
+    result["layer_notes"] = tag_generated_layers(GENERATED)
     write_vault_bridges()
     print(json.dumps(result, ensure_ascii=False))
 

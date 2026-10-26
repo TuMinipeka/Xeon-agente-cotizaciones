@@ -1,6 +1,7 @@
 ---
 tags:
   - xeon/hub
+  - xeon-grafo/puente
 ---
 
 # Contratos herramientas en el grafo

@@ -1,6 +1,7 @@
 ---
 tags:
   - xeon/hub
+  - xeon-grafo/puente
 ---
 
 # Evaluacion conversacional en el grafo

@@ -1,6 +1,7 @@
 ---
 tags:
   - xeon/hub
+  - xeon-grafo/puente
 ---
 
 # Canal kapso en el grafo
