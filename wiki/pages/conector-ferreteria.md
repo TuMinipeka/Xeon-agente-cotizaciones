@@ -53,4 +53,11 @@ Revisado: 2026-10-26. Estado: **`implementado`** (Codex, `87ca4d2`; fusionado en
 - No hay descubrimiento automático del esquema: alguien escribe el YAML de cada ferretería.
 - La búsqueda SQL es léxica y depende de cómo se configure la consulta.
 - El carrito, la memoria y los borradores siguen en el proceso.
-- Solo está probado contra SQLite. PostgreSQL, MySQL y SQL Server reales están por verificar.
+- **Probado con motores reales** (Sonnet, `4af2c69`): PostgreSQL 17.6 y MySQL 8.4.6 en contenedores desechables (`compose.db-test.yaml`, `pytest -m integration`), con 9 de 9 pruebas aprobadas.
+  - Cotiza con los precios de la base y resuelve las sedes por alias.
+  - `LIMIT` y los parámetros funcionan.
+  - El usuario de solo lectura no puede escribir y la inyección no devuelve filas.
+  - SQL Server sigue sin probarse.
+- **Hallazgos en MySQL, en corrección:**
+  - **H1:** `DATETIME` no guarda zona horaria, por eso el stock queda «pendiente». Se resuelve con un campo opcional del conector que declara la zona.
+  - **H2:** la conexión no estaba en modo solo lectura. Se resuelve con `SET SESSION TRANSACTION READ ONLY`.

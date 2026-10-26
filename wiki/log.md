@@ -334,3 +334,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Páginas:** índice, estado del corte, arquitectura actual y QA de Conde. Docs: README, `XeonContexto.md` y `ARCHITECTURE.md`.
 - **Correcciones:** `CommercialScopePolicy` y `prepare_verified_context` ya no existen (flujo `IntentInterpreter` + `CommercialExecutor` + `QuoteCart`); el conector SQL opcional (`DATA_SOURCE`) existe; el modelo vigente es `grok-4.6`; el RAG se describe como D12 (propuesta); el embudo guiado D14 figura como aprobado y no implementado.
 - **Pendiente:** resultado de la re-ejecución en vivo S15–S20 (la corrida previa fue 1 PASS y 5 FAIL); aplicar los colores del grafo con Obsidian cerrado.
+
+## [2026-10-26] verificación | Conector SQL en motores reales, guía QA del embudo y segunda corrida en vivo
+
+- **Sonnet (`4af2c69`):** el conector pasa en PostgreSQL 17.6 y MySQL 8.4.6 (9 de 9). Los hallazgos H1 y H2 en MySQL se delegaron otra vez a Sonnet. Detalle en el [conector de la ferretería](pages/conector-ferreteria.md).
+- **agy:** guía manual `docs/QA_EMBUDO.md` (`d3d4d37`) y segunda corrida en vivo con 3 PASS y 3 FAIL (`a47b7fc`), 128 de 150 llamadas. Los residuales de S15, S16 y S19 se delegaron a Codex.
+- **Codex:** el embudo D14 quedó implementado en `feat/guided-funnel`, por ahora detrás de `GUIDED_FUNNEL_ENABLED`. Está migrando el evaluador para que el embudo sea el único flujo.
