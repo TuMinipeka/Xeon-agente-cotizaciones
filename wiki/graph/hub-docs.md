@@ -13,7 +13,7 @@ Documentación del repositorio (`docs`, README, AGENTS). Regenerado por `scripts
 - [Estado del corte](../pages/estado-del-corte.md)
 - [Decisiones pendientes](../pages/decisiones-pendientes.md)
 
-## Notas del grafo (20)
+## Notas del grafo (23)
 
 - [AGENTS](generated/AGENTS.md)
 - [CLAUDE](generated/CLAUDE.md)
@@ -28,8 +28,11 @@ Documentación del repositorio (`docs`, README, AGENTS). Regenerado por `scripts
 - [docsENTREGA_HITO2](generated/docsENTREGA_HITO2.md)
 - [docsGLOSSARY](generated/docsGLOSSARY.md)
 - [docsGRAPHIFY](generated/docsGRAPHIFY.md)
+- [docsOBSERVABILIDAD](generated/docsOBSERVABILIDAD.md)
+- [docsPANEL_ASESOR](generated/docsPANEL_ASESOR.md)
 - [docsQA_EMBUDO](generated/docsQA_EMBUDO.md)
 - [docsQA_HITO2](generated/docsQA_HITO2.md)
+- [docsQA_PERSISTENCIA](generated/docsQA_PERSISTENCIA.md)
 - [docsREADME](generated/docsREADME.md)
 - [docsVIDEO_HITO2](generated/docsVIDEO_HITO2.md)
 - [docsXeonContexto](generated/docsXeonContexto.md)

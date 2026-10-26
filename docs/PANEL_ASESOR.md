@@ -36,8 +36,13 @@ mensajes, prompts ni variables de entorno.
 
 ## Seguridad
 
-- Sesión en cookie `HttpOnly` y `SameSite=Strict` (`Secure` cuando `APP_ENV=production`, es decir,
-  detrás de HTTPS), con caducidad (`ADVISOR_PANEL_SESSION_MINUTES`, 480 por defecto).
+- Sesión en cookie `HttpOnly` y `SameSite=Strict`, con caducidad (`ADVISOR_PANEL_SESSION_MINUTES`,
+  480 por defecto). **En producción la cookie `Secure` es obligatoria y, por tanto, también
+  HTTPS.** Se activa con `APP_ENV=production`: la API marca entonces las dos cookies del panel
+  como `Secure` y el navegador solo las envía por HTTPS. Publica XEON detrás de un proxy inverso
+  o túnel que termine TLS (y reenvíe a la API por la red privada); si lo sirves por HTTP con
+  `APP_ENV=production`, el inicio de sesión no funcionará. Con `APP_ENV=development` (valor por
+  defecto) la cookie no es `Secure`: úsalo solo en local, nunca expuesto a internet.
 - CSRF: cada formulario POST lleva un token de la sesión; el inicio de sesión usa un token propio en
   cookie y campo. Un POST sin token válido recibe 403.
 - Sin sesión, las rutas responden 401. Tras `ADVISOR_PANEL_MAX_ATTEMPTS` fallos (5) por IP o por
@@ -51,8 +56,8 @@ mensajes, prompts ni variables de entorno.
 
 - **PDF del borrador: fuera de este corte.** Siguiente paso: generarlo desde el borrador
   aprobado (WeasyPrint u otra opción de la [propuesta de la fase 3](../wiki/pages/propuesta-fase3.md)).
-- Sesiones, intentos fallidos y la bandeja viven en el proceso: un reinicio cierra las sesiones y,
-  hasta fusionar la persistencia (A), pierde los eventos pendientes. Con varios workers cada uno
+- **Bandeja y sesiones siguen en memoria** hasta fusionar la persistencia (A): un reinicio cierra
+  las sesiones y borra los eventos pendientes y los intentos fallidos. Con varios workers cada uno
   tendría su propia sesión.
 - Una cuenta compartida por asesor; sin roles. El panel no factura: `APPROVED_FOR_BILLING` solo
   indica que un humano autorizó seguir.

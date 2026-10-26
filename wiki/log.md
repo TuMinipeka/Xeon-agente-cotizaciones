@@ -374,3 +374,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Sonnet (`ef69e8b`, `aeaa971`, merge `76e2458`):** implementó la opción E de la fase 3 (ver [docs/OBSERVABILIDAD.md](../docs/OBSERVABILIDAD.md) y [propuesta de la fase 3](pages/propuesta-fase3.md)); puerto `MetricsRecorder` con `NullMetrics`, `InMemoryMetrics` y `JsonlMetrics` (`METRICS_PATH`) sin PII.
 - **Etapas y tokens:** cronometra `turno`, `llm`, `ejecutor`, `catalogo`, `inventario` y `envio_kapso`; `LLMResponse.usage` lee `usage` real del proveedor o desconocido sin estimar; tarifas `LLM_PRICE_*` como supuesto.
 - **Reportes:** `scripts/cost_report.py` agrega métricas por tarea y costo; el runner de evals registra `observability.jsonl`. Nota `2026-10-26T-sonnet-observability.md` retirada del inbox.
+
+## [2026-10-26] integración | Panel web del asesor (D15, opción B parcial)
+
+- **Sonnet (`cedb9d9`, `9b38e86`, merge `f2097ae`):** panel `/panel` con autenticación (PBKDF2, cookie `HttpOnly`/`SameSite=Strict`, CSRF, límite de intentos), bandeja `AdvisorInbox`, revisión humana `AdvisorReview` (`APPROVED_FOR_BILLING`, `RECHAZADO_POR_ASESOR`, marcar atendido) y aviso al cliente por Kapso; el agente no puede invocar esas transiciones (pruebas). Nota de inbox integrada y retirada.
+- **Páginas:** [propuesta de la fase 3](pages/propuesta-fase3.md) (opción B: implementada parcialmente), [estado del corte](pages/estado-del-corte.md) y [arquitectura actual](pages/arquitectura-actual.md). `docs/PANEL_ASESOR.md` deja explícito que en producción la cookie `Secure` y HTTPS son obligatorios.
+- **Pendiente:** PDF, roles, persistencia de bandeja y sesiones (con la opción A) y verificar el aviso al cliente en el sandbox de Kapso.
