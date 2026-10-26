@@ -29,6 +29,9 @@ evals = [
     "mcp>=2.3.0",
     "pyyaml>=6.0.3",
 ]
+graph = [
+    "graphifyy==0.9.95",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]

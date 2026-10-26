@@ -46,3 +46,13 @@ wiki/.write-lock/
 # Skills de agentes: se reinstalan desde skills-lock.json; .claude/ es configuracion local.
 .agents/skills/
 .claude/
+!.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/graphify/
+!.claude/skills/graphify/**
+
+# Graphify caches and rendered output are regenerated locally.
+/graphify-out/
+/wiki/graph/generated/
