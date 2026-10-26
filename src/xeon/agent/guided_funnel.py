@@ -34,6 +34,12 @@ from xeon.application.reply import Option, Reply
 from xeon.domain.cart import QuoteCart
 from xeon.domain.quote import Quote, QuoteStatus
 
+# Options that cannot be undone are reachable only by their exact id (a click or its number),
+# never by title text or by the LLM's classification of free text (review M7).
+IRREVERSIBLE_OPTIONS = frozenset({"summary:confirm", "global:cancel"})
+MAX_FREE_TEXT = 500
+DEFAULT_MAX_QUANTITY = 100_000
+
 
 def _quote_matches_cart(quote: Quote, cart: QuoteCart) -> bool:
     drafted = Counter((line.sku, line.quantity.normalize()) for line in quote.lines)
@@ -403,7 +409,13 @@ class GuidedFunnel:
         state = self.state(key)
         if request_id is not None and state.last_request_id == request_id and state.last_reply:
             return state.last_reply
-        reply = await self._handle_step(key, message, option_id=option_id, request_id=request_id)
+        try:
+            reply = await self._handle_step(
+                key, message, option_id=option_id, request_id=request_id
+            )
+        except InvalidOperation, OverflowError:
+            # Never a 500 for an absurd number: tell the customer and keep the step (review M6).
+            reply = self.render(key, prefix="Esa cantidad no es válida. Revisa el número.\n")
         if request_id is not None:
             self._save(
                 key,
@@ -418,6 +430,8 @@ class GuidedFunnel:
         raw = (option_id or message).strip()
         if not raw:
             return self.render(key)
+        if option_id is None and len(raw) > MAX_FREE_TEXT:
+            return self.render(key, prefix="Tu mensaje es muy largo; escribe algo más corto.\n")
         options = self._options(key, state)
         if option_id is None and raw.isdigit() and not state.awaiting_number:
             index = int(raw) - 1
@@ -426,10 +440,15 @@ class GuidedFunnel:
         if option_id is None and raw in {item.id for item in options}:
             option_id = raw
         if option_id is None:
-            matching = [item for item in options if _normalized(raw) == _normalized(item.title)]
+            matching = [
+                item
+                for item in options
+                if item.id not in IRREVERSIBLE_OPTIONS
+                and _normalized(raw) == _normalized(item.title)
+            ]
             if len(matching) == 1:
                 option_id = matching[0].id
-        if _normalized(raw) in {"cancelar", "cancela"} or raw == "global:cancel":
+        if raw == "global:cancel":
             self._save(key, replace(state, step="cancelado"))
             return self.render(key)
         if _normalized(raw) in {"asesor", "hablar con asesor"} or raw == "global:advisor":
@@ -552,9 +571,18 @@ class GuidedFunnel:
             state.awaiting_number or (option_id is None and re.fullmatch(r"\d+(?:[.,]\d+)?", raw))
         ):
             try:
-                amount = Decimal(raw.replace(",", "."))
+                amount = Decimal(raw.replace(",", ".")) if len(raw) <= 12 else None
             except InvalidOperation:
                 amount = Decimal(0)
+            limit = self._max_quantity()
+            if amount is None or amount > limit:
+                return self.render(
+                    key,
+                    prefix=(
+                        f"La cantidad máxima por línea es {limit}. Escribe un número menor o "
+                        "pide hablar con un asesor.\n"
+                    ),
+                )
             if amount > 0:
                 return self._add_selected(key, state, amount, request_id)
         if option_id is None:
@@ -703,6 +731,9 @@ class GuidedFunnel:
         )
         return result.text
 
+    def _max_quantity(self) -> int:
+        return self._policies.load(self._tenant_id).cantidad_maxima or DEFAULT_MAX_QUANTITY
+
     def _add_selected(
         self, key: str, state: FunnelState, amount: Decimal, request_id: str | None
     ) -> Reply:
@@ -726,11 +757,13 @@ class GuidedFunnel:
     async def _classify(self, message: str, options: tuple[Option, ...], step: str) -> str:
         normalized = _normalized(message)
         for option in options:
+            if option.id in IRREVERSIBLE_OPTIONS:
+                continue
             if normalized in {_normalized(option.title), _normalized(option.id)}:
                 return option.id
         if self._llm.provider_name == "mock":
             return "no_encaja"
-        allowed = [option.id for option in options]
+        allowed = [option.id for option in options if option.id not in IRREVERSIBLE_OPTIONS]
         prompt = (
             "Clasifica el texto en UNA opcion permitida para el paso " + step + ". "
             'Devuelve solo JSON con {"choice":"id"}. '

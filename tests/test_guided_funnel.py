@@ -115,8 +115,12 @@ def test_text_choices_through_every_step_and_cart_edit() -> None:
             assert (
                 await container.agent.respond_reply("Efectivo", conversation_key=key)
             ).step == "resumen"
+            # Irreversible options are not reachable by title text (review M7); the id is.
             assert (
                 await container.agent.respond_reply("Confirmar", conversation_key=key)
+            ).step == "resumen"
+            assert (
+                await container.agent.respond_reply("summary:confirm", conversation_key=key)
             ).step == "confirmado"
         finally:
             await container.aclose()
@@ -371,7 +375,7 @@ def test_policy_questions_keep_step_and_options_and_use_tenant_yaml(tmp_path: Pa
                 assert "Solo puedo ayudarte" not in reply.text
                 if next_choice:
                     await container.agent.respond_reply(next_choice, conversation_key=key)
-            cancelled = await container.agent.respond_reply("cancelar", conversation_key=key)
+            cancelled = await container.agent.respond_reply("global:cancel", conversation_key=key)
             assert cancelled.step == "cancelado"
         finally:
             await container.aclose()
@@ -381,7 +385,7 @@ def test_policy_questions_keep_step_and_options_and_use_tenant_yaml(tmp_path: Pa
 
 @pytest.mark.parametrize(
     ("command", "expected_step"),
-    [("cancelar", "cancelado"), ("asesor", "asesor")],
+    [("global:cancel", "cancelado"), ("asesor", "asesor")],
 )
 def test_global_text_commands_work_without_occupying_quantity_buttons(
     command: str, expected_step: str

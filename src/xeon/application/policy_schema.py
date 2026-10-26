@@ -39,6 +39,8 @@ class StorePolicy(BaseModel):
     fuera_de_horario: str | None = None
     facturacion: str | None = None
     # Identidad de la tienda para el PDF del borrador; ausentes se muestran como pendientes.
+    # Maximo de unidades por linea (M6); sin definir rige el tope general del embudo.
+    cantidad_maxima: int | None = Field(default=None, gt=0, le=10_000_000)
     nombre_comercial: str | None = None
     nit: str | None = None
     direccion: str | None = None
