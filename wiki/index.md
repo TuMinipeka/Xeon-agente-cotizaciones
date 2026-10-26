@@ -22,25 +22,26 @@ Revisión: 2026-10-26. Comienza por el [estado del corte](pages/estado-del-corte
 
 ### Capas del grafo de código (Graphify)
 
-Las notas de `wiki/graph/generated/` llevan una etiqueta `xeon-grafo/<capa>` derivada de `source_file` (`scripts/build_graphify_map.py`, `layer_for`). Los colores se añaden después de los ocho anteriores, que conservan prioridad. Cantidades de la regeneración del 2026-10-26 (2.164 notas); la etiqueta `graphify/INFERRED` no tiene color porque tapa el de capa.
+Las notas de `wiki/graph/generated/` llevan una etiqueta `xeon-grafo/<capa>` derivada de `source_file` (`scripts/build_graphify_map.py`, `layer_for`). Los colores se añaden después de los ocho anteriores, que conservan prioridad. Cantidades de la regeneración del 2026-10-26 (2531 notas generadas; cambian con cada regeneración); la etiqueta `graphify/INFERRED` no tiene color porque tapa el de capa.
 
 | Color | Etiqueta | Agrupa | Notas |
 |---|---|---|---|
 | `#7986CB` | `xeon-grafo/dominio` | `src/xeon/domain` | 92 |
-| `#66BB6A` | `xeon-grafo/aplicacion` | `application` y puertos | 128 |
-| `#E53935` | `xeon-grafo/agente` | `agent` y resto de `src/xeon` | 78 |
-| `#26C6DA` | `xeon-grafo/adaptadores` | `adapters`, `connectors` | 171 |
+| `#66BB6A` | `xeon-grafo/aplicacion` | `application` y puertos | 157 |
+| `#E53935` | `xeon-grafo/agente` | `agent` y resto de `src/xeon` | 94 |
+| `#26C6DA` | `xeon-grafo/adaptadores` | `adapters`, `connectors` | 188 |
 | `#1E88E5` | `xeon-grafo/api` | `api` | 28 |
 | `#C6FF00` | `xeon-grafo/canal` | `shell`, `cli.py` | 84 |
-| `#8D6E63` | `xeon-grafo/config` | `config.py`, YAML, pyproject, compose | 123 |
-| `#E040FB` | `xeon-grafo/pruebas` | `tests` | 516 |
-| `#D84315` | `xeon-grafo/evaluacion` | `evals` | 503 |
-| `#9E9D24` | `xeon-grafo/scripts` | `scripts` | 67 |
-| `#80CBC4` | `xeon-grafo/docs` | `docs`, README y similares | 19 |
-| `#D7CCC8` | `xeon-grafo/wiki` | `wiki` | 34 |
-| `#757575` | `xeon-grafo/externo` | sin `source_file` (librerías como httpx) | 205 |
-| `#FAFAFA` | `xeon-grafo/comunidad` | notas `_COMMUNITY_*` | 116 |
+| `#8D6E63` | `xeon-grafo/config` | `config.py`, YAML, pyproject, compose | 166 |
+| `#E040FB` | `xeon-grafo/pruebas` | `tests` | 584 |
+| `#D84315` | `xeon-grafo/evaluacion` | `evals` | 616 |
+| `#9E9D24` | `xeon-grafo/scripts` | `scripts` | 74 |
+| `#80CBC4` | `xeon-grafo/docs` | `docs`, README y similares | 20 |
+| `#D7CCC8` | `xeon-grafo/wiki` | `wiki` | 51 |
+| `#757575` | `xeon-grafo/externo` | sin `source_file` (librerías como httpx) | 229 |
+| `#455A64` | `xeon-grafo/comunidad` | notas `_COMMUNITY_*` | 148 |
 | `#18FFFF` | `xeon-grafo/puente` | `wiki/graph/*.md` (prevalece `xeon/hub`) | 6 |
+| `#FFFFFF` | `xeon-grafo/hub` | `mapa-proyecto` y `hub-<capa>.md` (el mapa lleva `xeon/hub`) | 14 |
 
 Estado: aplicado en `graph.json` solo si se ejecutó el script con Obsidian cerrado; si no, queda pendiente.
 
@@ -63,7 +64,7 @@ En la bóveda de la raíz del repositorio también se colorean `docs/` (verde az
 - [Evaluación conversacional](pages/evaluacion-conversacional.md) — cliente simulado, oráculo, checks deterministas y regresiones (contrato).
 - [Video HITO #2](pages/video-hito2.md) — decisiones, evidencia de herramientas, guion y reparto del video demostrativo.
 - [Reporte QA de Conde](pages/qa-conde-2026-10-24.md) — 23 fallos conversacionales, 4 causas raíz, correcciones y corrida en vivo S16–S20.
-- [Embudo de cotización](pages/embudo-cotizacion.md) — conversación guiada con botones y listas, políticas por ferretería y confirmación ante un asesor (D14).
+- [Embudo de cotización](pages/embudo-cotizacion.md) — conversación guiada con botones y listas, políticas por ferretería y confirmación ante un asesor (D14, implementado; Kapso interactive sin verificar en sandbox).
 - [Conector de la ferretería](pages/conector-ferreteria.md) — conectar XEON a la base de datos de cualquier ferretería (D13).
 - [Auditoría 2026-10-24](pages/auditoria-2026-10-24.md) — comportamiento real confirmado, defectos E1–E6, incompleto, hipótesis y riesgos.
 - [Contratos de herramientas](pages/contratos-herramientas.md) — `search_products`, `get_stock_by_branches`, `create_quote_draft`.

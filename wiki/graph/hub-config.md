@@ -12,7 +12,7 @@ Configuración, conectores YAML, pyproject y compose. Regenerado por `scripts/bu
 - [Conector ferreteria](../pages/conector-ferreteria.md)
 - [Arquitectura actual](../pages/arquitectura-actual.md)
 
-## Notas del grafo (166)
+## Notas del grafo (165)
 
 - [AGENT_MAX_STEPS](generated/AGENT_MAX_STEPS.md)
 - [APP_ENV](generated/APP_ENV.md)
@@ -67,7 +67,6 @@ Configuración, conectores YAML, pyproject y compose. Regenerado por `scripts/bu
 - [configpolicieswhatsapp.yaml](generated/configpolicieswhatsapp.yaml.md)
 - [connectorsexample-ferreteria.yaml](generated/connectorsexample-ferreteria.yaml.md)
 - [contents](generated/contents.md)
-- [context_1](generated/context_1.md)
 - [costo](generated/costo.md)
 - [demo](generated/demo.md)
 - [descuentos](generated/descuentos.md)
@@ -106,7 +105,7 @@ Configuración, conectores YAML, pyproject y compose. Regenerado por `scripts/bu
 - [healthcheck_1](generated/healthcheck_1.md)
 - [healthcheck_2](generated/healthcheck_2.md)
 - [horario](generated/horario.md)
-- [id_6](generated/id_6.md)
+- [id](generated/id.md)
 - [image](generated/image.md)
 - [image_1](generated/image_1.md)
 - [interval](generated/interval.md)

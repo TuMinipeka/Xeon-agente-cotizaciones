@@ -345,3 +345,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **Cambio:** `scripts/build_graphify_map.py` genera `wiki/graph/mapa-proyecto.md` y una nota `hub-<capa>.md` por capa (14 con comunidades), que enlazan las notas generadas y las páginas de la wiki que describen cada capa. Cada página de `wiki/pages` recibió al final una línea de enlace a su hub y al mapa (sin cambiar su contenido).
 - **Resultado:** notas sin enlaces entrantes ni salientes en la bóveda `wiki/`: de 101 a 1 (la nota abierta de agy en el inbox). Colores por capa y por hub en `scripts/apply_obsidian_graph_colors.py`.
+
+## [2026-10-26] integración | Embudo guiado, conector en motores reales, corridas en vivo y estructura del grafo
+
+- **Integrado por Sonnet (integrador de la ronda):** notas `codex-guided-funnel`, `agy-live-qa-conde` (corridas en vivo 1 PASS / 5 FAIL y 3 PASS / 3 FAIL, 128 de 150 llamadas), `sonnet-sql-engines` (H1/H2, `fcdffc5`) y `sonnet-graph-structure`. Se retiraron las cuatro del inbox.
+- **Embudo (D14):** pasa a `implementado`: único flujo desde el merge `aa90b94` (`GUIDED_FUNNEL_ENABLED`, `IntentInterpreter` y `CustomerResponsePolicy` retirados; Grok solo clasifica texto de pasos cerrados); offline S01–S22 × 3 = 66 PASS según Codex. Límites: Kapso `interactive` verificado solo con documentación y dobles (falta el sandbox real), sin corrida en vivo del embudo, estado local al proceso. Las discrepancias entre el contrato y el código están en corrección por Codex.
+- **Páginas:** embudo de cotización, QA de Conde, conector de la ferretería (H1/H2 corregidos), estado del corte, arquitectura actual, grafo del proyecto (hubs, mapa, colores, bóveda `wiki/` en uso, pasos para el usuario), decisiones (estado de D14) e índice (leyenda con `hub` y `comunidad`). Grafo regenerado.
+- **Pendiente:** payload real de Kapso `interactive` en sandbox; corrida en vivo del embudo; aplicar los colores con Obsidian cerrado.

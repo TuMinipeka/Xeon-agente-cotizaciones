@@ -30,7 +30,14 @@ Mapa estructural local de XEON, generado con Graphify `graphifyy==0.9.95` (commi
 
 ## Uso en Obsidian
 
-Abre la raíz del repositorio como bóveda y entra por [grafo en la wiki](../graph/README.md). Las 1.714 notas generadas saturan la vista de grafo. Para ver solo la wiki, filtra con `-path:wiki/graph/generated`.
+La bóveda abierta por el usuario es **`wiki/`** (según `%APPDATA%\obsidian\obsidian.json`, 2026-10-26); la de la raíz del repositorio existe pero no está abierta. Entra por el [mapa del proyecto](../graph/mapa-proyecto.md). Las notas generadas (más de 2.000) saturan la vista; para ver solo la wiki, filtra con `-path:graph/generated`.
+
+## Hubs, mapa y colores (Sonnet, 2026-10-26)
+
+- **Estructura:** `scripts/build_graphify_map.py` genera `wiki/graph/mapa-proyecto.md` y un `hub-<capa>.md` por capa (14, con `comunidad`), que enlazan las notas generadas de la capa y las páginas de la wiki que la describen. Cada página de `wiki/pages` termina con un enlace a su hub y al mapa (`--link-wiki-pages`, idempotente).
+- **Huérfanos** (notas sin enlaces entrantes ni salientes en la bóveda `wiki/`; `--orphans`): de 101 a 1 (la nota abierta de agy en el inbox, ya integrada).
+- **Colores:** los ocho `xeon/*` van primero y tienen prioridad, luego las capas `xeon-grafo/*`, `hub` (`#FFFFFF`) y `comunidad` (`#455A64`); leyenda en el [índice](../index.md). `graphify/INFERRED` no tiene grupo porque taparía el color de capa.
+- **Pasos para el usuario:** Obsidian sobrescribe `graph.json` desde memoria, así que 1) cierra Obsidian; 2) `uv run --locked python scripts/apply_obsidian_graph_colors.py` (imprime `N/N grupos de color` por bóveda); 3) abre la bóveda `wiki`. Con `--force` se escribió el archivo con la app abierta y siguió intacto 60 s, pero Obsidian puede reescribirlo; «Reload app without saving» recarga desde disco y **no se verificó**.
 
 ## Pendiente
 

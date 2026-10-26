@@ -58,8 +58,8 @@ Revisado: 2026-10-26. Estado: **`implementado`** (Codex, `87ca4d2`; fusionado en
   - `LIMIT` y los parámetros funcionan.
   - El usuario de solo lectura no puede escribir y la inyección no devuelve filas.
   - SQL Server sigue sin probarse.
-- **Hallazgos en MySQL, en corrección:**
-  - **H1:** `DATETIME` no guarda zona horaria, por eso el stock queda «pendiente». Se resuelve con un campo opcional del conector que declara la zona.
-  - **H2:** la conexión no estaba en modo solo lectura. Se resuelve con `SET SESSION TRANSACTION READ ONLY`.
+- **Hallazgos en MySQL, corregidos** (Sonnet, `fcdffc5`, 2026-10-26):
+  - **H1:** `DATETIME` no guarda zona horaria, por eso el stock quedaba «pendiente». El conector admite el campo opcional `naive_datetime_timezone` (zona IANA, por ejemplo `UTC` o `America/Bogota`): solo las fechas sin zona se interpretan con ella. Sin declararlo se mantiene el rechazo (falla segura).
+  - **H2:** la conexión no estaba en modo solo lectura. `SqlReader` ejecuta `SET SESSION TRANSACTION READ ONLY` en MySQL/MariaDB; la integración prueba que una escritura forjada falla incluso con la cuenta de escritura, en ambos motores (10 pruebas de integración aprobadas, `pytest -m integration`).
 
 Grafo: [capa adaptadores](../graph/hub-adaptadores.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

@@ -5,11 +5,30 @@ tags:
 
 # Embudo de cotización guiado y políticas de la ferretería
 
-Contrato que diseñó el orquestador el 2026-10-26 a partir de las decisiones del usuario ([D14](decisiones-pendientes.md)). Estado: **`aprobado`, sin implementar**. Relacionado: [reporte QA de Conde](qa-conde-2026-10-24.md), [conector de la ferretería](conector-ferreteria.md), [evaluación conversacional](evaluacion-conversacional.md).
+Contrato que diseñó el orquestador el 2026-10-26 a partir de las decisiones del usuario ([D14](decisiones-pendientes.md)). Estado: **`implementado`** (merge `aa90b94`, 2026-10-26; entrega de Codex, auditoría del orquestador). Antes de implementarse estuvo `aprobado`. Relacionado: [reporte QA de Conde](qa-conde-2026-10-24.md), [conector de la ferretería](conector-ferreteria.md), [evaluación conversacional](evaluacion-conversacional.md).
+
+## Estado real en el código (2026-10-26)
+
+Fuente: nota de entrega de Codex (worktree `xf`, rama `feat/guided-funnel`) y `git log` de `fix/live-qa-defects`. Los números son del informe de Codex; no se repitieron aquí.
+
+- **Único flujo:** `AgentService` delega en una instancia de `GuidedFunnel` (`src/xeon/agent/guided_funnel.py`); API, CLI y Kapso lo comparten. Se eliminaron `GUIDED_FUNNEL_ENABLED`, `IntentInterpreter` y `CustomerResponsePolicy`. Queda un parser local para operaciones evidentes del carrito y datos de proyecto; `CommercialExecutor` y `QuoteCart` siguen calculando y versionando.
+- **Grok solo clasifica** el texto libre de los pasos cerrados en una opción permitida o `no_encaja`; en `producto` se busca en el catálogo. Con `mock` siempre devuelve `no_encaja`.
+- **Confirmación:** `summary:confirm` guarda `CONFIRMADO_POR_CLIENTE` (distinto de una aprobación humana). El notificador de asesor solo registra `tenant_id` y tipo de evento, sin datos del cliente.
+- **Evaluación:** recorridos por id o número para S01–S22 (S21: $621.700; S22: desvío ajeno) y los checks `step_flow`, `options_offered`, `no_freeform_solution` y `confirmation_state`. Informe de Codex: offline **66 PASS / 0 FAIL / 0 ERROR**, suite completa verde, costo LLM 0.
+- **Residuales de la segunda corrida en vivo** (S15 peso del bulto, S16 subtotal y cierre, S19 superficie ya confirmada): corregidos en `7617005` con regresiones deterministas. La corrección no se probó en vivo.
+- **Defectos hallados al migrar las pruebas** (corregidos): «dejámelo» con tilde no fijaba la cantidad; un tenant sin política de entrega dejaba el paso sin salida; un webhook duplicado podía reinterpretar el número como otra opción. Después, `39afd0a` muestra el stock verificado de la sede elegida.
+
+**Límites vigentes**
+
+- **Kapso `interactive` sin verificar en sandbox:** la documentación pública no muestra un ejemplo de respuesta interactiva v2. El parser acepta `message.interactive.button_reply.id` y `list_reply.id` y las pruebas usan dobles `httpx.MockTransport`; falta cotejar un payload real y el envío con el número conectado. No hubo mensajes reales.
+- **Sin corrida en vivo del embudo** con Grok.
+- Estado del embudo, carrito y borradores en memoria: un reinicio los pierde y la idempotencia entre procesos distintos requiere estado compartido.
+- El paso `proyecto` ofrece una lista léxica preliminar sin cantidades técnicas; el costo del domicilio siempre lo confirma un asesor; la vista de stock por sede aún toma la primera línea confirmada (pendiente: todas las líneas).
+- **Discrepancias entre este contrato y el código: en corrección por Codex.** Esta página sigue siendo el contrato original; hasta esa corrección prevalece el código.
 
 ## Por qué
 
-La corrida en vivo del 2026-10-26 dio 1 escenario aprobado y 5 fallidos en S15–S20: con texto libre y Grok real, la interpretación falla (suma en lugar de reemplazar, cantidades cruzadas, desvíos). **Prioridad del usuario:** XEON no divaga ni ofrece soluciones; **guía al cliente hasta armar el borrador** y restringe sus respuestas con opciones visuales.
+La primera corrida en vivo del 2026-10-26 dio 1 escenario aprobado y 5 fallidos en S15–S20: con texto libre y Grok real, la interpretación falla (suma en lugar de reemplazar, cantidades cruzadas, desvíos). **Prioridad del usuario:** XEON no divaga ni ofrece soluciones; **guía al cliente hasta armar el borrador** y restringe sus respuestas con opciones visuales.
 
 ## Principios
 
@@ -64,7 +83,7 @@ fuera_de_horario: "Tomamos tu cotización y un asesor te responde al abrir"
 
 - **Salida:** un puerto de presentación (`Reply`) con `text`, `buttons[]` o `list{sections[]}`. El adaptador de Kapso lo convierte en un mensaje `interactive` de WhatsApp Cloud. El CLI y `/v1/chat` lo muestran como opciones numeradas.
 - **Entrada:** el webhook acepta `interactive.button_reply` y `interactive.list_reply` y entrega el `id` exacto al embudo.
-- **Riesgo que verificar primero (spike):** que el sandbox de Kapso envíe y reciba mensajes `interactive`.
+- **Riesgo pendiente (spike):** que el sandbox de Kapso envíe y reciba mensajes `interactive`. Solo se contrastó con la documentación y dobles (2026-10-26).
 
 ## Evaluador
 
