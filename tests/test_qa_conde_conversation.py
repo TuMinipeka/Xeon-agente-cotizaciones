@@ -94,8 +94,8 @@ def test_stock_and_policy_followups_preserve_quote() -> None:
                 )
             ]
             assert "sede-norte" in replies[1]
-            assert "Pagos: pendiente de confirmar" in replies[2]
-            assert "Recogida: pendiente de confirmar" in replies[2]
+            assert "Pagos: Efectivo, Transferencia, Tarjeta" in replies[2]
+            assert "Recogida: Mismo día si hay stock" in replies[2]
             assert "TOTAL confirmado: $289.000" in replies[3]
             assert all("fuera de alcance" not in text.casefold() for text in replies)
         finally:

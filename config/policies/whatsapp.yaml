@@ -1,6 +1,11 @@
-# Complete only with policies approved by the tenant. Null means unverified.
-pagos: null
-recogida: null
-domicilio: null
-horarios: null
-facturacion: null
+# Plantilla demo para Colombia. Cada ferreteria reemplaza sus valores aprobados.
+demo: true
+pagos: [Efectivo, Transferencia, Tarjeta débito/crédito, Nequi]
+entrega:
+  recoger_en_sede: {disponible: true, nota: "Mismo día si hay stock"}
+  domicilio: {disponible: true, costo: "lo confirma un asesor según la zona"}
+horario: {lunes_a_viernes: "7:00-18:00", sabado: "7:00-13:00", domingo: null}
+vigencia_cotizacion_dias: 3
+iva: pendiente
+descuentos: asesor
+fuera_de_horario: "Tomamos tu cotización y un asesor te responde al abrir"
