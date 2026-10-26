@@ -7,6 +7,7 @@
 - [GLOSSARY.md](GLOSSARY.md): términos del dominio y del proyecto.
 - [CAMBIOS_CONDE.md](CAMBIOS_CONDE.md): historial de aportes de la rama de Conde.
 - [qa/reporte_conde_qa.md](qa/reporte_conde_qa.md): informe de QA de Conde (2026-10-24), 23 fallos conversacionales del agente.
+- [QA_EMBUDO.md](QA_EMBUDO.md): guía de prueba manual para QA humano del embudo guiado por WhatsApp (contrato D14).
 - [GRAPHIFY.md](GRAPHIFY.md): mapa local del proyecto con Graphify.
 
 Vuelve al [README principal](../README.md) o consulta el [índice de la wiki](../wiki/index.md).
