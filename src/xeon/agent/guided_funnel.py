@@ -296,7 +296,7 @@ class GuidedFunnel:
         if not raw:
             return self.render(key)
         options = self._options(key, state)
-        if option_id is None and raw.isdigit():
+        if option_id is None and raw.isdigit() and not state.awaiting_number:
             index = int(raw) - 1
             if 0 <= index < len(options):
                 raw = options[index].id
@@ -320,6 +320,29 @@ class GuidedFunnel:
         if state.step in {"confirmado", "cancelado", "asesor"}:
             return self.render(key)
         normalized_message = _normalized(message)
+        if (
+            option_id is None
+            and state.step == "inicio"
+            and normalized_message.strip(" !.")
+            in {"hola", "buenas", "buenos dias", "buenas tardes", "buenas noches"}
+        ):
+            return self.render(key)
+        if option_id is None and re.search(
+            r"\b(?:motherboard|placa base|tarjeta madre|tornillos? m3|tornillos? 6-32)\b",
+            normalized_message,
+        ):
+            self._memory.set_unverified_pc_context(key, True)
+            return self.render(
+                key,
+                prefix="No tengo compatibilidad verificada para placa base o PC. "
+                "Habla con un asesor antes de elegir tornillos.\n",
+            )
+        if (
+            option_id is None
+            and self._memory.unverified_pc_context(key)
+            and re.search(r"\b(?:tornillos?|m3|6-32|rosca)\b", normalized_message)
+        ):
+            return self.render(key, prefix="La compatibilidad para PC sigue sin verificar.\n")
         if option_id is None and re.search(r"\b(?:gracias|muchas gracias)\b", normalized_message):
             self._save(key, replace(state, closed=True))
             summary = self._cart(key) if self._carts.get(key) else ""
@@ -341,6 +364,11 @@ class GuidedFunnel:
                 )
                 self._save(key, replace(state, step="proyecto"))
                 return self.render(key)
+        if option_id is None and all(
+            intent.kind is IntentKind.FUERA_DE_ALCANCE
+            for intent in fallback_intents(message).intents
+        ):
+            return self.render(key, prefix="Solo puedo ayudarte con tu cotización.\n")
         if option_id is None:
             local = fallback_intents(message)
             operations = tuple(

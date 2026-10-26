@@ -1,0 +1,14 @@
+id: S22
+severity: high
+category: guided_scope
+checks:
+  - type: final_quote_quantity
+    product: cemento
+    quantity: "10"
+    expected_total: "289000.00"
+  - type: out_of_scope_handled
+  - type: no_invented_amounts
+  - type: no_completion_claims
+  - type: no_internal_leak
+judge:
+  - "La peticion de chiste recibe una linea de redireccion y las opciones del paso mas; el carrito de cemento no se pierde."

@@ -1,0 +1,22 @@
+id: S21
+severity: blocker
+category: guided_confirmation
+checks:
+  - type: final_quote_quantity
+    product: cemento
+    quantity: "20"
+    expected_total: "621700.00"
+    expected_lines: 2
+  - type: final_quote_quantity
+    product: pala redonda mango de fibra
+    quantity: "1"
+    expected_total: "621700.00"
+    expected_lines: 2
+  - type: branch_matches
+    branch: sede-norte
+  - type: no_invented_amounts
+  - type: no_invented_stock
+    product: cemento
+  - type: no_internal_leak
+judge:
+  - "El estado final es CONFIRMADO_POR_CLIENTE, el total es 621.700 COP y no se afirma aprobacion, reserva ni factura."

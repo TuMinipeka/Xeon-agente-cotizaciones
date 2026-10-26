@@ -173,6 +173,7 @@ def create_app(
                     model="guided-funnel-v1",
                     step=reply.step,
                     options=tuple({"id": item.id, "title": item.title} for item in reply.options),
+                    kind=reply.kind,
                 )
             result = await runtime.agent.respond(
                 request.message, conversation_key=str(request.conversation_id)

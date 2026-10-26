@@ -19,6 +19,7 @@ class ChatResponse(BaseModel):
     model: str
     step: str | None = None
     options: tuple[dict[str, str], ...] = ()
+    kind: Literal["text", "buttons", "list"] = "text"
 
 
 class HealthResponse(BaseModel):

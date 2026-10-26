@@ -1,0 +1,16 @@
+id: S21
+name: Recorrido feliz por botones hasta confirmacion del cliente
+category: guided_confirmation
+persona: >
+  Comprador que utiliza las opciones del embudo para cotizar cemento y una pala,
+  elegir recogida en sede Norte y confirmar para revision de un asesor.
+goal: >
+  Confirmar por cliente un borrador de 20 bultos de cemento y una pala redonda
+  con mango de fibra por 621.700 COP, sin aprobacion, reserva ni factura.
+first_message: "Hola"
+behaviors:
+  - Pulsa Cotizar productos, elige cemento y luego la pala redonda con mango de fibra.
+  - Indica 20 bultos de cemento y 1 pala.
+  - Elige recogida en sede Norte y pago en efectivo.
+  - Pulsa Confirmar solo al ver el resumen.
+max_turns: 16
