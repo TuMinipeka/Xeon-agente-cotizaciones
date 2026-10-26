@@ -276,3 +276,131 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Documento técnico:** con la estructura de 10 secciones del Hito 1.
 - **Archivos:** versiones HTML y Markdown en `video/hito2/entrega/` (ignorado por Git). El usuario las sube a Drive junto con el video.
 - **Pendiente:** fusionar el PR #5 (abierto, con CI en verde) y poner el enlace del video en las notas.
+
+## [2026-10-25] entrega | Entregable integrado del Hito #2
+
+- **Archivo:** `video/hito2/entrega/Entregable_XEON_Hito2.{md,html}`, ignorado por Git.
+- **Contenido:** la estructura de 10 secciones del Hito 1, actualizada al Hito 2, más las notas de entrega y los anexos de reproducción y enlaces.
+- **Correcciones sobre el borrador mezclado que pegó el usuario:** se quitó el contenido obsoleto del Hito 1 (Evolution API, Hermes, 80 pruebas) y se marcó la tarifa de Grok como interpretación.
+
+## [2026-10-26] integración | Grafo Graphify del proyecto
+
+- **Codex (`07281a5`):** Graphify 0.9.95 fijado en el grupo `graph`; script `scripts/build_graphify_map.py`; skill en `.claude/skills/graphify/`; puentes en `wiki/graph/`. AST local, sin costo.
+- **Auditoría del orquestador:** barrido de claves y rutas de `secrets/` sobre la salida con 0 coincidencias; `explain` y `query` funcionan; avance rápido a `developer/daniel`.
+- **Nueva página:** [grafo del proyecto](pages/grafo-proyecto.md), con la clasificación de qué herramienta usar. `AGENTS.md` incluye ahora la sección «Navegar el proyecto sin leer cada archivo».
+- **Inbox:** se integró y retiró la nota `codex-graphify`.
+
+## [2026-10-26] decisión | Reporte QA de Conde, RAG (D12) y conector de la ferretería (D13)
+
+- **Ramas:** `origin/develop` y `origin/QA/testing` se fusionaron en `developer/daniel` (`3c56547`). El reporte se movió a `docs/qa/` (`da20d43`).
+- **Diagnóstico:** los 23 fallos salen de 4 causas raíz. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
+- **Decisiones:** [D12 y D13](pages/decisiones-pendientes.md). XEON es un agente con herramientas; el RAG será solo una herramienta de búsqueda y conocimiento; el conector será declarativo con SQLAlchemy.
+- **Delegación:** Codex hace la fase 1 en `fix/qa-conde-cart` y agy los escenarios S15–S20.
+
+## [2026-10-26] auditoría | Fase 1 de las correcciones de QA de Conde
+
+- **Codex:** seis commits, de `d29c45a` a `8503a15`. Carrito versionado, intérprete de intenciones, ejecutor comercial, formato para WhatsApp y flujo único.
+- **agy:** escenarios S15–S20 y 5 checks nuevos (`aaca88f`).
+- **Auditoría:** B1, el evaluador probaba el flujo viejo (corregido); A1, el oráculo agregaba productos en código (enviado a agy).
+- **Resultado:** S01–S20 dan 60/60 offline. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
+- **Inbox:** se integraron las notas `codex-qa-conde` y `agy-qa-conde-evals`. La de agy sigue abierta hasta cerrar A1.
+
+## [2026-10-26] corrección | Modelo de agy y precisión de D12
+
+- **agy:** pasa de Gemini 4 Argon a **Gemini 3.8 Flash con razonamiento medio** (decisión del usuario). Se añadió en [orquestación](pages/orquestacion.md) una guía para asignarle tareas según su nivel de razonamiento.
+- **D12:** se corrigió la afirmación «XEON no es un RAG». XEON tiene un RAG estructurado (recupera del catálogo y aumenta el prompt) dentro de un agente con herramientas. La decisión no cambia: no se convierte en un RAG de texto puro.
+
+## [2026-10-26] integración | Fases 1 y 2 fusionadas en developer/daniel
+
+- **Fusiones:** `fix/qa-conde-cart` (correcciones de QA, más A1 de agy en `df19216`) y `feat/store-connector` (conector SQL, `87ca4d2`) entraron en `developer/daniel`. Se retiró el worktree `xeon-connector`.
+- **Quality gate:** 294 pruebas, `ruff`, `mypy` (82 archivos) y evaluación offline S01–S20 con 60 PASS, 0 FAIL y 0 ERROR.
+- **Páginas:** se actualizó el [conector de la ferretería](pages/conector-ferreteria.md) a `implementado`.
+- **Inbox:** se integraron y retiraron las notas `codex-store-connector` y `agy-qa-conde-evals`.
+
+## [2026-10-26] decisión | Embudo guiado y políticas de la ferretería (D14)
+
+- **Corrida en vivo de agy:** S15–S20 con `grok-4.6` dio 1 PASS y 5 FAIL en 64 llamadas (huella `0c0b8619431b38a0`). Los defectos D1–D5 se delegaron a Codex en `fix/live-qa-defects`, y el falso positivo de `branch_matches` en vivo, a agy.
+- **D14 (usuario):** embudo guiado con texto acotado, confirmación con botón que pasa al asesor humano, plantilla demo de políticas para Colombia y redirección ante desvíos.
+- **Contrato:** [embudo de cotización](pages/embudo-cotizacion.md).
+
+## [2026-10-26] operación | Nuevo agente Claude Sonnet 5.5
+
+- **Incorporación:** el usuario sumó un agente Claude Sonnet 5.5 (panel `w7:pQ`) para trabajar en paralelo. Se registró en [orquestación](pages/orquestacion.md).
+- **Primera tarea (delegada):** colorear el grafo de Graphify por capa en las bóvedas de Obsidian.
+
+## [2026-10-26] operación | Armonización de documentación con el flujo actual
+
+- **Integrado:** notas `sonnet-graph-colors` (leyenda de capas del grafo, en el índice) y `codex-live-defects` (D1–D5, `1422e05`) más la sección 4 de `agy-live-qa-conde` (`branch_matches` en vivo, `045e7c7`). La nota de agy sigue abierta en el inbox.
+- **Páginas:** índice, estado del corte, arquitectura actual y QA de Conde. Docs: README, `XeonContexto.md` y `ARCHITECTURE.md`.
+- **Correcciones:** `CommercialScopePolicy` y `prepare_verified_context` ya no existen (flujo `IntentInterpreter` + `CommercialExecutor` + `QuoteCart`); el conector SQL opcional (`DATA_SOURCE`) existe; el modelo vigente es `grok-4.6`; el RAG se describe como D12 (propuesta); el embudo guiado D14 figura como aprobado y no implementado.
+- **Pendiente:** resultado de la re-ejecución en vivo S15–S20 (la corrida previa fue 1 PASS y 5 FAIL); aplicar los colores del grafo con Obsidian cerrado.
+
+## [2026-10-26] verificación | Conector SQL en motores reales, guía QA del embudo y segunda corrida en vivo
+
+- **Sonnet (`4af2c69`):** el conector pasa en PostgreSQL 17.6 y MySQL 8.4.6 (9 de 9). Los hallazgos H1 y H2 en MySQL se delegaron otra vez a Sonnet. Detalle en el [conector de la ferretería](pages/conector-ferreteria.md).
+- **agy:** guía manual `docs/QA_EMBUDO.md` (`d3d4d37`) y segunda corrida en vivo con 3 PASS y 3 FAIL (`a47b7fc`), 128 de 150 llamadas. Los residuales de S15, S16 y S19 se delegaron a Codex.
+- **Codex:** el embudo D14 quedó implementado en `feat/guided-funnel`, por ahora detrás de `GUIDED_FUNNEL_ENABLED`. Está migrando el evaluador para que el embudo sea el único flujo.
+
+## [2026-10-26] operación | Hubs por capa y mapa del proyecto en el grafo
+
+- **Cambio:** `scripts/build_graphify_map.py` genera `wiki/graph/mapa-proyecto.md` y una nota `hub-<capa>.md` por capa (14 con comunidades), que enlazan las notas generadas y las páginas de la wiki que describen cada capa. Cada página de `wiki/pages` recibió al final una línea de enlace a su hub y al mapa (sin cambiar su contenido).
+- **Resultado:** notas sin enlaces entrantes ni salientes en la bóveda `wiki/`: de 101 a 1 (la nota abierta de agy en el inbox). Colores por capa y por hub en `scripts/apply_obsidian_graph_colors.py`.
+
+## [2026-10-26] integración | Embudo guiado, conector en motores reales, corridas en vivo y estructura del grafo
+
+- **Integrado por Sonnet (integrador de la ronda):** notas `codex-guided-funnel`, `agy-live-qa-conde` (corridas en vivo 1 PASS / 5 FAIL y 3 PASS / 3 FAIL, 128 de 150 llamadas), `sonnet-sql-engines` (H1/H2, `fcdffc5`) y `sonnet-graph-structure`. Se retiraron las cuatro del inbox.
+- **Embudo (D14):** pasa a `implementado`: único flujo desde el merge `aa90b94` (`GUIDED_FUNNEL_ENABLED`, `IntentInterpreter` y `CustomerResponsePolicy` retirados; Grok solo clasifica texto de pasos cerrados); offline S01–S22 × 3 = 66 PASS según Codex. Límites: Kapso `interactive` verificado solo con documentación y dobles (falta el sandbox real), sin corrida en vivo del embudo, estado local al proceso. Las discrepancias entre el contrato y el código están en corrección por Codex.
+- **Páginas:** embudo de cotización, QA de Conde, conector de la ferretería (H1/H2 corregidos), estado del corte, arquitectura actual, grafo del proyecto (hubs, mapa, colores, bóveda `wiki/` en uso, pasos para el usuario), decisiones (estado de D14) e índice (leyenda con `hub` y `comunidad`). Grafo regenerado.
+- **Pendiente:** payload real de Kapso `interactive` en sandbox; corrida en vivo del embudo; aplicar los colores con Obsidian cerrado.
+
+## [2026-10-26] propuesta | Fase 3 para decisión del usuario
+
+- **Página nueva:** [propuesta de la fase 3](pages/propuesta-fase3.md) (`xeon/decision`, estado `propuesta`): cinco opciones (A persistencia en PostgreSQL propio, B asesor, aprobación humana y PDF, C búsqueda híbrida, D adaptadores REST Siigo/Alegra, E observabilidad), cada una con diseño hexagonal, tecnología con versión y fuente, esfuerzo, riesgos y criterio de aceptación; orden recomendado A, E, B, D, C y cinco preguntas.
+- **Procedencia y límites:** versiones de PyPI y README del 2026-10-26. La documentación oficial de Siigo (Apiary) y la autenticación de Alegra no se pudieron leer; esos datos quedan **por verificar**. Sin código ni dependencias.
+
+## [2026-10-26] decisión | Fase 3 (D15) y PR
+
+- **Decisión del usuario:** A + E primero, PostgreSQL propio en contenedor local y panel web para el asesor. Detalle en [D15](pages/decisiones-pendientes.md).
+- **Embudo:** Codex lo alineó con el contrato D14 (`dcfc794`): 3 botones reales, cantidades según la unidad y políticas respondidas en cualquier paso. Gate en verde, con 66 de 66 offline.
+
+## [2026-10-26] integración | Ajuste del embudo al contrato D14
+
+- **Codex (`dcfc794`):** resolvió las 5 discrepancias reportadas por agy en el embudo guiado D14. Ofrece 3 botones reales en `inicio`, `cantidad`, `mas`, `entrega` (sumando `[Hablar con asesor]` como tercera alternativa) y `resumen`; comandos «cancelar» y «asesor» transversales por texto.
+- **Cantidades y políticas:** `cantidad` nombra el producto y adapta botones sugeridos por unidad (bulto 10/20, metro 10/50, unidad 1/2, más Otra); preguntas sobre horario, domicilio, recogida, pago, IVA, descuentos y vigencia se responden dinámicamente desde el YAML del tenant en cualquier paso.
+- **Verificación:** gate verde en offline (66/66 PASS), nota `2026-10-26T-codex-funnel-contract.md` retirada del inbox e integrada en [embudo de cotización](pages/embudo-cotizacion.md).
+
+## [2026-10-26] integración | Observabilidad y costo por tarea (E)
+
+- **Sonnet (`ef69e8b`, `aeaa971`, merge `76e2458`):** implementó la opción E de la fase 3 (ver [docs/OBSERVABILIDAD.md](../docs/OBSERVABILIDAD.md) y [propuesta de la fase 3](pages/propuesta-fase3.md)); puerto `MetricsRecorder` con `NullMetrics`, `InMemoryMetrics` y `JsonlMetrics` (`METRICS_PATH`) sin PII.
+- **Etapas y tokens:** cronometra `turno`, `llm`, `ejecutor`, `catalogo`, `inventario` y `envio_kapso`; `LLMResponse.usage` lee `usage` real del proveedor o desconocido sin estimar; tarifas `LLM_PRICE_*` como supuesto.
+- **Reportes:** `scripts/cost_report.py` agrega métricas por tarea y costo; el runner de evals registra `observability.jsonl`. Nota `2026-10-26T-sonnet-observability.md` retirada del inbox.
+
+## [2026-10-26] integración | Panel web del asesor (D15, opción B parcial)
+
+- **Sonnet (`cedb9d9`, `9b38e86`, merge `f2097ae`):** panel `/panel` con autenticación (PBKDF2, cookie `HttpOnly`/`SameSite=Strict`, CSRF, límite de intentos), bandeja `AdvisorInbox`, revisión humana `AdvisorReview` (`APPROVED_FOR_BILLING`, `RECHAZADO_POR_ASESOR`, marcar atendido) y aviso al cliente por Kapso; el agente no puede invocar esas transiciones (pruebas). Nota de inbox integrada y retirada.
+- **Páginas:** [propuesta de la fase 3](pages/propuesta-fase3.md) (opción B: implementada parcialmente), [estado del corte](pages/estado-del-corte.md) y [arquitectura actual](pages/arquitectura-actual.md). `docs/PANEL_ASESOR.md` deja explícito que en producción la cookie `Secure` y HTTPS son obligatorios.
+- **Pendiente:** PDF, roles, persistencia de bandeja y sesiones (con la opción A) y verificar el aviso al cliente en el sandbox de Kapso.
+
+## [2026-10-26] integración | PDF del borrador de cotización (B)
+
+- **Sonnet (`f61ec87`):** completó la opción B de la fase 3 con la generación de PDF del borrador mediante ReportLab 5.1.0 (`GET /panel/quotes/{id}/pdf`), descargable desde el panel del asesor.
+- **Contenido y seguridad:** incluye número `COT-XXXXXXXX`, versión, fecha, líneas detalladas, total exacto en COP (`Decimal`), metadatos y leyenda «Borrador de cotización — no es factura ni reserva de inventario» (arriba y abajo); omite el teléfono del cliente; 401 sin sesión, 409 si sigue en `DRAFT`, 503 si falta el grupo opcional `pdf`.
+- **Wiki:** nota `2026-10-26T-sonnet-quote-pdf.md` retirada del inbox e integrada en [propuesta de la fase 3](pages/propuesta-fase3.md) y [estado del corte](pages/estado-del-corte.md).
+
+## [2026-10-26] integración | Persistencia operativa del estado (D15 A)
+
+- **Codex (`f234e89`, `60a0974`, `2917ec4`, `dd65283`, `9e06c6b`, merge `4dc5945`):** implementó la opción A de la fase 3 (ver [docs/PERSISTENCIA.md](../docs/PERSISTENCIA.md) y [propuesta de la fase 3](pages/propuesta-fase3.md)); `STATE_STORE=memory|postgres` (memoria por defecto) con URL de PostgreSQL 17 leída de `secrets/` (`XEON_STATE_URL_FILE`).
+- **Migraciones y concurrencia:** migraciones Alembic `0001_operational_state` (embudo, carrito versionado, memoria y deduplicación de webhooks con JSONB versionado) y `0002_advisor_inbox` (bandeja de revisión en PostgreSQL con índice único por conversación, tipo y borrador). Transacción serializada por conversación en el embudo, rechazo de versiones obsoletas en el carrito y orden atómico de bloqueos en carreras de revisión (`review_transaction`).
+- **Sesiones y límites:** sesiones del panel en memoria con expiración y huella HMAC (requiere afinidad de sesión con varios workers). Límites: retención POR DEFINIR por el usuario, sin cifrado en reposo ni backup de producción, sin outbox de envío (en curso por Codex) y sin cola durable para tareas en segundo plano (en curso).
+- **Wiki:** nota `2026-10-26T-codex-persistence.md` retirada del inbox e integrada en [propuesta de la fase 3](pages/propuesta-fase3.md), [estado del corte](pages/estado-del-corte.md) y [arquitectura actual](pages/arquitectura-actual.md).
+
+## [2026-10-26] cierre | Integración del día en developer/daniel
+
+- **Integrado y publicado (`73ac618`):** embudo D14, conector SQL, persistencia PostgreSQL, observabilidad, panel del asesor con PDF, outbox y recepción durable de Kapso, endurecimiento de seguridad (Sonnet: A1, A2, M1–M3, M6, M7, B7 y B8; Codex: M4 y B1–B3), y reinicio de la conversación tras los pasos terminales (agy).
+- **Gate (perfil CI):** 409 pruebas, `ruff` y `mypy` en verde, 0 enlaces rotos. La API se reinició con todo integrado y el webhook de Kapso se sincronizó con el túnel activo.
+- **Pendiente:** en el perfil completo fallan 7 pruebas del webhook porque `litellm` carga el `.env` local (`KAPSO_PHONE_NUMBER_ID`) y el filtro B3 ignora los payloads de prueba; las pruebas deben fijar el número. También queda pendiente el redrive de Codex (`feat/delivery-redrive`, sin fusionar), la retención de datos M5 (decisión del usuario), la integración en la wiki de las notas del inbox (outbox y seguridad) y la prueba por WhatsApp del usuario.
+
+## [2026-10-26] documentación | Guía de método de trabajo para agentes nuevos
+
+- **Nueva guía:** `docs/METODO_DE_TRABAJO.md`, para agentes que se suman al proyecto. Cubre las fuentes de verdad, el grafo, los roles en herdr, ramas y worktrees, el formato de commits, el gate de dos perfiles, el protocolo de la wiki y la seguridad.
+- **Enlaces:** se enlaza desde `AGENTS.md` y `docs/README.md`.

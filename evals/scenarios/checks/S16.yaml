@@ -1,0 +1,18 @@
+id: S16
+severity: blocker
+category: cart_mutation
+checks:
+  - type: adjustment_summary
+  - type: final_quote_quantity
+    product: cemento
+    quantity: "15"
+    forbidden_quantities: ["50"]
+    expected_total: "433500.00"
+  - type: no_discount_percentage
+  - type: no_invented_amounts
+  - type: no_completion_claims
+  - type: no_out_of_scope_on_commercial
+  - type: no_internal_leak
+judge:
+  - "El asistente trata la consulta de 50 bultos como hipotetica sin fijar el borrador en 50 ni ofrecer porcentajes de descuento no autorizados."
+  - "El borrador final queda actualizado en 15 bultos de cemento gris con el subtotal correspondiente."

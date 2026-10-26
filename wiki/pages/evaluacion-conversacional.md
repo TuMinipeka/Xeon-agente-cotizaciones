@@ -129,3 +129,5 @@ El juez solo evalúa claridad, pertinencia, tono y manejo de la ambigüedad. Un 
 - **Infraestructura del runner** (`30386ad`): reporte incremental (`cases.jsonl`), reconstrucción desde una corrida interrumpida y concurrencia 3 por defecto.
 - **Validación del aislamiento del CI:** la suite pasa sin el grupo `evals` (`uv run --isolated --no-group evals pytest`), porque `scenario` solo se importa en modo live.
 - **QA humano:** `docs/QA_HITO2.md`, de agy, revisada por el orquestador contra los fixtures (precios y nombres exactos).
+
+Grafo: [capa evaluacion](../graph/hub-evaluacion.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

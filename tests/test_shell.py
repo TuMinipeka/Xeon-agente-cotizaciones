@@ -186,7 +186,11 @@ def test_shell_run_new_logs_and_config_hide_secrets() -> None:
     console, output = _console()
     commands = iter(
         [
-            "r Necesito 2 bultos de cemento",
+            "r start:products",
+            "r cemento",
+            "r product:CEM-50",
+            "r quantity:other",
+            "r 2",
             "status",
             "config",
             "logs 4",
@@ -198,7 +202,7 @@ def test_shell_run_new_logs_and_config_hide_secrets() -> None:
     code = run_shell(session, console=console, read_line=lambda: next(commands), stdin_is_tty=False)
     text = output.getvalue()
     assert code == 0
-    assert "SKU=CEM-50" in text
+    assert "Cemento gris" in text
     assert "mock-xeon-v1" in text
     assert "not required" in text
     assert "run" in text and "logs" in text
@@ -211,7 +215,23 @@ def test_shell_run_new_logs_and_config_hide_secrets() -> None:
 def test_tools_command_shows_last_turn_and_new_clears_it() -> None:
     session = _mock_session()
     console, output = _console()
-    lines = iter(["r Necesito 2 bultos de cemento", "tools", "new", "t", "quit"])
+    lines = iter(
+        [
+            "r start:products",
+            "r cemento",
+            "r product:CEM-50",
+            "r quantity:other",
+            "r 2",
+            "tools",
+            "r more:view",
+            "r delivery:pickup",
+            "r branch:sede-norte",
+            "tools",
+            "new",
+            "t",
+            "quit",
+        ]
+    )
 
     assert (
         run_shell(session, console=console, read_line=lambda: next(lines), stdin_is_tty=False) == 0
@@ -229,13 +249,22 @@ def test_shell_uses_same_conversation_for_multiple_mock_turns() -> None:
     session = _mock_session()
     conversation_id: UUID = session.conversation_id
     console, output = _console()
-    commands = iter(["Tienen tubo pvc de 1/2 pulgada?", "r Cotizame 5 unidades de ese mismo", "q"])
+    commands = iter(
+        [
+            "start:products",
+            "tubo pvc de 1/2 pulgada",
+            "product:TUB-PVC-20",
+            "quantity:other",
+            "5",
+            "q",
+        ]
+    )
     code = run_shell(session, console=console, read_line=lambda: next(commands), stdin_is_tty=False)
     assert code == 0
     assert session.conversation_id == conversation_id
-    assert session.turns == 2
-    assert "SKU=TUB-PVC-20" in output.getvalue()
-    assert "create_quote_draft" in output.getvalue()
+    assert session.turns == 5
+    assert "Tubo PVC" in output.getvalue()
+    assert "$21.000" in output.getvalue()
 
 
 def test_shell_eof_and_ctrl_c_exit_codes() -> None:

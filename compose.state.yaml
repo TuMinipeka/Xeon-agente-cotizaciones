@@ -1,0 +1,20 @@
+# Local XEON-owned state only. Do not point the D13 store connector to this database.
+name: xeon-state
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_DB: xeon_state
+      POSTGRES_USER: xeon_dev
+      POSTGRES_PASSWORD: xeon-local-only
+    ports:
+      - "127.0.0.1:55433:5432"
+    volumes:
+      - xeon_state_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xeon_dev -d xeon_state"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+volumes:
+  xeon_state_data:

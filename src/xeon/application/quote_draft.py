@@ -22,6 +22,7 @@ class CreateQuoteDraftCommand:
     request_id: str
     lines: tuple[DraftLineRequest, ...]
     discount_requested: bool = False
+    version: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,9 +81,12 @@ def _require_key_part(value: str, *, name: str) -> str:
 
 
 class CreateQuoteDraft:
-    def __init__(self, catalog: ProductCatalog, quotes: QuoteDraftRepository) -> None:
+    def __init__(
+        self, catalog: ProductCatalog, quotes: QuoteDraftRepository, *, notes: str | None = None
+    ) -> None:
         self._catalog = catalog
         self._quotes = quotes
+        self._notes = notes
 
     def execute(self, command: CreateQuoteDraftCommand) -> CreateQuoteResult:
         tenant_id = _require_key_part(command.tenant_id, name="tenant_id")
@@ -149,7 +153,13 @@ class CreateQuoteDraft:
                 "El catalogo sintetico no esta disponible; no se puede confirmar existencia."
             )
 
-        draft = build_draft_quote(tuple(lines), tenant_id=tenant_id, request_id=request_id)
+        draft = build_draft_quote(
+            tuple(lines),
+            tenant_id=tenant_id,
+            request_id=request_id,
+            version=command.version,
+            notes=self._notes or "Borrador pendiente de confirmacion.",
+        )
         return QuoteDraftReady(quote=self._quotes.save(draft), replayed=False)
 
 

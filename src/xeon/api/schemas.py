@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=8_000)
+    message: str = Field(min_length=1, max_length=1_000)
     conversation_id: UUID = Field(default_factory=uuid4)
 
 
@@ -17,6 +17,9 @@ class ChatResponse(BaseModel):
     reply: str
     provider: str
     model: str
+    step: str | None = None
+    options: tuple[dict[str, str], ...] = ()
+    kind: Literal["text", "buttons", "list"] = "text"
 
 
 class HealthResponse(BaseModel):
@@ -54,7 +57,9 @@ class QuoteDraftOut(BaseModel):
     tenant_id: str
     request_id: str
     version: int
-    status: Literal["DRAFT"]
+    status: Literal[
+        "DRAFT", "CONFIRMADO_POR_CLIENTE", "APPROVED_FOR_BILLING", "RECHAZADO_POR_ASESOR"
+    ]
     currency: str
     subtotal: str
     total: str

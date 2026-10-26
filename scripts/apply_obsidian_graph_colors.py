@@ -22,6 +22,28 @@ WIKI_GROUPS: list[tuple[str, str]] = [
     ("tag:#xeon/fuente OR path:raw", "#90A4AE"),
     ("tag:#xeon/hub", "#6FFFD3"),
 ]
+# Capas del grafo de codigo (etiquetas xeon-grafo/* de build_graphify_map.py). Van despues de
+# las paginas xeon/*: en Obsidian gana el primer grupo que coincide, asi que las notas puente
+# (xeon/hub) conservan el color de hub. graphify/INFERRED no tiene grupo: es la confianza de las
+# aristas y colorearia los nodos por encima de su capa.
+LAYER_GROUPS: list[tuple[str, str]] = [
+    ("tag:#xeon-grafo/dominio", "#7986CB"),
+    ("tag:#xeon-grafo/aplicacion", "#66BB6A"),
+    ("tag:#xeon-grafo/agente", "#E53935"),
+    ("tag:#xeon-grafo/adaptadores", "#26C6DA"),
+    ("tag:#xeon-grafo/api", "#1E88E5"),
+    ("tag:#xeon-grafo/canal", "#C6FF00"),
+    ("tag:#xeon-grafo/config", "#8D6E63"),
+    ("tag:#xeon-grafo/pruebas", "#E040FB"),
+    ("tag:#xeon-grafo/evaluacion", "#D84315"),
+    ("tag:#xeon-grafo/scripts", "#9E9D24"),
+    ("tag:#xeon-grafo/docs", "#80CBC4"),
+    ("tag:#xeon-grafo/wiki", "#D7CCC8"),
+    ("tag:#xeon-grafo/externo", "#757575"),
+    ("tag:#xeon-grafo/comunidad", "#455A64"),
+    ("tag:#xeon-grafo/hub", "#FFFFFF"),
+    ("tag:#xeon-grafo/puente", "#18FFFF"),
+]
 ROOT_EXTRA: list[tuple[str, str]] = [
     ("path:docs", "#26A69A"),
     (
@@ -31,8 +53,8 @@ ROOT_EXTRA: list[tuple[str, str]] = [
     ),
 ]
 VAULTS: dict[Path, list[tuple[str, str]]] = {
-    ROOT / "wiki" / ".obsidian": WIKI_GROUPS,
-    ROOT / ".obsidian": WIKI_GROUPS + ROOT_EXTRA,
+    ROOT / "wiki" / ".obsidian": WIKI_GROUPS + LAYER_GROUPS,
+    ROOT / ".obsidian": WIKI_GROUPS + ROOT_EXTRA + LAYER_GROUPS,
 }
 
 
@@ -62,8 +84,12 @@ def main() -> int:
         graph = config_dir / "graph.json"
         data = json.loads(graph.read_text(encoding="utf-8")) if graph.exists() else {}
         data["colorGroups"] = [color_group(query, color) for query, color in groups]
+        data["collapse-color-groups"] = False
+        data["showOrphans"] = True
         graph.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        print(f"{graph.relative_to(ROOT)}: {len(groups)} grupos de color")
+        saved = len(json.loads(graph.read_text(encoding="utf-8"))["colorGroups"])
+        status = "OK" if saved == len(groups) else "REVISAR"
+        print(f"{graph.relative_to(ROOT)}: {saved}/{len(groups)} grupos de color ({status})")
     return 0
 
 

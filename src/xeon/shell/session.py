@@ -83,6 +83,8 @@ class HTTPEngine:
         self._api_url = api_url.rstrip("/")
         self._provider: str = settings.llm_provider
         self._model = settings.grok_model if self._provider == "grok" else settings.llm_model
+        key = settings.read_api_key()
+        self._headers = {"Authorization": f"Bearer {key}"} if key else {}
         self._client = client or httpx.AsyncClient(timeout=130)
 
     @property
@@ -112,6 +114,7 @@ class HTTPEngine:
         response = await self._client.post(
             f"{self._api_url}/v1/chat",
             json={"message": message, "conversation_id": str(conversation_id)},
+            headers=self._headers,
         )
         response.raise_for_status()
         payload = response.json()

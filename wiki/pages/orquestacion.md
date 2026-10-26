@@ -36,8 +36,25 @@ El orquestador principal es **Claude Opus**, por decisión del usuario del 2026-
 | **Claude Opus** (`w7:p3`)       | Orquestador, arquitecto, auditor DRY y guardián de la wiki | Reparte las tareas por herdr. Define los contratos y los esquemas Pydantic de las herramientas. Revisa los diffs en busca de duplicación y violaciones hexagonales. Corre `ruff`, `mypy` y `pytest`. Integra el inbox y hace los commits. |
 | **Codex** (`w7:p9`)             | Desarrollador core y deploy                                | Implementa adaptadores y herramientas detrás de los puertos (por ejemplo, el proveedor Grok). Se encarga de los scripts y el entorno Docker. Antes de crear una utilidad, busca en la wiki y en el código para no duplicar.               |
 | **agy / Antigravity** (`w7:p8`) | QA, usuarios sintéticos y auditor de contexto              | Corre pruebas multi-turno con `mock` y casos límite (entrada malformada, inyección de prompt, webhooks repetidos). Prepara el guion reproducible de la demo de 2 minutos.                                                                 |
+| **Claude Sonnet 5.5** (`w7:pQ`) | Agente de apoyo en paralelo (desde el 2026-10-26) | Tareas acotadas de documentación, wiki, grafo y tooling en una zona de archivos separada. Primera tarea: clasificar por colores el grafo de la bóveda Obsidian. |
 
 Los ID de panel dependen de la sesión. Verificarlos con `herdr agent list` antes de usarlos. El CLI `gemini` no está instalado; Antigravity cumple ese rol.
+
+### Modelo de agy y asignación por nivel de razonamiento
+
+Desde el 2026-10-26, por decisión del usuario, **agy usa Gemini 3.8 Flash con razonamiento medio**. Antes usaba Gemini 4 Argon.
+
+**Asignar a agy:**
+- tareas acotadas y bien especificadas, con zona de archivos, criterios de aceptación y comandos de verificación explícitos;
+- escribir escenarios y checks a partir de un caso dado;
+- corridas de QA, offline o en vivo, con tope de llamadas;
+- revisión de video y documentos contra una lista;
+- compilar notas y documentos a partir de fuentes indicadas.
+
+**No asignar a agy:**
+- diseño de arquitectura, refactorizaciones que cruzan módulos, cambios de dominio o de concurrencia, ni diagnósticos de causa raíz abiertos. Eso va a Codex, y el diseño lo hace Opus.
+
+**Control:** el orquestador audita todo resultado de agy antes de integrarlo. La tabla QA-001…023 de su nota del 2026-10-26 trajo descripciones equivocadas y su primer oráculo agregó productos en código (A1). Con un modelo Flash, los prompts deben ser más cerrados y la auditoría más estricta.
 
 ## 3. Ciclo de trabajo
 
@@ -82,3 +99,5 @@ Si un agente queda `blocked`, el orquestador inspecciona con `agent read` y cons
 
 - Los ID de panel cambian entre sesiones de herdr.
 - El modelo exacto de Grok y si Groq se retira (D3).
+
+Grafo: [capa scripts](../graph/hub-scripts.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

@@ -41,14 +41,21 @@ def test_cli_creates_and_shows_draft(monkeypatch: pytest.MonkeyPatch) -> None:
         "replayed": False,
     }
 
-    def fake_post(url: str, json: dict[str, Any], timeout: float) -> _FakeResponse:
+    def fake_post(
+        url: str, json: dict[str, Any], timeout: float, headers: dict[str, str] | None = None
+    ) -> _FakeResponse:
         calls.append(("POST", url))
         assert json["tenant_id"] == "demo"
         assert json["request_id"] == "req-1"
         assert json["lines"] == [{"query": "CEM-50", "quantity": "2"}]
         return _FakeResponse(201, {"outcome": "draft_ready", "quote": quote})
 
-    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+    def fake_get(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+        headers: dict[str, str] | None = None,
+    ) -> _FakeResponse:
         calls.append(("GET", url))
         assert params["tenant_id"] == "demo"
         return _FakeResponse(200, quote)
@@ -106,7 +113,12 @@ def test_cli_shows_stock_by_branch(monkeypatch: pytest.MonkeyPatch) -> None:
         ],
     }
 
-    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+    def fake_get(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+        headers: dict[str, str] | None = None,
+    ) -> _FakeResponse:
         assert url.endswith("/v1/stock")
         assert params == {
             "sku": "TUB-PVC-20",
@@ -186,7 +198,12 @@ def test_cli_shows_partial_stock_for_requested_quantity(monkeypatch: pytest.Monk
         ],
     }
 
-    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+    def fake_get(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+        headers: dict[str, str] | None = None,
+    ) -> _FakeResponse:
         assert url.endswith("/v1/stock")
         assert params == {
             "sku": "CEM-50",
@@ -257,7 +274,12 @@ def test_cli_shows_stale_stock_without_promising_firm_availability(
         "alternatives": [],
     }
 
-    def fake_get(url: str, params: dict[str, str], timeout: float) -> _FakeResponse:
+    def fake_get(
+        url: str,
+        params: dict[str, str],
+        timeout: float,
+        headers: dict[str, str] | None = None,
+    ) -> _FakeResponse:
         assert url.endswith("/v1/stock")
         assert params == {
             "sku": "CEM-50",

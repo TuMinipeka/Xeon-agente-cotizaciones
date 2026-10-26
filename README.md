@@ -15,8 +15,10 @@
 </p>
 
 > [!IMPORTANT]
-> **Prototipo con datos ficticios.** El catálogo (2000 productos) y el inventario son sintéticos
-> y viven en memoria. No hay ERP, PostgreSQL comercial, aprobación humana ni PDF todavía. Un
+> **Prototipo con datos ficticios.** Por defecto (`DATA_SOURCE=synthetic`) el catálogo (2000
+> productos) y el inventario son sintéticos y viven en memoria. Un conector SQL opcional
+> (`DATA_SOURCE=sql`, `connectors/<tenant>.yaml`) lee una base de ferretería de solo lectura; no
+> hay ERP, PostgreSQL comercial propio, aprobación humana ni PDF todavía. Un
 > borrador `DRAFT` no reserva inventario ni es una cotización aprobada.
 
 **Principio rector:** la IA interpreta y redacta; el backend decide. Precios (`Decimal`),
@@ -67,19 +69,24 @@ uv run xeon
 | `help` | `h`, `?` | Lista de comandos. |
 | `quit` | `q`, `exit` | Sale (código 0). Ctrl-C sale con 130; Ctrl-D/EOF con 0. |
 
-Ejemplo de sesión:
+Ejemplo de sesión (flujo guiado por opciones):
 
 ```text
-xeon > Tienen tubo pvc de 1/2 pulgada?
-xeon > Cotizame 5 unidades de ese mismo          # la memoria recuerda TUB-PVC-20
-xeon > dame el descuento de siempre en 10 bultos de cemento   # sin política: no inventa %
-xeon > s
-xeon > q
+xeon > 1                                         # Elige "1. Cotizar productos"
+xeon > tubo pvc 1/2                              # Busca referencia en catálogo
+xeon > 1                                         # Selecciona la opción 1 del listado
+xeon > 10                                        # Cantidad: 10 unidades
+xeon > s                                         # Consulta estado de la sesión
+xeon > q                                         # Sale del shell
 ```
+
+> [!NOTE]
+> Tras la integración del embudo guiado (D14), la conversación en el shell `xeon` y en `/v1/chat` presenta opciones numeradas interactivas. Para la guía completa de validación manual en WhatsApp con botones y listas, consulta [`docs/QA_EMBUDO.md`](docs/QA_EMBUDO.md).
 
 **Opciones útiles**
 
-- `uv run xeon --api http://127.0.0.1:8000`: usa una API XEON en marcha en lugar del motor en proceso.
+- `uv run xeon --api http://127.0.0.1:8000`: usa una API XEON en marcha en lugar del motor en proceso
+  (envía la clave de `secrets/xeon_api_key.txt`; ver [Clave de API](#clave-de-api)).
 - `$env:LLM_PROVIDER = "mock"; uv run xeon`: ensayo sin red ni costo de inferencia.
 - `$env:NO_COLOR = "1"`, salida redirigida, `TERM=dumb` o consola sin UTF-8: modo texto plano.
 - `"help" | uv run xeon`: con stdin sin TTY, lee comandos línea por línea (útil en scripts).
@@ -96,11 +103,13 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 | Shell `xeon` (Rich) y subcomandos Typer `health`, `chat`, `quotes`, `stock` | Sin autenticación ni perfiles de usuario |
 | **Grok** por defecto (`grok-4.6`, verificado por el orquestador mediante XEON); `mock` en pruebas y Groq como respaldo | Costos de inferencia según la pasarela del reto |
 | Búsqueda por SKU, alias y puntuación de palabras en nombre, `specs` y descripción | Sin embeddings, `pgvector` ni RAG vectorial |
-| Stock sintético por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante | Sin lectura ni reserva de inventario real |
+| Stock por sede con origen (`local`/`transfer`/`delivery`), vigencia y faltante; fuente sintética o conector SQL de solo lectura | Sin reserva de inventario |
 | Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
-| Memoria por conversación (últimos turnos a Grok y último SKU), acotada con LRU | Local al proceso; no se comparte entre workers |
+| Memoria por conversación, carrito y paso del embudo, acotados al proceso | No se comparte entre workers |
 | Descuentos: sin política aprobada se rechazan, también cuando se piden por chat | Sin políticas versionadas |
-| `CommercialScopePolicy` (bloquea temas ajenos antes del LLM) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
+| Embudo D14 con opciones cerradas, redirección local y respuestas desde plantillas | El modelo solo clasifica texto de pasos cerrados |
+| `QuoteCart` versionado por conversación, `BranchDirectory` y políticas por ferretería en `config/policies/` (plantilla demo) | Carrito y paso del embudo en memoria |
+| Conector SQL opcional por `DATA_SOURCE=sql` (SQLAlchemy de solo lectura, consultas parametrizadas en YAML) | Probado con SQLite, PostgreSQL 17 y MySQL 8.4 en contenedores; sin ferretería real; REST y CSV no implementados |
 | Webhook firmado de Kapso (`whatsapp.message.received`), lotes y deduplicación en memoria; ensayo en sandbox realizado | Acuse `processed` no confirma entrega al teléfono; sin cola durable |
 
 ---
@@ -114,35 +123,24 @@ flowchart LR
     U[Shell xeon] --> S
     C[POST /v1/chat] --> S
     W[Webhook Kapso con firma HMAC] --> F[Filtro y deduplicación] --> S
-    S[AgentService] --> P[CommercialScopePolicy]
-    S --> M[ConversationMemory]
-    S --> T[CommercialToolbelt]
-    T --> K[Catálogo sintético]
-    T --> I[Inventario sintético]
+    S[AgentService] --> P[GuidedFunnel]
+    P --> M[ConversationMemory y QuoteCart]
+    P --> T[CommercialToolbelt]
+    T --> K[Catálogo: sintético o SQL]
+    T --> I[Inventario y BranchDirectory]
     T --> Q[Borrador DRAFT]
-    S --> L[LLMPort: Grok / Groq / mock]
-    L --> R[CustomerResponsePolicy]
-    R --> O[Respuesta / envío por WhatsApp]
+    P --> L[LLMPort: Grok / Groq / mock]
+    P --> O[Reply: texto / botones / lista]
+    O --> W
 ```
 
-1. **Alcance.** `CommercialScopePolicy` responde localmente a lo que no es ferretería y separa
-   la parte comercial de las solicitudes mixtas.
-2. **Contexto verificado.** `CommercialToolbelt.prepare_verified_context` busca el producto (o usa el
-   último SKU de la conversación ante «ese mismo»), consulta stock y, si hay cantidad, crea un
-   `DRAFT`. Si detecta un pedido de descuento sin política, informa y no crea borrador.
-3. **Modelo.** `AgentService` envía a Grok el prompt de sistema, el contexto verificado, el
-   historial corto de la conversación y el turno actual. El LLM **no** ejecuta herramientas ni
-   calcula precios: redacta a partir de datos ya verificados.
-4. **Salida.** `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados de las
-   respuestas de proveedores reales.
-
-El contexto inyectado al modelo lleva marcadores `[XEON_TOOL:...]`; son internos y el filtro de
-salida impide mostrarlos al comprador cuando responde un proveedor real.
+1. **Embudo.** `GuidedFunnel` presenta producto, cantidad, entrega, sede, pago y resumen. El cliente responde con el id o número ofrecido.
+2. **Datos.** `CommercialToolbelt` busca referencias y `CommercialExecutor` modifica `QuoteCart` y crea borradores con `Decimal`.
+3. **Modelo.** Grok clasifica texto libre de pasos cerrados a un id permitido o `no_encaja`. Nunca calcula, aprueba ni redacta el resumen transaccional.
+4. **Salida.** `Reply` genera texto, botones o lista; Kapso transforma las opciones en mensajes interactivos y API/CLI las numeran.
 
 > [!WARNING]
-> En el chat, una búsqueda descriptiva toma el primer candidato para consultar stock y cotizar.
-> No lo interpretes como referencia confirmada por el comprador; para cotizar de forma explícita
-> usa `xeon quotes create` o `POST /v1/quotes` con SKU o alias exacto.
+> El chat muestra candidatos y exige elegir una referencia antes de añadirla al carrito.
 
 Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no** significan
 «agotado».
@@ -154,12 +152,15 @@ Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no*
 ```text
 src/xeon/
 ├── domain/                 Money, Product, Quote, StockSnapshot e invariantes
-├── application/            Casos de uso, puertos (Protocol) y commercial_scope
+├── application/            Casos de uso, puertos (Protocol) y plain_text
 │   └── container.py        AppContainer: composición de adaptadores
-├── agent/                  AgentService, prompts, CommercialToolbelt, customer_safety
+├── agent/                  AgentService, GuidedFunnel, CommercialExecutor, CommercialToolbelt
 ├── adapters/
 │   ├── catalog/            Catálogo sintético (2000 productos con procedencia)
-│   ├── inventory/          Snapshots de stock en memoria
+│   ├── inventory/          Snapshots de stock en memoria (o SQL)
+│   ├── branches/           BranchDirectory: sedes y alias (memoria o SQL)
+│   ├── policies/           Políticas por ferretería desde `config/policies/`
+│   ├── sql/                Lector SQL de solo lectura (`DATA_SOURCE=sql`)
 │   ├── persistence/        Borradores e idempotencia en memoria
 │   ├── conversation/       Memoria de conversación acotada (LRU)
 │   ├── llm/                Mock y cliente OpenAI compatible (Grok, Groq)
@@ -210,14 +211,38 @@ uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
 | Subcomando (requiere la API) | Función |
 |---|---|
 | `uv run xeon health` | Estado, proveedor y modelo activos. |
-| `uv run xeon chat "cemento"` | Un turno por `POST /v1/chat`. |
+| `uv run xeon chat "cemento"` | Un turno por `POST /v1/chat` (devuelve el paso del embudo y opciones numeradas). |
 | `uv run xeon quotes create --tenant-id demo --request-id demo-001 --line CEM-50:2` | Crear o recuperar un `DRAFT` (`replayed: true` al repetir). |
 | `uv run xeon quotes show <UUID> --tenant-id demo` | Consultar un borrador. |
 | `uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00 --requested-quantity 50` | Origen, tipo, vigencia y faltante. |
 
 **Endpoints:** `GET /health`, `POST /v1/chat`, `POST /v1/quotes`, `GET /v1/quotes/{id}`,
-`GET /v1/stock`, `POST /v1/channels/whatsapp/kapso/webhook`. Contrato interactivo en
-`http://127.0.0.1:8000/docs`.
+`GET /v1/stock`, `POST /v1/channels/whatsapp/kapso/webhook` y el panel `/panel`. Contrato
+interactivo en `http://127.0.0.1:8000/docs`.
+
+### Clave de API
+
+Todo `/v1/*` salvo el webhook firmado de Kapso exige `Authorization: Bearer <clave>`; `/health` y
+el panel (que tiene su propio inicio de sesión) no. La clave vive en `secrets/xeon_api_key.txt`
+(mínimo 24 caracteres, ignorada por Git) y se compara en tiempo constante.
+
+```powershell
+uv run python scripts/create_api_key.py   # crea secrets/xeon_api_key.txt sin mostrar la clave
+uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
+uv run xeon --api http://127.0.0.1:8000   # el CLI lee la misma clave del archivo
+```
+
+- **Nunca** pases la clave como argumento o variable de entorno ni la pegues en un chat: el CLI y
+  los subcomandos (`chat`, `quotes`, `stock`) leen `XEON_API_KEY_FILE` (por defecto el archivo
+  anterior). Para rotarla: `uv run python scripts/create_api_key.py --rotate` y reinicia la API.
+- Con `APP_ENV=production` la API **se niega a arrancar** sin clave y no admite
+  `XEON_API_AUTH_DISABLED`. En desarrollo, sin clave `/v1/*` responde 503; para trabajar sin ella
+  en local, y solo ahí, usa `$env:XEON_API_AUTH_DISABLED = "true"`.
+- `/v1/chat` aplica un límite de tasa (60 por minuto por IP y 20 por conversación; configurables con
+  `CHAT_RATE_LIMIT_IP_PER_MINUTE` y `CHAT_RATE_LIMIT_CONVERSATION_PER_MINUTE`) y acepta mensajes de
+  hasta 1.000 caracteres.
+- Detrás de un proxy inverso, declara su IP en `TRUSTED_PROXIES` (separadas por coma): solo de esas
+  IP se acepta `X-Forwarded-For`/`X-Forwarded-Proto`.
 
 ### WhatsApp con Kapso
 
@@ -294,8 +319,7 @@ con Grok real es deliberada y acotada: `uv run xeon` y un `run`.
 Trabajo **planeado**, todavía sin implementar:
 
 1. PostgreSQL 17 con esquema relacional, `JSONB`, `pgvector` y Alembic.
-2. Confirmación conversacional de candidatos ambiguos (el carrito de `developer/conde` queda como
-   referencia en [`docs/CAMBIOS_CONDE.md`](docs/CAMBIOS_CONDE.md)).
+2. Embudo guiado con botones y confirmación ante un asesor (D14): implementado e integrado en rama; ver guía de prueba manual en [`docs/QA_EMBUDO.md`](docs/QA_EMBUDO.md).
 3. Políticas de descuento versionadas, aprobación humana por versión y PDF.
 4. Copiloto del trabajador por Gmail con hoja de alistamiento multi-sede.
 5. Telemetría de costo por tarea (S3) y prueba de carga (S4).

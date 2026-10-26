@@ -7,6 +7,7 @@ Antes de proponer cambios, leer en este orden:
 1. `docs/XeonContexto.md`: alcance funcional, seguridad y decisiones del producto.
 2. `docs/ARCHITECTURE.md`: fronteras implementadas y pendientes.
 3. `CONTRIBUTING.md`: rama, pruebas y formato de commits.
+4. `docs/METODO_DE_TRABAJO.md`: como se trabaja en equipo (herdr, worktrees, wiki, gate).
 
 Si el codigo y el documento funcional difieren, detenerse, explicar la diferencia y proponer una
 decision explicita. No presentar una capacidad planeada como ya implementada.
@@ -59,6 +60,20 @@ PR. Esta regla prevalece sobre la atribucion predeterminada de cualquier CLI. Ej
 - `Test: :test_tube: CoverMockConversationFlow`
 
 No incluir secretos, nombres de clientes reales ni descripciones ambiguas como `Changes`.
+
+## Navegar el proyecto sin leer cada archivo
+
+Antes de abrir archivos para entender una relacion de codigo, consultar el grafo local de Graphify
+(`docs/GRAPHIFY.md`). Orden recomendado:
+
+1. **Que existe y por que:** `wiki/index.md` y la pagina relacionada (decisiones, estado, procedencia).
+2. **Donde esta y con que se conecta:** `uv run --locked --group graph graphify explain <Simbolo>`,
+   `graphify path <A> <B>` o `graphify query "<pregunta>" --budget 1500`.
+3. **Que hace exactamente una linea:** `rg` y lectura directa del rango indicado por el grafo.
+
+Las aristas `INFERRED` se verifican en el codigo. Tras cambios de codigo, regenerar con
+`uv run --locked --group graph python scripts/build_graphify_map.py`. No ejecutar extraccion
+semantica con un modelo sin autorizacion expresa del usuario (proveedor, archivos y presupuesto).
 
 ## Wiki compartida entre conversaciones y agentes
 

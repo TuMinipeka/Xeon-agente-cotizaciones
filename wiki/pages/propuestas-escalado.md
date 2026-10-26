@@ -61,3 +61,5 @@ El detalle está en [estado del corte](estado-del-corte.md).
 
 - Se retiró la afirmación de que GitHub Actions existía "parcialmente": no se verificó.
 - Se retiraron las ideas de Slack y MCP: no tenían respaldo en las fuentes.
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

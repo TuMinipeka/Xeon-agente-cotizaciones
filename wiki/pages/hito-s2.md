@@ -85,3 +85,5 @@ Vienen de una inspección estática de `format_verified_context` en `src/xeon/ag
 - **Fecha fija.** `evaluated_at` está escrita a mano como `2026-10-08T15:00:00+00:00` (línea 212), así que la vigencia `fresh`/`stale` no depende de la hora real.
 - **Errores silenciados.** `except Exception: pass` (líneas 233 y 252) oculta fallos de stock y de borrador. Puede contradecir el principio "fuente caída no significa agotado" si no se informa al comprador.
 - **Borradores duplicados.** El borrador automático usa un `request_id` aleatorio por mensaje (línea 240), de modo que un webhook repetido crea otro borrador. Contradice el principio 8 de [XeonContexto](../../docs/XeonContexto.md).
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

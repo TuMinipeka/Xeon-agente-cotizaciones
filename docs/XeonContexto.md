@@ -3,15 +3,15 @@
 **Integrantes:** Daniel Mayorga y Juan Pablo Conde Zapata.  
 **Fecha:** 17 de octubre de 2026.  
 **Versión documental:** 2.0.  
-**Estado:** especificación vigente; distingue el núcleo implementado (Kapso, Grok, Groq de respaldo, catálogo sintético y cotizador determinista) de las capacidades planeadas.
+**Estado:** especificación vigente; D14 establece el embudo guiado como único flujo conversacional. Distingue el núcleo implementado (Kapso, Grok, Groq de respaldo, catálogo sintético o SQL de solo lectura y cotizador determinista) de las capacidades planeadas.
 
-Este documento establece qué construimos, qué problema resolvemos, cómo utilizamos las herramientas y qué condiciones debe cumplir cada entrega. El canal WhatsApp usa **Kapso**; **Grok** es el motor predeterminado, **Groq** el respaldo y `mock` el perfil de pruebas. `AgentService` y `CommercialToolbelt` preparan el contexto comercial. La base híbrida empresarial (SQL relacional + `JSONB` + `pgvector`) sobre PostgreSQL 17 es una evolución planeada.
+Este documento establece qué construimos, qué problema resolvemos, cómo utilizamos las herramientas y qué condiciones debe cumplir cada entrega. El canal WhatsApp usa **Kapso**; **Grok** es el proveedor predeterminado, **Groq** el respaldo y `mock` el perfil de pruebas. `AgentService` delega en `GuidedFunnel`; `CommercialExecutor` y `CommercialToolbelt` preparan el contexto comercial con un `QuoteCart` versionado y las políticas de `config/policies/`. Un conector SQL opcional (`DATA_SOURCE=sql`) sustituye los datos sintéticos; el defecto sigue siendo sintético. La base híbrida empresarial (SQL relacional + `JSONB` + `pgvector`) sobre PostgreSQL 17 es una evolución planeada.
 
 ## 1. Qué es XEON
 
 XEON es un agente de inteligencia artificial especializado en asistencia comercial y elaboración de cotizaciones para ferreterías, agroferreterías y distribuidores. Conversa con el comprador por WhatsApp, identifica productos (incluso ante descripciones ambiguas o jerga ferretera) y prepara un borrador calculado. El prototipo consulta datos sintéticos verificados; la integración con datos empresariales reales y la emisión de una cotización aprobada son posteriores.
 
-Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Hoy combina lenguaje natural, búsqueda lexical y cálculos programados (`Decimal`) sobre datos sintéticos; la búsqueda vectorial, las consultas transaccionales y la aprobación humana siguen planeadas.
+Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Hoy combina lenguaje natural, búsqueda lexical y cálculos programados (`Decimal`) sobre datos sintéticos; la persistencia operativa y la revisión humana por panel son opcionales. La búsqueda vectorial y la facturación siguen planeadas.
 
 ## 2. Problemática y usuarios
 
@@ -46,20 +46,22 @@ Según el caso aportado por Daniel, Ferragro cuenta con comerciantes en zonas co
 
 ### 3.1. Recorrido principal
 
-El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` y `CommercialToolbelt` identifican referencias en el catálogo sintético, consultan snapshots de stock y calculan con el backend un borrador `DRAFT`. Grok redacta a partir del contexto verificado. La revisión humana, la persistencia empresarial y el PDF aprobado forman parte de la visión posterior.
+El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La persistencia operativa opcional en PostgreSQL propio de XEON (D15 A) guarda embudo, carrito, memoria, borradores, deduplicación y bandeja del asesor. El panel permite revisión humana a `APPROVED_FOR_BILLING` o `RECHAZADO_POR_ASESOR`; la base híbrida comercial con RAG, la factura y el PDF siguen pendientes.
 
 ### 3.2. Alcance objetivo del MVP
 
 Los puntos siguientes describen el alcance buscado; las capacidades todavía no implementadas se señalan expresamente:
 
 - Conversación en español por **WhatsApp mediante Kapso** y webhook firmado.
-- Contexto comercial verificado por `AgentService` y `CommercialToolbelt`; **Grok** predeterminado, **Groq** de respaldo y `mock` en pruebas.
+- Embudo `GuidedFunnel` con contexto comercial verificado por `CommercialExecutor` y `CommercialToolbelt`; **Grok** predeterminado para clasificar opciones, **Groq** de respaldo y `mock` en pruebas.
 - Catálogo sintético en memoria con unidades, alias, `specs` y búsqueda lexical; `JSONB` y RAG vectorial con `pgvector` están planeados.
 - Inventario por sucursal/bodega con clasificación de vigencia (`fresh`, `stale`, `unknown`) y tipo (`local`, `transfer`, `delivery`).
 - Precios y borradores calculados en el backend con `Decimal`; la política de descuentos y la logística empresarial están planeadas.
-- Borrador de cotización (`DRAFT`) versión 1; revisión humana, versionado de aprobaciones y generación de PDF planeados.
+- Borrador de cotización (`DRAFT`) versión 1 por la API directa; el flujo conversacional
+  versiona revisiones del carrito en memoria o PostgreSQL propio. La revisión humana por panel
+  está implementada; el PDF sigue planeado.
 - Operación interna por CLI (`Typer`), sin exigir un frontend pesado.
-- Datos sintéticos verificados antes de conectar un ERP real.
+- Datos sintéticos verificados antes de conectar un ERP real. El conector SQL declarativo (D13) existe como opción de solo lectura; no hay prueba con una ferretería real.
 
 ### 3.3. Posterior al MVP
 
@@ -68,11 +70,11 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
   - **Semáforo de descuentos en el Harness:** aplicación determinista de descuentos pre-aprobados por escala/volumen con `Decimal` y marcado de excepciones para autorización del supervisor humano en el correo.
   - **Hoja de alistamiento multi-sede (*Picking / Split-Order*):** inclusión automática en el correo del desglose de despacho por sede (retiro local vs. traslado entre bodegas) y tabla de SKUs lista para facturar en caja/POS.
   - **Confirmación humana de 1 clic y aviso al cliente:** al confirmar el trabajador desde el correo o CLI, se valida la versión del borrador y se notifica automáticamente por WhatsApp al cliente que puede pasar a facturar.
-- Panel web opcional (Jinja2 + HTMX), transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local.
+- Evolución del panel web, transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local. El panel mínimo actual renderiza HTML en FastAPI, sin Jinja2 ni HTMX.
 
 ## 4. Principios obligatorios del producto
 
-1. **La IA interpreta y desambigua; el backend decide y calcula.** El RAG y el LLM ayudan a identificar el `SKU` cuando el cliente habla con ambigüedad, pero los precios, descuentos y stock salen exclusivamente de consultas directas a la base de datos.
+1. **La IA interpreta y desambigua; el backend decide y calcula.** El LLM ayuda a interpretar la intención y, en el futuro, un RAG estructurado dentro del agente con herramientas (D12, propuesta) ayudará a identificar el `SKU` cuando el cliente habla con ambigüedad, pero los precios, descuentos y stock salen exclusivamente de consultas directas a la base de datos.
 2. **Cada dato comercial tiene procedencia.** Guardar origen, momento de consulta y vigencia (`valid_until`).
 3. **Desconocido no significa agotado.** Diferenciar ausencia de existencias, dato vencido (`stale`) y fuente caída.
 4. **Avisar al trabajador de cotización confirmada.** Notificar cuando un borrador requiere o recibe aprobación.
@@ -84,7 +86,7 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 10. **Los datos de demostración se identifican como ficticios.** Nunca atribuirlos a Ferragro.
 11. **La intervención humana es funcionalidad del producto.**
 12. **Cotización PDF.** La versión aprobada se entrega en formato PDF.
-13. **La respuesta al cliente respeta el alcance comercial.** Bloquear solicitudes ajenas a la ferretería antes de consultar el modelo y mantener la parte comercial de solicitudes mixtas.
+13. **La respuesta al cliente respeta el alcance comercial.** `GuidedFunnel` responde lo ajeno a la ferretería con una línea de redirección y vuelve a mostrar las opciones del paso; nunca lo cotiza.
 14. **No exponer información interna.** Las respuestas de proveedores reales no deben revelar códigos internos, marcadores técnicos ni enlaces ajenos a los registrados.
 
 ## 5. Stack tecnológico vigente y planeado
@@ -94,24 +96,24 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 | Lenguaje y Gestor | Python 3.14.8 + `uv` | Dominio, API, agente y CLI reproducible |
 | API | FastAPI + Uvicorn + Pydantic 2 | Endpoints REST, recepción de webhooks y validación |
 | Dominio | Python + `Decimal` | Cálculos monetarios exactos, stock y estados comerciales |
-| Agente | `AgentService` + `CommercialToolbelt` | Prepara contexto verificado; el modelo redacta, el backend calcula |
+| Agente | `AgentService` + `GuidedFunnel` + `CommercialExecutor` | Presenta opciones; el modelo clasifica texto de pasos cerrados y el backend calcula |
 | Proveedor LLM | Grok por defecto; Groq de respaldo; `MockLLM` en pruebas | Inferencia vía `LLMPort` + `HTTPX` |
 | Canal WhatsApp | Kapso + `HTTPX` | Webhook firmado y envío por API oficial de WhatsApp vía Kapso |
 | Base de datos híbrida (planeada) | PostgreSQL 17 (`SQL` + `JSONB` + `pgvector`) | Transacciones, fichas polimórficas y búsqueda vectorial |
-| Acceso a datos (planeado) | SQLAlchemy 2 + psycopg 3 + Alembic | Repositorios transaccionales y migraciones |
+| Estado operativo opcional (D15 A) | PostgreSQL 17 + SQLAlchemy 2 + psycopg 3 + Alembic | Embudo, carrito, memoria, borradores y deduplicación; base propia de XEON |
 | PDF (planeado) | Jinja2 + WeasyPrint | Generación de cotización aprobada |
 | Terminal Interna | Typer + HTTPX | CLI para operar, consultar stock y revisar borradores |
 | Despliegue y Calidad | Docker Compose, Pytest, Ruff, mypy, GitHub Actions | Entorno reproducible y verificación continua |
 
 ## 6. Arquitectura del sistema
 
-Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; los datos comerciales del prototipo viven en memoria. PostgreSQL 17 híbrido es una evolución planeada. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
+Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; el catálogo e inventario del prototipo son sintéticos salvo que `DATA_SOURCE=sql` lea una base de ferretería (solo lectura). `STATE_STORE=postgres` guarda el estado operativo en otra base propia de XEON; memoria sigue como opción predeterminada. PostgreSQL híbrido con RAG para catálogo es una evolución planeada. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
 
 ```mermaid
 flowchart TD
     Cliente["Comprador en WhatsApp"] <--> Kapso["Kapso / API oficial de WhatsApp"]
     Kapso -- "Webhook firmado /v1/channels/whatsapp/kapso/webhook" --> API["FastAPI XEON"]
-    API --> Agente["AgentService + CommercialToolbelt"]
+    API --> Agente["AgentService + GuidedFunnel"]
     Agente <--> LLM["LLMPort: Grok / Groq / mock"]
     Agente --> ToolSearch["search_products: SKU, alias y búsqueda lexical"]
     Agente --> ToolStock["get_stock_by_branches: snapshots sintéticos"]
@@ -129,8 +131,8 @@ flowchart TD
 |---|---|---|
 | `domain` | Entidades, dinero (`Decimal`), unidades, vigencia de stock, estados | Importar FastAPI, Kapso o clientes HTTP de modelos. |
 | `application` | Casos de uso (`CreateQuoteDraft`, `GetStockByBranches`) y puertos | Depender de un formato concreto de mensajería. |
-| `agent` | `AgentService`, `CommercialToolbelt` y prompts | Calcular totales por texto ni emitir aprobaciones. |
-| `adapters` | Conectores hacia Grok, Groq, Kapso y memoria; PostgreSQL queda planeado | Incorporar descuentos o reglas comerciales ocultas. |
+| `agent` | `AgentService`, `GuidedFunnel`, `CommercialExecutor` y `CommercialToolbelt` | Calcular totales por texto ni emitir aprobaciones. |
+| `adapters` | Conectores hacia Grok, Groq, Kapso, memoria y SQL de solo lectura (`DATA_SOURCE=sql`); PostgreSQL comercial propio queda planeado | Incorporar descuentos o reglas comerciales ocultas. |
 | `api` | Endpoints HTTP (`/v1/chat`, `/v1/quotes`, `/v1/stock`, `/v1/channels/whatsapp/kapso/webhook`) | Duplicar la lógica de cotización. |
 | `cli` | Operaciones humanas desde terminal (`uv run xeon ...`) | Saltarse las validaciones del dominio. |
 
@@ -162,8 +164,8 @@ La arquitectura **planea** un modelo híbrido dentro de PostgreSQL 17. Las tabla
 ## 9. Canal WhatsApp con Kapso
 
 - **Recepción:** Kapso entrega eventos v2 `whatsapp.message.received` a `POST /v1/channels/whatsapp/kapso/webhook`. XEON comprueba `X-Webhook-Signature` con HMAC-SHA256 del cuerpo crudo antes de interpretar JSON; sin firma válida responde 401.
-- **Filtrado y continuidad:** solo se procesan mensajes de texto entrantes, también en lotes. Se deduplican en memoria por ID externo; `conversation_key=kapso-{phone_number_id}-{phone}` mantiene el historial corto y `request_id=kapso-{message.id}` estabiliza la creación de borradores.
-- **Respuesta:** cuando `WHATSAPP_SEND_ENABLED=true`, `KapsoChannelAdapter` envía texto por la API oficial de WhatsApp vía Kapso, autenticado con `X-API-Key`. Un acuse `processed` indica trabajo programado en segundo plano, no entrega confirmada al teléfono.
+- **Filtrado y continuidad:** solo se procesan mensajes de texto entrantes, también en lotes. Se deduplican por ID externo en memoria o en PostgreSQL propio según `STATE_STORE`; `conversation_key=kapso-{phone_number_id}-{phone}` mantiene el contexto y `request_id=kapso-{message.id}` estabiliza la creación de borradores.
+- **Respuesta:** cuando `WHATSAPP_SEND_ENABLED=true`, `KapsoChannelAdapter` envía texto o interacciones por la API oficial de WhatsApp vía Kapso, autenticado con `X-API-Key`. Con `STATE_STORE=postgres`, el webhook validado se guarda antes del acuse `processed` y la respuesta entra a un outbox transaccional; ese acuse no confirma entrega al teléfono. El perfil `memory` sigue con tareas locales sin durabilidad.
 - **Operación:** el sandbox necesita `KAPSO_PHONE_NUMBER_ID`, `KAPSO_API_KEY` configurada a mano y URL pública por `cloudflared`. El registro del webhook deja el `secret_key` en `secrets/kapso_webhook_secret.txt`. No hay envíos proactivos ni plantillas fuera de la ventana de 24 h.
 
 ## 10. Configuración de referencia (`.env.example`)
@@ -214,6 +216,6 @@ LOG_LEVEL=INFO
 | T06 | Fuente caída | Indica imposibilidad de confirmar; no responde «agotado». |
 | T07 | Snapshot vencido | Señala antigüedad (`stale`) y no promete disponibilidad firme. |
 | T08 | Descuento no autorizado | Rechaza si no hay política; no inventa porcentaje. |
-| T09 | Consulta descriptiva/coloquial | `CommercialToolbelt` puntúa candidatos del catálogo sintético; RAG vectorial y BD empresarial siguen planeados. |
+| T09 | Consulta descriptiva/coloquial | `CommercialToolbelt` puntúa candidatos del catálogo (sintético o SQL); RAG vectorial y PostgreSQL propio siguen planeados (D12). |
 | T10 | Webhook Kapso firmado (`whatsapp.message.received`) | Verifica HMAC, ignora eventos ajenos y no texto, deduplica mensajes y programa la respuesta. |
 | T19 | Perfil `mock` | Cero llamadas externas a proveedores LLM. |

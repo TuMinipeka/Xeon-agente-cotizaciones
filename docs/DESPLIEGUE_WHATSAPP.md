@@ -46,6 +46,18 @@ uv sync --locked
 3. En [app.kapso.ai](https://app.kapso.ai) crea una **clave de API** y pégala **a mano** en `.env`:
    `KAPSO_API_KEY=<tu clave>`.
 4. En `.env`, activa el envío de respuestas: `WHATSAPP_SEND_ENABLED=true`.
+5. Crea la clave de la API de XEON (protege `/v1/*`; el webhook de Kapso usa su propia firma):
+
+   ```powershell
+   uv run python scripts/create_api_key.py
+   ```
+
+   Escribe `secrets/xeon_api_key.txt` sin mostrar la clave. El CLI (`xeon --api …`) la lee del
+   mismo archivo. En producción (`APP_ENV=production`) la API no arranca sin ella.
+6. Detrás de un proxy o túnel que termine TLS, define `TRUSTED_PROXIES=<IP del proxy>` en `.env`
+   para que el panel y los límites de tasa vean la IP real y el esquema HTTPS. Con Docker
+   Compose, `secrets/xeon_api_key.txt` debe existir antes de `docker compose up` (se monta como
+   `/run/secrets/xeon_api_key`).
 
 ### 2.3. Skills de Kapso (diagnóstico y descubrimiento)
 
@@ -147,20 +159,24 @@ Respuesta esperada: `{"status":"processed"}`. Una petición sin firma debe dar `
 
 ## 5. Probar el bot desde WhatsApp
 
+> [!NOTE]
+> **Embudo guiado activo (D14):** Las respuestas de XEON en WhatsApp ahora utilizan **mensajes interactivos** (botones de respuesta rápida y listas interactivas) según el contrato D14. El agente guía al cliente paso a paso (`inicio` → `producto` → `cantidad` → `mas` → `entrega` → `sede` → `pago` → `resumen` → `confirmado`).
+> Para la guía de prueba manual exhaustiva con los 6 recorridos detallados (R1 a R6), consulta [`docs/QA_EMBUDO.md`](QA_EMBUDO.md).
+
 1. En [app.kapso.ai](https://app.kapso.ai) abre **Sandbox** y copia el número y el **código de
    activación**.
 2. Desde tu WhatsApp, envía ese código al número del sandbox para unirte.
-3. Conversa con XEON. Guion sugerido:
+3. Conversa con XEON. El flujo avanza de forma guiada:
 
-| Mensaje | Qué debe pasar |
+| Paso / Mensaje | Qué debe pasar en WhatsApp |
 |---|---|
-| `hola` | Saludo y oferta de ayuda con productos de ferretería. |
-| `necesito el coso del aire acondicionado` | Pide características: no inventa una referencia (T02). |
-| `la pieza mide 20 x 30 x 10` | Pide unidades y uso (T03). |
-| `tienen tubo pvc de 1/2 pulgada?` | `TUB-PVC-20`, precio de base de datos y stock por sede. |
-| `cotízame 5 unidades de ese mismo` | Borrador `DRAFT` de 5 unidades (recuerda el producto anterior). |
-| `dame el descuento de siempre en 10 bultos de cemento` | Explica que no hay política de descuento; no inventa porcentajes ni crea borrador. |
-| `¿quién ganó el partido ayer?` | Respuesta local de alcance: solo atiende temas de ferretería. |
+| `hola` | Inicia el embudo: responde «¿Qué necesitas?» y muestra opciones (`[Cotizar productos]`, `[Proyecto u obra]`, `[Hablar con asesor]`). |
+| Pulsa `[Cotizar productos]` | Pide nombre o referencia: «¿Qué producto buscas? Escribe nombre o referencia.» |
+| Escribe `cemento` | Busca en el catálogo y muestra una lista interactiva con referencias coincidentes (ej. `Cemento gris 50 kg`). |
+| Selecciona `Cemento gris 50 kg` | Pregunta cantidad deseada y ofrece botones sugeridos (`[10]`, `[20]`, `[Otra]`). |
+| Pulsa `[20]` | Agrega la línea al carrito, muestra subtotal acumulado y ofrece: `[Agregar otro]`, `[Ver cotización]`, `[Modificar]`. |
+| `dame el descuento de siempre` | Explica que no hay política de descuentos aprobada y queda pendiente con un asesor humano. |
+| `¿quién ganó el partido ayer?` | Redirige con una sola línea («Solo puedo ayudarte con tu cotización») y reitera las opciones del paso en curso. |
 
 **Reglas de WhatsApp:** XEON solo responde a mensajes entrantes, dentro de la ventana de 24 horas.
 Cada mensaje enviado o recibido cuenta en el plan de Kapso.

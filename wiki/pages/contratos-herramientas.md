@@ -77,3 +77,5 @@ El usuario decidió corregir los tres defectos antes de la demo, con historial c
   - El modelo nunca calcula precios.
   - Las pruebas siguen en `mock`.
   - Las marcas `xfail` de QA1–QA3 se retiran porque las pruebas pasan a ser obligatorias.
+
+Grafo: [capa agente](../graph/hub-agente.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

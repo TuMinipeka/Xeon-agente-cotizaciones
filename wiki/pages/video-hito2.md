@@ -90,3 +90,5 @@ La edición acelera las esperas de Grok y las rotula «espera acortada». No se 
 - **Auditoría del orquestador** sobre los fotogramas de control: detectó el choque del rótulo con los subtítulos y pidió la corrección.
 - **Revisión final de agy:** **APROBADO**, con 57 fotogramas revisados. Las 3 herramientas quedan evidenciadas con contenido real legible, no hay recortes ni alteraciones de las respuestas y no aparecen datos sensibles. Observación menor no bloqueante: el subtítulo 5 cubre parcialmente la última línea inferior de la terminal entre 1:07 y 1:15.
 - **Desviaciones respecto al guion:** 3 bultos en lugar de 10, y la traza visible en la escena 4. Están documentadas en la sección F de `docs/VIDEO_HITO2.md`.
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)

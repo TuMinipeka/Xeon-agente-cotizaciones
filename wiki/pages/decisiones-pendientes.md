@@ -163,3 +163,66 @@ El usuario pidió el 2026-10-24 un sistema de pruebas conversacionales con clien
   - `scenarios` se descargó con `gh`, porque el instalador falla en Windows por rutas largas del monorepo de LangWatch.
   - `ai-system-testing`, `agent-evals` y `promptfoo-evaluation` se instalaron con `npx skills add`.
   - Las cuatro fueron revisadas por el orquestador sin hallar comandos peligrosos.
+
+## D12: ¿XEON es un RAG?
+
+El usuario preguntó el 2026-10-26 si XEON es un RAG y si conviene convertirlo «meramente en un RAG avanzado».
+
+- **Hoy (corrección del 2026-10-26, a pedido del usuario de ser coherente):** en sentido amplio, **XEON sí tiene un componente RAG**. En cada turno *recupera* datos del catálogo y del inventario, los *añade* al prompt y el modelo *genera* la respuesta con ellos. Ese es el patrón *retrieval-augmented generation*, y el flujo anterior (`prepare_verified_context`) era exactamente eso.
+  - Lo que lo separa de un RAG «clásico» es que la recuperación es **estructurada y determinista** (búsqueda por SKU, alias y puntuación léxica), no semántica sobre fragmentos de texto con embeddings.
+  - Desde la fase 1, XEON además **actúa**: modifica un carrito y calcula totales con plantillas, sin que el modelo escriba las cifras.
+  - **Descripción precisa:** un *RAG estructurado dentro de un agente con herramientas*. Afirmar que «no es un RAG» era demasiado absoluto.
+- **Resolución (orquestador, dentro del plan aprobado por el usuario):**
+  - **No se convierte solo en un RAG (de texto).** Un RAG fundamenta texto, pero no puede agregar, modificar ni quitar líneas, sumar totales exactos ni garantizar stock vigente, que son justo las operaciones que falla el [reporte QA de Conde](qa-conde-2026-10-24.md).
+  - **Arquitectura híbrida:** agente con herramientas transaccionales más recuperación como **una herramienta más**, en dos usos:
+    1. búsqueda híbrida de productos (léxica para SKU y códigos, vectorial con `pgvector` para descripciones vagas, fusión RRF y *reranker* opcional);
+    2. base de conocimiento (fichas técnicas, guías de proyecto y políticas en texto).
+  - **Precios, stock y totales nunca salen del RAG:** siempre de una consulta directa a la fuente de la ferretería. Es coherente con `docs/XeonContexto.md` y `docs/ARCHITECTURE.md`.
+- **Estado:** `propuesta`. El índice híbrido es la fase 3 y queda por definir con el usuario.
+
+## D13: Conectar XEON a la base de datos de cualquier ferretería
+
+El usuario indicó el 2026-10-26 que XEON debe instalarse sobre el software de cualquier ferretería y depender de **su** base de datos, no de la nuestra. Pidió investigar la tecnología.
+
+- **Opciones investigadas:**
+
+| Opción | Resultado |
+|---|---|
+| MCP Toolbox for Databases (`googleapis/mcp-toolbox`, Apache-2.0) | Más de 20 motores y SQL parametrizado en `tools.yaml`, pero exige un servidor y un binario aparte, y trae `execute_sql` genérico. Queda como adaptador opcional |
+| dlt (dlthub) | Cargas incrementales desde SQL y REST. Se reserva para sincronizar el índice de búsqueda (fase 3) |
+| API de ERP colombianos (Siigo, Alegra, Loggro) | Futuro adaptador REST. Alegra está confirmada por *wrappers* de terceros; Siigo queda por verificar |
+| Text-to-SQL (Vanna, WrenAI) | **Descartado:** AGENTS.md prohíbe que un modelo ejecute SQL libre |
+
+- **Resolución:** **conector declarativo de la ferretería**, en tres partes.
+  1. **Contrato:** los puertos `ProductCatalog`, `BranchInventory` y el nuevo `BranchDirectory`.
+  2. **Adaptador principal:** SQLAlchemy 2 Core de solo lectura (PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, Oracle y, opcionalmente, Firebird). Cada ferretería tiene un `connectors/<tenant>.yaml` con consultas parametrizadas y el mapeo de columnas a los campos canónicos.
+  3. **Selección:** `DATA_SOURCE=synthetic|sql|rest|csv`. Los datos sintéticos pasan a ser un adaptador más.
+- **Políticas** de pago, entrega y horarios: archivo de configuración por ferretería (decisión del usuario).
+- **Estado:** `aprobado` (plan del 2026-10-26). La implementación es la fase 2 y se hace después de las correcciones de QA. Detalle en el [conector de la ferretería](conector-ferreteria.md).
+
+## D14: Conversación guiada y políticas de la ferretería
+
+El usuario pidió el 2026-10-26 que XEON no divague ni ofrezca soluciones: debe guiar al cliente hasta armar el borrador, con opciones visuales de WhatsApp y respuestas restringidas. La confirmación se hace con un botón.
+
+- **Resolución (usuario, sobre las opciones que propuso el orquestador):**
+  - **Embudo guiado con texto acotado.** Cada paso tiene botones o lista; Grok solo traduce el texto libre a una opción del paso, y el texto libre solo vale para buscar productos.
+  - **Botón Confirmar:** el borrador pasa a `CONFIRMADO_POR_CLIENTE` y se notifica a un **asesor humano**, que revisa, aprueba y factura. XEON no aprueba.
+  - **Políticas:** plantilla demo para Colombia (pagos en efectivo, transferencia, tarjeta y Nequi; recogida en sede y domicilio con costo que confirma un asesor; horario L–V de 7:00 a 18:00 y sábados de 7:00 a 13:00; vigencia de 3 días; IVA y descuentos a cargo de un asesor).
+  - **Desvíos:** se redirige con las opciones del paso y, si el cliente pide asesoría técnica, se ofrece [Hablar con asesor].
+- **Motivación:** la corrida en vivo S15–S20 dio 1 aprobado y 5 fallidos con texto libre.
+- **Contrato:** [embudo de cotización](embudo-cotizacion.md).
+- **Estado:** `implementado` (merge `aa90b94`, 2026-10-26); Kapso `interactive` sin verificar en el sandbox.
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)
+
+## D15: Prioridades de la fase 3
+
+El usuario decidió el 2026-10-26, sobre la [propuesta de la fase 3](propuesta-fase3.md):
+
+- **Prioridad:** **A + E**.
+  - **A:** persistencia del estado operativo de XEON (embudo, carrito, borradores y deduplicación) en un **PostgreSQL propio de XEON**, que no es la base de la ferretería.
+  - **E:** medición real de tokens, latencia y costo por tarea.
+- **PostgreSQL:** autorizado como **contenedor local** de desarrollo. El alojamiento de producción y el tiempo de retención de los datos del cliente quedan por definir.
+- **Aviso al asesor:** **panel web** (opción B, después de A). El registro en log actual es provisional.
+- **Publicación:** se autorizó el push de `developer/daniel` y el PR hacia `develop`. La fusión requiere otra confirmación.
+- **Después:** B (panel del asesor, aprobación humana y PDF), D (REST para ERP, cuando haya acceso de prueba) y C (búsqueda híbrida, con un catálogo real).

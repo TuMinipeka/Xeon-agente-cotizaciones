@@ -60,7 +60,7 @@ def test_sku_and_quantity_create_exact_draft() -> None:
     assert draft.lines[1].line_total == Money("555000.00", "COP")
     assert quotes.get(draft.id) is draft
     assert getter.execute(draft.id, "demo") is draft
-    assert "sinteticos" in draft.notes.casefold()
+    assert "pendiente de confirmacion" in draft.notes.casefold()
 
 
 def test_alias_lookup_does_not_change_list_price() -> None:

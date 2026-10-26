@@ -1,0 +1,14 @@
+id: S15
+name: Continuidad comercial con multiples preguntas
+category: continuity
+persona: >
+  Maestro de obra que consulta cemento y en el mismo hilo pregunta por otros
+  agregados, el peso del bulto y el costo del domicilio.
+goal: >
+  Resolver precios o disponibilidad de cemento y agregados, conocer cuantos
+  kilos trae el bulto de cemento y saber si el envio a domicilio tiene costo.
+first_message: "Hola, busco cemento para una obra. ¿Qué opciones tienen?"
+behaviors:
+  - En el siguiente turno pregunta si manejan arena y gravilla, cuántos kilos trae un bulto de cemento y si el domicilio es gratis.
+  - Si alguna pregunta queda sin responder, insiste amablemente para que le aclaren los dos puntos.
+max_turns: 4

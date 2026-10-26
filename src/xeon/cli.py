@@ -67,6 +67,16 @@ def main(
     raise typer.Exit(code=code)
 
 
+def _auth_headers() -> dict[str, str]:
+    """Bearer header from the API key file (XEON_API_KEY_FILE); the key is never an argument."""
+    try:
+        key = Settings().read_api_key()
+    except SettingsError as exc:
+        typer.echo(f"xeon: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    return {"Authorization": f"Bearer {key}"} if key else {}
+
+
 def _echo_json(payload: object) -> None:
     typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
 
@@ -86,6 +96,7 @@ def chat(message: str, base_url: str = "http://127.0.0.1:8000") -> None:
         f"{base_url.rstrip('/')}/v1/chat",
         json={"message": message},
         timeout=130,
+        headers=_auth_headers(),
     )
     response.raise_for_status()
     typer.echo(response.json()["reply"])
@@ -118,6 +129,7 @@ def quotes_create(
             "discount_requested": discount_requested,
         },
         timeout=10,
+        headers=_auth_headers(),
     )
     if response.status_code >= 500:
         response.raise_for_status()
@@ -161,6 +173,7 @@ def stock_show(
         f"{base_url.rstrip('/')}/v1/stock",
         params=params,
         timeout=10,
+        headers=_auth_headers(),
     )
     if response.status_code >= 400:
         _echo_json(response.json())
@@ -179,6 +192,7 @@ def quotes_show(
         f"{base_url.rstrip('/')}/v1/quotes/{quote_id}",
         params={"tenant_id": tenant_id},
         timeout=10,
+        headers=_auth_headers(),
     )
     if response.status_code >= 400:
         _echo_json(response.json())

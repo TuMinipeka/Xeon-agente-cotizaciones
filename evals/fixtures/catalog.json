@@ -24058,5 +24058,31 @@
     "source": "synthetic-ferreteria-demo-xeon",
     "unit": "unidad",
     "unit_price": "24050.00"
+  },
+  {
+    "aliases": [
+      "pala redonda de fibra",
+      "pala redonda mango de fibra"
+    ],
+    "catalog_version": "synthetic-2026-10-17",
+    "currency": "COP",
+    "name": "Pala redonda mango de fibra",
+    "sku": "PAL-RED-FIB",
+    "source": "synthetic-ferreteria-demo-xeon",
+    "unit": "unidad",
+    "unit_price": "43700.00"
+  },
+  {
+    "aliases": [
+      "pala cuadrada de madera",
+      "pala cuadrada mango de madera"
+    ],
+    "catalog_version": "synthetic-2026-10-17",
+    "currency": "COP",
+    "name": "Pala cuadrada mango de madera",
+    "sku": "PAL-CUA-MAD",
+    "source": "synthetic-ferreteria-demo-xeon",
+    "unit": "unidad",
+    "unit_price": "39800.00"
   }
 ]

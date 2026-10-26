@@ -8,6 +8,7 @@ dependencies = [
   "fastapi>=0.118,<1.0",
   "httpx>=0.28,<1.0",
   "pydantic-settings>=2.10,<3.0",
+  "pyyaml>=6.0.3,<7.0",
   "rich>=14,<15",
   "typer>=0.19,<1.0",
   "uvicorn>=0.37,<1.0",
@@ -29,6 +30,28 @@ evals = [
     "mcp>=2.3.0",
     "pyyaml>=6.0.3",
 ]
+graph = [
+    "graphifyy==0.9.95",
+]
+db = [
+    "alembic==1.20.1",
+    "psycopg[binary]>=3.2,<4",
+    "sqlalchemy>=2.0.40,<3.0",
+    "tzdata>=2024.1; sys_platform == 'win32'",
+]
+pdf = [
+    "reportlab>=5.1,<6",
+]
+pdf-test = [
+    "reportlab>=5.1,<6",
+    "pypdf>=6.0,<7",
+]
+db-test = [
+    "sqlalchemy>=2.0.40,<3.0",
+    "psycopg[binary]>=3.2",
+    "pymysql>=1.1",
+    "cryptography>=43",
+]
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -38,7 +61,8 @@ build-backend = "hatchling.build"
 packages = ["src/xeon"]
 
 [tool.pytest.ini_options]
-addopts = "-q"
+addopts = "-q -m 'not integration'"
+markers = ["integration: requiere bases reales (compose.db-test.yaml); excluidas por defecto"]
 testpaths = ["tests"]
 pythonpath = ["."]
 
@@ -59,4 +83,8 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = ["scenario.*", "langwatch.*", "litellm.*"]
 follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["reportlab.*"]
+ignore_missing_imports = true
 

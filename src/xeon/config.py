@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,8 +43,20 @@ class Settings(BaseSettings):
     )
 
     app_env: Literal["development", "test", "production"] = "development"
-    data_mode: Literal["synthetic"] = "synthetic"
+    data_source: Literal["synthetic", "sql", "rest", "csv"] = "synthetic"
+    tenant_id: str = "whatsapp"
+    currency: str = "COP"
+    connector_root: Path = Path("connectors")
+    sql_url_file: Path = Path("secrets/store_database_url.txt")
+    state_store: Literal["memory", "postgres"] = "memory"
+    xeon_state_url_file: Path = Path("secrets/xeon_state_url.txt")
     default_timezone: str = "America/Bogota"
+    # Control de acceso de /v1/* (salvo el webhook firmado). Ver docs/PANEL_ASESOR.md y README.
+    xeon_api_key_file: Path = Path("secrets/xeon_api_key.txt")
+    xeon_api_auth_disabled: bool = False
+    trusted_proxies: str = ""
+    chat_rate_limit_ip_per_minute: int = Field(default=60, ge=1, le=10_000)
+    chat_rate_limit_conversation_per_minute: int = Field(default=20, ge=1, le=10_000)
 
     llm_provider: Literal["mock", "groq", "grok"] = "grok"
     llm_model: str = "llama-3.3-70b-versatile"
@@ -61,6 +74,19 @@ class Settings(BaseSettings):
     grok_base_url: str = "https://api.reto.pltk.mx/v1"
     grok_model: str = "grok-4.6"
 
+    # Observabilidad: JSONL opcional y tarifa por millon de tokens. La unidad de la pasarela del
+    # reto no esta documentada; las tarifas son un supuesto configurable, no un precio oficial.
+    metrics_path: Path | None = None
+    llm_price_input_per_mtok: Decimal | None = None
+    llm_price_output_per_mtok: Decimal | None = None
+    llm_price_unit: str = "unidad-no-documentada"
+
+    # Panel del asesor: `usuario:hash` por linea, dentro de secrets/. Ver docs/PANEL_ASESOR.md.
+    advisor_panel_credentials_file: Path = Path("secrets/advisor_panel_credentials.txt")
+    advisor_panel_session_minutes: int = Field(default=480, ge=5, le=1440)
+    advisor_panel_max_attempts: int = Field(default=5, ge=1, le=20)
+    advisor_panel_lockout_minutes: int = Field(default=15, ge=1, le=240)
+
     whatsapp_send_enabled: bool = False
     kapso_api_base_url: str = "https://api.kapso.ai"
     kapso_api_key: SecretStr | None = None
@@ -69,8 +95,58 @@ class Settings(BaseSettings):
     kapso_webhook_secret: SecretStr | None = None
     kapso_webhook_secret_file: Path | None = Path("secrets/kapso_webhook_secret.txt")
     meta_graph_version: str = "v24.0"
+    delivery_worker_enabled: bool = True
+    delivery_poll_seconds: float = Field(default=0.5, gt=0, le=30)
 
     log_level: str = "INFO"
+
+    @field_validator("currency")
+    @classmethod
+    def canonical_currency(cls, value: str) -> str:
+        code = value.strip().upper()
+        if len(code) != 3 or not code.isalpha():
+            raise ValueError("CURRENCY debe ser un codigo monetario de tres letras.")
+        return code
+
+    def read_api_key(self) -> str | None:
+        """The API key from secrets/, or None when the file does not exist."""
+        if "secrets" not in self.xeon_api_key_file.resolve().parts:
+            raise SettingsError("XEON_API_KEY_FILE debe estar dentro de secrets/.")
+        try:
+            value = self.xeon_api_key_file.read_text(encoding="utf-8").strip()
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise SettingsError("No se pudo leer XEON_API_KEY_FILE.") from exc
+        if not value:
+            return None
+        if len(value) < 24:
+            raise SettingsError("La clave de API debe tener al menos 24 caracteres.")
+        return value
+
+    def require_sql_url(self) -> str:
+        if "secrets" not in self.sql_url_file.parts:
+            raise SettingsError("SQL_URL_FILE debe apuntar a un archivo dentro de secrets/.")
+        try:
+            value = self.sql_url_file.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise SettingsError("No se pudo leer SQL_URL_FILE.") from exc
+        if not value:
+            raise SettingsError("SQL_URL_FILE esta vacio.")
+        return value
+
+    def require_state_url(self) -> str:
+        if "secrets" not in self.xeon_state_url_file.resolve().parts:
+            raise SettingsError("XEON_STATE_URL_FILE debe estar dentro de secrets/.")
+        try:
+            value = self.xeon_state_url_file.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise SettingsError("No se pudo leer XEON_STATE_URL_FILE.") from exc
+        if not value:
+            raise SettingsError("XEON_STATE_URL_FILE esta vacio.")
+        if not value.startswith("postgresql+psycopg://"):
+            raise SettingsError("STATE_STORE=postgres requiere una URL PostgreSQL psycopg.")
+        return value
 
     def require_groq_api_key(self) -> SecretStr:
         return _require_api_key(

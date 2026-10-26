@@ -4,6 +4,9 @@ import re
 import unicodedata
 
 from xeon.adapters.catalog.synthetic_seed import (
+    ADDITIONAL_CORE_PRODUCTS,
+)
+from xeon.adapters.catalog.synthetic_seed import (
     SYNTHETIC_PRODUCTS as SEEDED_SYNTHETIC_PRODUCTS,
 )
 from xeon.application.ports.catalog import CatalogUnavailableError
@@ -157,7 +160,9 @@ SYNTHETIC_PRODUCTS = SEEDED_SYNTHETIC_PRODUCTS
 class InMemoryProductCatalog:
     """Hybrid lookup over a synthetic catalog: exact SKU/alias + semantic/specs candidate search."""
 
-    def __init__(self, products: tuple[Product, ...] = SYNTHETIC_PRODUCTS) -> None:
+    def __init__(
+        self, products: tuple[Product, ...] = SYNTHETIC_PRODUCTS + ADDITIONAL_CORE_PRODUCTS
+    ) -> None:
         index: dict[str, Product] = {}
         for product in products:
             index[product.sku] = product

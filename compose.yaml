@@ -24,11 +24,14 @@ services:
       KAPSO_API_KEY: ${KAPSO_API_KEY:-}
       KAPSO_PHONE_NUMBER_ID: ${KAPSO_PHONE_NUMBER_ID:-}
       KAPSO_WEBHOOK_SECRET_FILE: /run/secrets/kapso_webhook_secret
+      XEON_API_KEY_FILE: /run/secrets/xeon_api_key
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       META_GRAPH_VERSION: ${META_GRAPH_VERSION:-v24.0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     secrets:
       - grok_api_key
       - kapso_webhook_secret
+      - xeon_api_key
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -50,4 +53,6 @@ secrets:
     file: ./secrets/grok_api_key.txt
   kapso_webhook_secret:
     file: ./secrets/kapso_webhook_secret.txt
+  xeon_api_key:
+    file: ./secrets/xeon_api_key.txt
 

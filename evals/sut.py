@@ -10,7 +10,9 @@ import httpx
 
 from evals.recording import RecordingLLM
 from xeon.adapters.llm import build_llm
+from xeon.adapters.metrics import InMemoryMetrics
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
+from xeon.agent.tool_trace import capture_tool_events
 from xeon.application.container import AppContainer, build_container
 from xeon.config import Settings
 from xeon.domain.quote import Quote
@@ -39,7 +41,10 @@ class XEONSUT:
 
         self.quotes = RecordingQuoteRepository()
         self.llm = RecordingLLM(build_llm(settings), on_call=on_llm_call)
-        self.container: AppContainer = build_container(settings, quotes=self.quotes, llm=self.llm)
+        self.metrics = InMemoryMetrics()
+        self.container: AppContainer = build_container(
+            settings, quotes=self.quotes, llm=self.llm, metrics=self.metrics
+        )
         self.app = create_app(container=self.container)
         self.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app), base_url="http://xeon.local"
@@ -47,12 +52,36 @@ class XEONSUT:
         self.conversation_id: UUID = uuid4()
 
     async def respond(self, message: str) -> dict[str, Any]:
-        response = await self.client.post(
-            "/v1/chat",
-            json={"message": message, "conversation_id": str(self.conversation_id)},
-        )
-        response.raise_for_status()
-        return dict(response.json())
+        with capture_tool_events() as events:
+            response = await self.client.post(
+                "/v1/chat",
+                json={"message": message, "conversation_id": str(self.conversation_id)},
+            )
+            response.raise_for_status()
+            payload = dict(response.json())
+            self._last_options = list(payload.get("options", []))
+            self.llm.observe_verified_reply(str(payload.get("reply", "")))
+            for event in events:
+                self.llm.observe_tool_event(event)
+            return payload
+
+    async def click(self, choice: str | int) -> dict[str, Any]:
+        """Choose an offered option by exact id or one-based displayed number."""
+        if not hasattr(self, "_last_options"):
+            raise ValueError("No hay opciones previas para pulsar.")
+        options = self._last_options
+        if isinstance(choice, int):
+            if not 1 <= choice <= len(options):
+                raise ValueError("Numero de opcion no ofrecido.")
+            message = str(choice)
+        else:
+            if choice not in {str(item["id"]) for item in options}:
+                raise ValueError("Id de opcion no ofrecido.")
+            message = choice
+        return await self.respond(message)
+
+    def tool_contexts(self) -> list[str]:
+        return self.llm.tool_contexts()
 
     def drafts(self) -> list[dict[str, Any]]:
         return [

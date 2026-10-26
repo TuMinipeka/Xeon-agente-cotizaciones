@@ -8,6 +8,8 @@ import pytest
 # Set before pytest imports test modules (including xeon.api.app, which builds app on import).
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["WHATSAPP_SEND_ENABLED"] = "false"
+# Tests that exercise API authentication build their own Settings; everything else runs open.
+os.environ["XEON_API_AUTH_DISABLED"] = "true"
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:

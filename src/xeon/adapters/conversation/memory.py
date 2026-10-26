@@ -4,7 +4,12 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
+from xeon.application.ports.conversation_memory import (
+    PendingCandidates,
+    PendingStockQuery,
+    ProjectContext,
+    ProposedLine,
+)
 from xeon.application.ports.llm import ChatMessage
 
 
@@ -12,10 +17,11 @@ from xeon.application.ports.llm import ChatMessage
 class _Conversation:
     messages: list[ChatMessage] = field(default_factory=list)
     sku: str | None = None
-    pending: PendingCandidates | None = None
-    commercial_active: bool = False
-    lines: dict[str, Decimal] = field(default_factory=dict)
-    unresolved_quantity: Decimal | None = None
+    pending: dict[str, PendingCandidates] = field(default_factory=dict)
+    stock: PendingStockQuery | None = None
+    unverified_pc: bool = False
+    proposal: dict[str, Decimal] = field(default_factory=dict)
+    project: ProjectContext = field(default_factory=ProjectContext)
 
 
 class InMemoryConversationMemory:
@@ -47,57 +53,83 @@ class InMemoryConversationMemory:
         if conversation is None:
             return None
         self._conversations.move_to_end(key)
-        return conversation.pending
+        return next(reversed(conversation.pending.values()), None)
 
     def set_pending_candidates(self, key: str, pending: PendingCandidates | None) -> None:
         conversation = self._conversations.setdefault(key, _Conversation())
         self._conversations.move_to_end(key)
-        conversation.pending = pending
+        if pending is None:
+            conversation.pending.clear()
+        else:
+            conversation.pending[pending.line_key or "default"] = pending
         while len(self._conversations) > self._max_conversations:
             self._conversations.popitem(last=False)
 
-    def commercial_active(self, key: str) -> bool:
+    def all_pending_candidates(self, key: str) -> tuple[PendingCandidates, ...]:
+        conversation = self._conversations.get(key)
+        return tuple(conversation.pending.values()) if conversation is not None else ()
+
+    def clear_pending_candidate(self, key: str, line_key: str) -> None:
+        conversation = self._conversations.get(key)
+        if conversation is not None:
+            conversation.pending.pop(line_key or "default", None)
+
+    def pending_stock(self, key: str) -> PendingStockQuery | None:
+        conversation = self._conversations.get(key)
+        return conversation.stock if conversation is not None else None
+
+    def set_pending_stock(self, key: str, request: PendingStockQuery | None) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        conversation.stock = request
+
+    def unverified_pc_context(self, key: str) -> bool:
+        conversation = self._conversations.get(key)
+        return bool(conversation and conversation.unverified_pc)
+
+    def set_unverified_pc_context(self, key: str, value: bool) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        conversation.unverified_pc = value
+
+    def project_data(self, key: str) -> ProjectContext:
         conversation = self._conversations.get(key)
         if conversation is None:
-            return False
+            return ProjectContext()
         self._conversations.move_to_end(key)
-        return conversation.commercial_active
+        return conversation.project
 
-    def mark_commercial(self, key: str) -> None:
+    def remember_project_data(self, key: str, data: ProjectContext) -> None:
         conversation = self._conversations.setdefault(key, _Conversation())
         self._conversations.move_to_end(key)
-        conversation.commercial_active = True
+        previous = conversation.project
+        conversation.project = ProjectContext(
+            length_m=data.length_m if data.length_m is not None else previous.length_m,
+            width_m=data.width_m if data.width_m is not None else previous.width_m,
+            purpose=data.purpose or previous.purpose,
+            whole_surface=(
+                data.whole_surface if data.whole_surface is not None else previous.whole_surface
+            ),
+        )
         while len(self._conversations) > self._max_conversations:
             self._conversations.popitem(last=False)
 
-    def resolved_lines(self, key: str) -> tuple[ResolvedLine, ...]:
+    def proposal_lines(self, key: str) -> tuple[ProposedLine, ...]:
         conversation = self._conversations.get(key)
         if conversation is None:
             return ()
         self._conversations.move_to_end(key)
-        return tuple(ResolvedLine(sku, qty) for sku, qty in conversation.lines.items())
+        return tuple(ProposedLine(sku, qty) for sku, qty in conversation.proposal.items())
 
-    def remember_lines(self, key: str, lines: tuple[ResolvedLine, ...]) -> None:
+    def remember_proposal(self, key: str, line: ProposedLine) -> None:
         conversation = self._conversations.setdefault(key, _Conversation())
         self._conversations.move_to_end(key)
-        for line in lines:
-            conversation.lines[line.sku] = line.quantity
+        conversation.proposal[line.sku] = line.quantity
         while len(self._conversations) > self._max_conversations:
             self._conversations.popitem(last=False)
 
-    def unresolved_quantity(self, key: str) -> Decimal | None:
+    def clear_proposal(self, key: str) -> None:
         conversation = self._conversations.get(key)
-        if conversation is None:
-            return None
-        self._conversations.move_to_end(key)
-        return conversation.unresolved_quantity
-
-    def remember_unresolved_quantity(self, key: str, quantity: Decimal) -> None:
-        conversation = self._conversations.setdefault(key, _Conversation())
-        self._conversations.move_to_end(key)
-        conversation.unresolved_quantity = quantity
-        while len(self._conversations) > self._max_conversations:
-            self._conversations.popitem(last=False)
+        if conversation is not None:
+            conversation.proposal.clear()
 
     def record(self, key: str, user: str, assistant: str, sku: str | None) -> None:
         conversation = self._conversations.setdefault(key, _Conversation())

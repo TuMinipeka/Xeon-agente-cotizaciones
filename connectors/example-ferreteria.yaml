@@ -1,0 +1,21 @@
+# Ejemplo para un esquema ajeno a XEON. URL y credenciales quedan en secrets/.
+price_divisor: 100
+unit_map:
+  SAC: bulto
+timeout_seconds: 5
+catalog_version: ejemplo-1
+# MySQL/MariaDB: DATETIME no trae zona. Declarala para interpretar esas fechas; sin ella el stock
+# queda pendiente de un asesor. Ejemplo: naive_datetime_timezone: UTC (o America/Bogota).
+# naive_datetime_timezone: UTC
+find_by_sku:
+  sql: "SELECT codigo, titulo, unidad_venta, precio_centavos, alias_texto FROM articulos WHERE codigo = :sku OR alias_texto = :sku"
+  columns: {sku: codigo, name: titulo, unit: unidad_venta, price: precio_centavos, aliases: alias_texto}
+search_text:
+  sql: "SELECT codigo, titulo, unidad_venta, precio_centavos, alias_texto FROM articulos WHERE LOWER(titulo) LIKE LOWER(:query) OR LOWER(alias_texto) LIKE LOWER(:query) LIMIT :limit"
+  columns: {sku: codigo, name: titulo, unit: unidad_venta, price: precio_centavos, aliases: alias_texto}
+stock_by_sku:
+  sql: "SELECT e.codigo_articulo, e.bodega, b.rotulo, e.disponibles, e.actualizado, e.vigente_hasta FROM existencias e JOIN sucursales b ON b.clave = e.bodega WHERE e.codigo_articulo = :sku"
+  columns: {sku: codigo_articulo, branch_id: bodega, branch_name: rotulo, quantity: disponibles, observed_at: actualizado, valid_until: vigente_hasta}
+list_branches:
+  sql: "SELECT clave, rotulo, apodos FROM sucursales"
+  columns: {id: clave, name: rotulo, aliases: apodos}

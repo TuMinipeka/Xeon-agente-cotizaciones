@@ -1,0 +1,25 @@
+# XEON: paths outside the permitted local graph corpus.
+secrets/
+.env*
+video/
+reports/
+.venv/
+.bootstrap/
+.tools/
+.cache/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/*.mp4
+**/*.mp3
+**/*.mov
+**/*.wav
+**/*.pdf
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.webp
+**/*.svg
+graphify-out/
+wiki/graph/generated/

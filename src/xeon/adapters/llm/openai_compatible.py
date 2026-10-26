@@ -5,11 +5,7 @@ from typing import Any
 
 import httpx
 
-from xeon.application.ports.llm import ChatMessage, LLMResponse
-
-
-class LLMProviderError(RuntimeError):
-    """Sanitized provider failure safe to map to an API error."""
+from xeon.application.ports.llm import ChatMessage, LLMProviderError, LLMResponse, TokenUsage
 
 
 class OpenAICompatibleLLM:
@@ -59,7 +55,9 @@ class OpenAICompatibleLLM:
                 json=payload,
             )
             response.raise_for_status()
-            text = _extract_text(response.json())
+            body = response.json()
+            text = _extract_text(body)
+            usage = _extract_usage(body)
         except httpx.HTTPStatusError as exc:
             raise LLMProviderError(
                 f"El proveedor LLM respondio con HTTP {exc.response.status_code}."
@@ -69,11 +67,26 @@ class OpenAICompatibleLLM:
                 "No fue posible obtener una respuesta valida del proveedor LLM."
             ) from exc
 
-        return LLMResponse(text=text, provider=self.provider_name, model=self.model)
+        return LLMResponse(text=text, provider=self.provider_name, model=self.model, usage=usage)
 
     async def aclose(self) -> None:
         if self._owns_client:
             await self._client.aclose()
+
+
+def _extract_usage(payload: dict[str, Any]) -> TokenUsage:
+    """Read the OpenAI-style usage block; absent or malformed values stay unknown."""
+    raw = payload.get("usage")
+    if not isinstance(raw, dict):
+        return TokenUsage()
+
+    def count(name: str) -> int | None:
+        value = raw.get(name)
+        return (
+            value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+        )
+
+    return TokenUsage(count("prompt_tokens"), count("completion_tokens"))
 
 
 def _extract_text(payload: dict[str, Any]) -> str:

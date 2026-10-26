@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from evals.checks import EvalView, run_check
+from evals.recording import RecordingLLM
 from evals.reference.oracle import FixtureMismatch, Oracle
+from evals.sut import XEONSUT
 from scripts.export_eval_fixtures import export
+from xeon.adapters.llm.mock import MockLLM
+from xeon.config import Settings
 
 
 def test_oracle_uses_frozen_json_only() -> None:
@@ -224,3 +229,280 @@ def test_commercial_turn_cannot_be_scope_blocked() -> None:
         view.user_messages,
     )
     assert run_check({"type": "no_false_scope_block"}, allowed).status == "PASS"
+
+
+def test_oracle_includes_shovel_core_references_from_frozen_fixtures() -> None:
+    """Motivo del evaluador: escenario nuevo S17 (PAL-RED-FIB y PAL-CUA-MAD en catalog.json)."""
+    oracle = Oracle()
+    expected_sha = "868323157c893ccc9cf5b68d10b0586f35040a69cffc27c6d5e0c136c54b08bc"
+    assert oracle.fingerprint == expected_sha
+    assert oracle.unit_price("pala redonda mango de fibra") == Decimal("43700.00")
+    assert oracle.subtotal("pala redonda mango de fibra", "1") == Decimal("43700.00")
+    assert oracle.unit_price("pala cuadrada mango de madera") == Decimal("39800.00")
+
+
+def test_no_out_of_scope_on_commercial_check() -> None:
+    oracle = Oracle()
+    blocked = EvalView(
+        oracle,
+        [{"provider": "local-policy", "reply": "No manejo informacion sobre ese tema."}],
+        [],
+        [],
+        "offline",
+        ["¿También manejan arena y gravilla?"],
+    )
+    assert run_check({"type": "no_out_of_scope_on_commercial"}, blocked).status == "FAIL"
+    clean = EvalView(
+        oracle,
+        [{"provider": "mock", "reply": "El bulto trae 50 kg y validamos el domicilio."}],
+        [],
+        [],
+        "offline",
+        ["¿También manejan arena y gravilla?"],
+    )
+    assert run_check({"type": "no_out_of_scope_on_commercial"}, clean).status == "PASS"
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("Texto plano para WhatsApp: 15 bultos de cemento gris.", "PASS"),
+        ("Cotizacion: **Cemento gris** $28.900", "FAIL"),
+        ("### Opciones de tornillos\n- Tornillo galvanizado", "FAIL"),
+    ],
+)
+def test_no_markdown_check(reply: str, expected: str) -> None:
+    view = EvalView(Oracle(), [{"reply": reply, "provider": "grok"}], [], [], "live", ["consulta"])
+    assert run_check({"type": "no_markdown"}, view).status == expected
+
+
+def test_final_quote_quantity_and_forbidden_hypothetical_quantities() -> None:
+    oracle = Oracle()
+    good_view = EvalView(
+        oracle,
+        [{"reply": "Total $477.200", "provider": "mock"}],
+        [],
+        [
+            {
+                "subtotal": "578000.00",
+                "total": "578000.00",
+                "lines": [{"sku": "CEM-50", "quantity": "20", "line_total": "578000.00"}],
+            },
+            {
+                "subtotal": "477200.00",
+                "total": "477200.00",
+                "lines": [
+                    {"sku": "CEM-50", "quantity": "15", "line_total": "433500.00"},
+                    {"sku": "PAL-RED-FIB", "quantity": "1", "line_total": "43700.00"},
+                ],
+            },
+        ],
+        "offline",
+        ["cemento y pala"],
+    )
+    assert (
+        run_check(
+            {
+                "type": "final_quote_quantity",
+                "product": "cemento",
+                "quantity": "15",
+                "forbidden_quantities": ["50"],
+                "expected_total": "477200.00",
+                "expected_lines": 2,
+            },
+            good_view,
+        ).status
+        == "PASS"
+    )
+    assert (
+        run_check(
+            {
+                "type": "final_quote_quantity",
+                "product": "pala redonda mango de fibra",
+                "quantity": "1",
+                "expected_total": "477200.00",
+                "expected_lines": 2,
+            },
+            good_view,
+        ).status
+        == "PASS"
+    )
+    contaminated_view = EvalView(
+        oracle,
+        [{"reply": "Total $1.445.000", "provider": "mock"}],
+        [],
+        [
+            {
+                "subtotal": "1445000.00",
+                "total": "1445000.00",
+                "lines": [{"sku": "CEM-50", "quantity": "50", "line_total": "1445000.00"}],
+            },
+            {
+                "subtotal": "433500.00",
+                "total": "433500.00",
+                "lines": [{"sku": "CEM-50", "quantity": "15", "line_total": "433500.00"}],
+            },
+        ],
+        "offline",
+        ["50 hipotetico"],
+    )
+    assert (
+        run_check(
+            {
+                "type": "final_quote_quantity",
+                "product": "cemento",
+                "quantity": "15",
+                "forbidden_quantities": ["50"],
+            },
+            contaminated_view,
+        ).status
+        == "FAIL"
+    )
+
+
+def test_preliminary_project_advice_and_no_unverified_compatibility() -> None:
+    oracle = Oracle()
+    good_project = EvalView(
+        oracle,
+        [
+            {
+                "provider": "mock",
+                "reply": (
+                    "Para el corral de 20 x 30 m te comparto una lista preliminar "
+                    "sujeta a validacion tecnica: cemento, malla y alambre."
+                ),
+            }
+        ],
+        [],
+        [],
+        "offline",
+        ["corral de 20 x 30 m"],
+    )
+    assert run_check({"type": "preliminary_project_advice"}, good_project).status == "PASS"
+
+    reasked_project = EvalView(
+        oracle,
+        [
+            {
+                "provider": "mock",
+                "reply": "¿Cuáles son las dimensiones del corral? Lista preliminar.",
+            }
+        ],
+        [],
+        [],
+        "offline",
+        ["corral de 20 x 30 m"],
+    )
+    assert run_check({"type": "preliminary_project_advice"}, reasked_project).status == "FAIL"
+
+    bad_compat = EvalView(
+        oracle,
+        [
+            {
+                "provider": "grok",
+                "reply": "El tornillo galvanizado es ideal para tu motherboard.",
+            }
+        ],
+        [],
+        [],
+        "live",
+        ["tornillos para motherboard"],
+    )
+    assert run_check({"type": "no_unverified_compatibility"}, bad_compat).status == "FAIL"
+
+    safe_compat = EvalView(
+        oracle,
+        [
+            {
+                "provider": "grok",
+                "reply": (
+                    "Solo manejamos tornilleria de construccion; no es compatible "
+                    "para una motherboard sin verificar la rosca M2/M3."
+                ),
+            }
+        ],
+        [],
+        [],
+        "live",
+        ["tornillos para motherboard"],
+    )
+    assert run_check({"type": "no_unverified_compatibility"}, safe_compat).status == "PASS"
+
+
+def test_live_context_without_mock_markers_captures_branch_evidence() -> None:
+    """Live LLM replies do not contain mock diagnostics markers.
+    The evaluator captures tool execution events (e.g. from xeon.tools / record_tool)
+    so branch_matches evaluates actual branch queries without false negatives.
+    """
+    oracle = Oracle()
+    live_reply = [{"reply": "Cemento gris 50 kg en sede-norte: disponible.", "provider": "grok"}]
+
+    # 1. Reproduce old bug: live reply without tool_contexts -> false negative (FAIL)
+    old_empty_contexts: list[str] = []
+    old_view = EvalView(oracle, live_reply, old_empty_contexts, [], "live", ["hay en sede norte"])
+    assert run_check({"type": "branch_matches", "branch": "sede-norte"}, old_view).status == "FAIL"
+
+    # 2. With evaluator fix: tool event for sede-norte is observed into recording contexts
+    recording = RecordingLLM(MockLLM())
+    recording.observe_tool_event(
+        "TOOL get_stock_by_branches sku=CEM-50 sede=sede-norte disponible=unknown vigencia=stale"
+    )
+    fixed_view = EvalView(
+        oracle, live_reply, recording.tool_contexts(), [], "live", ["hay en sede norte"]
+    )
+    result_norte = run_check({"type": "branch_matches", "branch": "sede-norte"}, fixed_view)
+    assert result_norte.status == "PASS"
+
+    # 3. When XEON consulted another branch (e.g. sede-sur), it still fails
+    recording_sur = RecordingLLM(MockLLM())
+    recording_sur.observe_tool_event(
+        "TOOL get_stock_by_branches sku=CEM-50 sede=sede-sur disponible=unknown vigencia=stale"
+    )
+    sur_view = EvalView(
+        oracle, live_reply, recording_sur.tool_contexts(), [], "live", ["hay en sede sur"]
+    )
+    result_sur = run_check({"type": "branch_matches", "branch": "sede-norte"}, sur_view)
+    assert result_sur.status == "FAIL"
+
+
+def test_sut_captures_live_tool_events_for_branch_check() -> None:
+    async def scenario() -> None:
+        settings = Settings(
+            _env_file=None,
+            llm_provider="mock",
+            whatsapp_send_enabled=False,
+        )
+        sut = XEONSUT(settings)
+        try:
+            messages = [
+                "¿Hay stock en sede norte de 10 bultos de cemento?",
+                "start:products",
+                "cemento",
+                "product:CEM-50",
+                "quantity:10",
+                "more:view",
+                "delivery:pickup",
+                "branch:sede-norte",
+            ]
+            responses = [await sut.respond(messages[0])]
+            for message in messages[1:]:
+                responses.append(await sut.respond(message))
+            oracle = Oracle()
+            view = EvalView(
+                oracle,
+                responses,
+                sut.llm.tool_contexts(),
+                sut.drafts(),
+                "live",
+                messages,
+            )
+            assert (
+                run_check({"type": "branch_matches", "branch": "sede-norte"}, view).status == "PASS"
+            )
+            assert (
+                run_check({"type": "branch_matches", "branch": "sede-sur"}, view).status == "FAIL"
+            )
+        finally:
+            await sut.aclose()
+
+    asyncio.run(scenario())

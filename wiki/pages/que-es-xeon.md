@@ -12,3 +12,5 @@ Usuarios previstos: comprador particular o empresarial, vendedor de mostrador, c
 **Estado:** visión de producto. El prototipo usa datos sintéticos y emite borradores `DRAFT`; no hay ventas, reservas o aprobaciones reales ([README](../../README.md), líneas 5-16). Véase [estado del corte](estado-del-corte.md) y [arquitectura actual](arquitectura-actual.md).
 
 Revisado: 2026-10-24. Verificar de nuevo si cambia el sector objetivo o se incorpora un cliente autorizado.
+
+Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)
