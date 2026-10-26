@@ -380,3 +380,9 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Sonnet (`cedb9d9`, `9b38e86`, merge `f2097ae`):** panel `/panel` con autenticación (PBKDF2, cookie `HttpOnly`/`SameSite=Strict`, CSRF, límite de intentos), bandeja `AdvisorInbox`, revisión humana `AdvisorReview` (`APPROVED_FOR_BILLING`, `RECHAZADO_POR_ASESOR`, marcar atendido) y aviso al cliente por Kapso; el agente no puede invocar esas transiciones (pruebas). Nota de inbox integrada y retirada.
 - **Páginas:** [propuesta de la fase 3](pages/propuesta-fase3.md) (opción B: implementada parcialmente), [estado del corte](pages/estado-del-corte.md) y [arquitectura actual](pages/arquitectura-actual.md). `docs/PANEL_ASESOR.md` deja explícito que en producción la cookie `Secure` y HTTPS son obligatorios.
 - **Pendiente:** PDF, roles, persistencia de bandeja y sesiones (con la opción A) y verificar el aviso al cliente en el sandbox de Kapso.
+
+## [2026-10-26] integración | PDF del borrador de cotización (B)
+
+- **Sonnet (`f61ec87`):** completó la opción B de la fase 3 con la generación de PDF del borrador mediante ReportLab 5.1.0 (`GET /panel/quotes/{id}/pdf`), descargable desde el panel del asesor.
+- **Contenido y seguridad:** incluye número `COT-XXXXXXXX`, versión, fecha, líneas detalladas, total exacto en COP (`Decimal`), metadatos y leyenda «Borrador de cotización — no es factura ni reserva de inventario» (arriba y abajo); omite el teléfono del cliente; 401 sin sesión, 409 si sigue en `DRAFT`, 503 si falta el grupo opcional `pdf`.
+- **Wiki:** nota `2026-10-26T-sonnet-quote-pdf.md` retirada del inbox e integrada en [propuesta de la fase 3](pages/propuesta-fase3.md) y [estado del corte](pages/estado-del-corte.md).

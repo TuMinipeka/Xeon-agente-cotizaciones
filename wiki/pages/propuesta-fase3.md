@@ -39,7 +39,7 @@ Las versiones salen de PyPI y de los README consultados el 2026-10-26; los preci
 
 ### B. Notificación real al asesor, aprobación humana y PDF
 
-- **Estado (2026-10-26): implementado parcialmente** (Sonnet, `cedb9d9` y `9b38e86`, merge `f2097ae`; ver [panel del asesor](../../docs/PANEL_ASESOR.md)). Hecho: panel web `/panel` autenticado, revisión humana `APPROVED_FOR_BILLING` / `RECHAZADO_POR_ASESOR` y aviso al cliente por Kapso con plantilla. Pendiente: PDF, roles, persistencia de la bandeja y las sesiones, y verificar el aviso en el sandbox de Kapso.
+- **Estado (2026-10-26): implementado** (panel, revisión humana y PDF; Sonnet, merges `f2097ae` y `f61ec87`; ver [panel del asesor](../../docs/PANEL_ASESOR.md)). Hecho: panel web `/panel` autenticado, revisión humana `APPROVED_FOR_BILLING` / `RECHAZADO_POR_ASESOR`, aviso al cliente por Kapso con plantilla fija y descarga de PDF del borrador (`GET /panel/quotes/{id}/pdf`) con ReportLab 5.1.0 (`COT-XXXXXXXX`, sin teléfono del cliente). Pendiente: roles y bandeja persistente en PostgreSQL.
 
 - **Problema:** hoy `CONFIRMADO_POR_CLIENTE` solo escribe un log; nadie se entera. Faltan los estados humanos `PENDING_APPROVAL → APPROVED_FOR_BILLING` y un documento para el cliente.
 - **Diseño hexagonal:**
