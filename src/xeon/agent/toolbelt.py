@@ -519,7 +519,7 @@ def _pending_selection(text: str, pending: PendingCandidates | None) -> str | No
         index = -1
     if 0 <= index < len(pending.skus):
         return pending.skus[index]
-    return next(
+    direct = next(
         (
             sku
             for sku, name in zip(pending.skus, pending.names, strict=True)
@@ -527,6 +527,21 @@ def _pending_selection(text: str, pending: PendingCandidates | None) -> str | No
         ),
         None,
     )
+    if direct is not None:
+        return direct
+    tokens = set(re.findall(r"[a-z0-9]+", text.casefold())) - {"con", "de", "la", "el", "mango"}
+    if not tokens:
+        return None
+    scores = []
+    for position, (sku, name) in enumerate(zip(pending.skus, pending.names, strict=True)):
+        specs = pending.attributes[position] if position < len(pending.attributes) else {}
+        candidate_tokens = set(
+            re.findall(r"[a-z0-9]+", (name + " " + " ".join(specs.values())).casefold())
+        )
+        scores.append((len(tokens & candidate_tokens), sku))
+    best = max(score for score, _ in scores)
+    winners = [sku for score, sku in scores if score == best and score > 0]
+    return winners[0] if len(winners) == 1 else None
 
 
 def _explicit_product_query(clause: str) -> str | None:

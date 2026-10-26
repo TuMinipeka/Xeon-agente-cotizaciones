@@ -13,6 +13,21 @@ class PendingCandidates:
     names: tuple[str, ...]
     quantity: Decimal | None
     branch: str
+    attributes: tuple[dict[str, str], ...] = ()
+    question: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectContext:
+    length_m: Decimal | None = None
+    width_m: Decimal | None = None
+    purpose: str | None = None
+
+    @property
+    def area_m2(self) -> Decimal | None:
+        if self.length_m is None or self.width_m is None:
+            return None
+        return self.length_m * self.width_m
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +48,10 @@ class ConversationMemory(Protocol):
     def commercial_active(self, key: str) -> bool: ...
 
     def mark_commercial(self, key: str) -> None: ...
+
+    def project_data(self, key: str) -> ProjectContext: ...
+
+    def remember_project_data(self, key: str, data: ProjectContext) -> None: ...
 
     def resolved_lines(self, key: str) -> tuple[ResolvedLine, ...]: ...
 

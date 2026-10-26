@@ -1,0 +1,251 @@
+"""Validated model intent output with a local, deterministic fallback."""
+
+from __future__ import annotations
+
+import re
+import unicodedata
+from decimal import Decimal
+from enum import StrEnum
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity, _has_branch
+from xeon.application.ports.conversation_memory import PendingCandidates
+from xeon.application.ports.llm import ChatMessage, LLMPort, LLMResponse
+
+
+class IntentKind(StrEnum):
+    CONSULTAR_PRODUCTO = "consultar_producto"
+    AGREGAR = "agregar"
+    MODIFICAR_CANTIDAD = "modificar_cantidad"
+    QUITAR = "quitar"
+    ELEGIR_OPCION = "elegir_opcion"
+    RESPONDER_PENDIENTE = "responder_pendiente"
+    VER_RESUMEN_TOTAL = "ver_resumen_total"
+    CONSULTAR_STOCK = "consultar_stock"
+    CONSULTAR_POLITICA = "consultar_politica"
+    ASESORIA_PROYECTO = "asesoria_proyecto"
+    HIPOTETICA = "hipotetica"
+    SALUDO = "saludo"
+    FUERA_DE_ALCANCE = "fuera_de_alcance"
+
+
+class ProjectEntities(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    length_m: Decimal | None = None
+    width_m: Decimal | None = None
+    purpose: str | None = None
+
+
+class Intent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: IntentKind
+    product: str | None = None
+    quantity: Decimal | None = Field(default=None, gt=0)
+    branch: str | None = None
+    attributes: dict[str, str] = Field(default_factory=dict)
+    policy: str | None = None
+    project: ProjectEntities | None = None
+    source_text: str = ""
+
+
+class IntentBatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    intents: tuple[Intent, ...] = Field(min_length=1)
+
+
+_INTERPRETER_PROMPT = """Interpreta el turno comercial de XEON. Devuelve solo JSON
+con {"intents":[...]}, sin Markdown. Cada intención usa kind entre
+consultar_producto, agregar, modificar_cantidad, quitar, elegir_opcion,
+responder_pendiente, ver_resumen_total, consultar_stock, consultar_politica,
+asesoria_proyecto, hipotetica, saludo, fuera_de_alcance. Incluye producto,
+cantidad, branch, attributes, policy y project cuando existan. Conserva TODAS
+las solicitudes del turno. Una pregunta hipotética no agrega ni modifica.
+Consultas de compra, pagos, entrega, stock, resumen y asesoría de proyectos
+son comerciales. Fuera de alcance solo para solicitudes realmente ajenas.
+No calcules precios, stock ni descuentos; el backend lo hará."""
+
+_WORD_NUMBERS = {"una": Decimal(1), "uno": Decimal(1), "dos": Decimal(2), "tres": Decimal(3)}
+_DIMENSIONS = re.compile(
+    r"\b(\d+(?:[.,]\d+)?)\s*[x\u00d7]\s*(\d+(?:[.,]\d+)?)\s*(?:m|metros?)?\b", re.I
+)
+_OUTSIDE = re.compile(
+    r"\b(?:tarjetas? graficas?|criptomonedas?|chistes?|poemas?|"
+    r"peliculas?|videojuegos?|noticias?|restaurantes?)\b",
+    re.I,
+)
+_POLICY = re.compile(
+    r"\b(?:pagar|pago|tarjeta|efectivo|recoger|recogida|retiro|"
+    r"domicilio|envio|entrega|horario|facturaci[oó]n)\b",
+    re.I,
+)
+_PROJECT = re.compile(r"\b(?:corral|ganado|proyecto|piso de concreto|pavimentar)\b", re.I)
+_STOCK = re.compile(r"\b(?:disponib|existencias?|inventario|hay\s+stock|agotad)\w*", re.I)
+_SUMMARY = re.compile(
+    r"\b(?:resum|total|cu[aá]nto llevo|producto por producto|mi cotizaci[oó]n)\w*", re.I
+)
+_HYPOTHETICAL = re.compile(
+    r"\b(?:qu[eé]\s+(?:descuento|precio)|si\s+(?:llevo|pido)|hipot[eé]tic)\w*", re.I
+)
+_REMOVE = re.compile(r"\b(?:quita|quitar|elimina|saca|retira)\w*", re.I)
+_MODIFY = re.compile(r"\b(?:cambia|c[aá]mbialo|modifica|ajusta|reduce|sube)\w*", re.I)
+_ADD = re.compile(r"\b(?:agrega|a[nñ]ade|suma|deja|quiero|necesito|dame|cotiza)\w*", re.I)
+
+
+def _normalize(text: str) -> str:
+    value = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(char for char in value if not unicodedata.combining(char))
+
+
+def _quantity(text: str) -> Decimal | None:
+    parsed = _extract_requested_quantity(text)
+    if parsed is not None:
+        return parsed
+    normalized = _normalize(text)
+    match = re.search(r"\b(\d+(?:[.,]\d+)?)\b", normalized)
+    if match is not None and _DIMENSIONS.search(normalized) is None:
+        raw = match.group(1).replace(",", ".")
+        try:
+            value = Decimal(raw)
+            return value if value > 0 else None
+        except Exception:
+            return None
+    for word, value in _WORD_NUMBERS.items():
+        if re.search(rf"\b{word}\b", normalized):
+            return value
+    return None
+
+
+def _product_phrase(text: str) -> str | None:
+    cleaned = re.sub(
+        r"(?i)^\s*(?:y\s+)?(?:agregame|agrega|anade|deja|quiero|necesito|dame|cotizame|cotiza)\s+",
+        "",
+        text,
+    )
+    cleaned = re.sub(
+        r"(?i)^\s*(?:\d+|una?|dos|tres)\s+(?:bultos?|palas?|unidades?)\s*(?:de\s+)?", "", cleaned
+    )
+    cleaned = cleaned.strip(" ¿?.,!")
+    return cleaned or None
+
+
+def _from_clause(kind: IntentKind, clause: str, *, product: str | None = None) -> Intent:
+    return Intent(
+        kind=kind,
+        product=product,
+        quantity=_quantity(clause),
+        branch=_extract_requested_branch(clause) if _has_branch(clause) else None,
+        source_text=clause,
+    )
+
+
+def fallback_intents(message: str, *, pending: PendingCandidates | None = None) -> IntentBatch:
+    cleaned = " ".join(message.split())
+    normalized = _normalize(cleaned)
+    if normalized in {"hola", "buenas", "buenos dias", "gracias"}:
+        return IntentBatch(intents=(Intent(kind=IntentKind.SALUDO, source_text=cleaned),))
+    if pending is not None and (
+        re.fullmatch(r"\s*[1-3]\s*", cleaned)
+        or any(term in normalized for term in ("redonda", "cuadrada", "fibra", "madera", "opcion"))
+    ):
+        return IntentBatch(
+            intents=(Intent(kind=IntentKind.ELEGIR_OPCION, product=cleaned, source_text=cleaned),)
+        )
+
+    clauses = re.split(
+        r"\s+y\s+(?=(?:deja|agrega|anade|quita|busca|\d+|si\s+|que\s+))", cleaned, flags=re.I
+    )
+    intents: list[Intent] = []
+    for clause in clauses:
+        clause = clause.strip(" ¿?.,!")
+        if not clause:
+            continue
+        if _OUTSIDE.search(_normalize(clause)):
+            intents.append(Intent(kind=IntentKind.FUERA_DE_ALCANCE, source_text=clause))
+            continue
+        if _HYPOTHETICAL.search(clause):
+            intents.append(
+                _from_clause(IntentKind.HIPOTETICA, clause, product=_product_phrase(clause))
+            )
+            continue
+        if _REMOVE.search(clause):
+            intents.append(_from_clause(IntentKind.QUITAR, clause, product=_product_phrase(clause)))
+            continue
+        if _MODIFY.search(clause):
+            intents.append(
+                _from_clause(IntentKind.MODIFICAR_CANTIDAD, clause, product=_product_phrase(clause))
+            )
+            continue
+        if _STOCK.search(clause):
+            intents.append(
+                _from_clause(IntentKind.CONSULTAR_STOCK, clause, product=_product_phrase(clause))
+            )
+            continue
+        if _SUMMARY.search(clause):
+            intents.append(Intent(kind=IntentKind.VER_RESUMEN_TOTAL, source_text=clause))
+            continue
+        if _PROJECT.search(clause):
+            dimensions = _DIMENSIONS.search(clause)
+            project = ProjectEntities(
+                length_m=Decimal(dimensions.group(1).replace(",", ".")) if dimensions else None,
+                width_m=Decimal(dimensions.group(2).replace(",", ".")) if dimensions else None,
+                purpose="corral para ganado" if "corral" in normalized else None,
+            )
+            intents.append(
+                Intent(kind=IntentKind.ASESORIA_PROYECTO, project=project, source_text=clause)
+            )
+            continue
+        if _POLICY.search(clause):
+            policies = []
+            if re.search(r"\b(?:pagar|pago|tarjeta|efectivo)\b", clause, re.I):
+                policies.append("pagos")
+            if re.search(r"\b(?:recoger|recogida|retiro)\b", clause, re.I):
+                policies.append("recogida")
+            if re.search(r"\b(?:domicilio|envio|entrega)\b", clause, re.I):
+                policies.append("domicilio")
+            if re.search(r"\bhorario\b", clause, re.I):
+                policies.append("horarios")
+            intents.extend(
+                Intent(kind=IntentKind.CONSULTAR_POLITICA, policy=item, source_text=clause)
+                for item in policies or ["general"]
+            )
+            continue
+        if _ADD.search(clause) or _quantity(clause) is not None:
+            intents.append(
+                _from_clause(IntentKind.AGREGAR, clause, product=_product_phrase(clause))
+            )
+            continue
+        intents.append(
+            _from_clause(IntentKind.CONSULTAR_PRODUCTO, clause, product=_product_phrase(clause))
+        )
+    if not intents:
+        intents = [Intent(kind=IntentKind.FUERA_DE_ALCANCE, source_text=cleaned)]
+    return IntentBatch(intents=tuple(intents))
+
+
+class IntentInterpreter:
+    async def interpret(
+        self,
+        message: str,
+        *,
+        llm: LLMPort,
+        pending: PendingCandidates | None = None,
+        context: str = "",
+    ) -> tuple[IntentBatch, LLMResponse | None]:
+        if llm.provider_name == "mock":
+            return fallback_intents(message, pending=pending), None
+        try:
+            response = await llm.complete(
+                (
+                    ChatMessage(role="system", content=_INTERPRETER_PROMPT),
+                    ChatMessage(role="system", content=context),
+                    ChatMessage(role="user", content=message),
+                )
+            )
+            parsed = IntentBatch.model_validate_json(response.text)
+            return parsed, response
+        except ValidationError, ValueError, RuntimeError:
+            return fallback_intents(message, pending=pending), None

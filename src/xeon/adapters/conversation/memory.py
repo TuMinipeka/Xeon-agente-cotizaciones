@@ -4,7 +4,11 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
+from xeon.application.ports.conversation_memory import (
+    PendingCandidates,
+    ProjectContext,
+    ResolvedLine,
+)
 from xeon.application.ports.llm import ChatMessage
 
 
@@ -16,6 +20,7 @@ class _Conversation:
     commercial_active: bool = False
     lines: dict[str, Decimal] = field(default_factory=dict)
     unresolved_quantity: Decimal | None = None
+    project: ProjectContext = field(default_factory=ProjectContext)
 
 
 class InMemoryConversationMemory:
@@ -67,6 +72,25 @@ class InMemoryConversationMemory:
         conversation = self._conversations.setdefault(key, _Conversation())
         self._conversations.move_to_end(key)
         conversation.commercial_active = True
+        while len(self._conversations) > self._max_conversations:
+            self._conversations.popitem(last=False)
+
+    def project_data(self, key: str) -> ProjectContext:
+        conversation = self._conversations.get(key)
+        if conversation is None:
+            return ProjectContext()
+        self._conversations.move_to_end(key)
+        return conversation.project
+
+    def remember_project_data(self, key: str, data: ProjectContext) -> None:
+        conversation = self._conversations.setdefault(key, _Conversation())
+        self._conversations.move_to_end(key)
+        previous = conversation.project
+        conversation.project = ProjectContext(
+            length_m=data.length_m if data.length_m is not None else previous.length_m,
+            width_m=data.width_m if data.width_m is not None else previous.width_m,
+            purpose=data.purpose or previous.purpose,
+        )
         while len(self._conversations) > self._max_conversations:
             self._conversations.popitem(last=False)
 
