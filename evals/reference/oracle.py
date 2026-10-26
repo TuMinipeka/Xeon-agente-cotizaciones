@@ -39,25 +39,6 @@ class Oracle:
                 "La huella de fixtures no coincide; reexporte y revise la semilla."
             )
         self.catalog: list[dict[str, Any]] = json.loads(files["catalog.json"])
-        existing_skus = {str(item["sku"]) for item in self.catalog}
-        for extra in (
-            {
-                "sku": "PAL-RED-FIB",
-                "name": "Pala redonda mango de fibra",
-                "unit": "unidad",
-                "unit_price": "43700.00",
-                "aliases": ["pala redonda de fibra", "pala redonda mango de fibra"],
-            },
-            {
-                "sku": "PAL-CUA-MAD",
-                "name": "Pala cuadrada mango de madera",
-                "unit": "unidad",
-                "unit_price": "39800.00",
-                "aliases": ["pala cuadrada de madera", "pala cuadrada mango de madera"],
-            },
-        ):
-            if extra["sku"] not in existing_skus:
-                self.catalog.append(extra)
         self.inventory: list[dict[str, Any]] = json.loads(files["inventory.json"])
         self.policies: dict[str, Any] = json.loads(files["policies.json"])
 

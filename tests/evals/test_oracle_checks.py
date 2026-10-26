@@ -226,8 +226,11 @@ def test_commercial_turn_cannot_be_scope_blocked() -> None:
     assert run_check({"type": "no_false_scope_block"}, allowed).status == "PASS"
 
 
-def test_oracle_includes_shovel_core_references_without_seed_drift() -> None:
+def test_oracle_includes_shovel_core_references_from_frozen_fixtures() -> None:
+    """Motivo del evaluador: escenario nuevo S17 (PAL-RED-FIB y PAL-CUA-MAD en catalog.json)."""
     oracle = Oracle()
+    expected_sha = "868323157c893ccc9cf5b68d10b0586f35040a69cffc27c6d5e0c136c54b08bc"
+    assert oracle.fingerprint == expected_sha
     assert oracle.unit_price("pala redonda mango de fibra") == Decimal("43700.00")
     assert oracle.subtotal("pala redonda mango de fibra", "1") == Decimal("43700.00")
     assert oracle.unit_price("pala cuadrada mango de madera") == Decimal("39800.00")

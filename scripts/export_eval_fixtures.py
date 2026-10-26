@@ -11,7 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from xeon.adapters.catalog.synthetic_seed import SYNTHETIC_PRODUCTS
+from xeon.adapters.catalog.synthetic_seed import ADDITIONAL_CORE_PRODUCTS, SYNTHETIC_PRODUCTS
 from xeon.adapters.inventory.memory import SYNTHETIC_SNAPSHOTS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,7 +30,7 @@ def fixture_bytes() -> dict[str, bytes]:
             "source": item.source,
             "catalog_version": item.catalog_version,
         }
-        for item in SYNTHETIC_PRODUCTS
+        for item in (*SYNTHETIC_PRODUCTS, *ADDITIONAL_CORE_PRODUCTS)
     ]
     inventory = [
         {
@@ -76,7 +76,7 @@ def export(*, refresh: bool = False, destination: Path = DESTINATION) -> str:
     destination.mkdir(parents=True, exist_ok=True)
     for name, data in files.items():
         (destination / name).write_bytes(data)
-    stamp.write_text(fingerprint + "\n", encoding="ascii")
+    stamp.write_text(fingerprint + "\n", encoding="ascii", newline="\n")
     return fingerprint
 
 

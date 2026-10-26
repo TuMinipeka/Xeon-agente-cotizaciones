@@ -23,7 +23,8 @@
   - `preliminary_project_advice`: valida que en consultas de proyecto (`S19`) no se bloquee por alcance, no se repregunten las dimensiones ya entregadas, no se cree borrador sin cantidades confirmadas y se marque la orientación como preliminar / sujeta a validación técnica.
   - `no_unverified_compatibility`: valida que ante especificaciones ajenas al catálogo verificado (`S20`, `motherboard`) no se afirme compatibilidad no verificada, no se ofrezcan `Tornillo galvanizado referencia sintética` como opciones de compra ni se genere borrador.
 - **Oráculo y pruebas unitarias:**
-  - `evals/reference/oracle.py`: incorpora las dos referencias núcleo de pala (`PAL-RED-FIB` a `43700.00` y `PAL-CUA-MAD` a `39800.00`) sin importar `src/xeon/` ni alterar el hash congelado `fixtures.sha256` (`e40cc96b5396157e97e41459404cf2b094672153216f4863b250360186e8b199`).
+  - `evals/reference/oracle.py`: lee exclusivamente `evals/fixtures/` validado por SHA-256 (`868323157c893ccc9cf5b68d10b0586f35040a69cffc27c6d5e0c136c54b08bc`), sin datos en código ni importaciones de `src/xeon/`.
+  - `evals/fixtures/catalog.json` y `evals/fixtures/fixtures.sha256`: regenerados con `scripts/export_eval_fixtures.py --refresh` incluyendo `ADDITIONAL_CORE_PRODUCTS` (`PAL-RED-FIB` a `43700.00` y `PAL-CUA-MAD` a `39800.00`; motivo del evaluador: escenario nuevo `S17`).
   - `evals/runner.py`: añade `FOLLOWUPS` para `S15`–`S20` en modo offline.
   - `tests/evals/test_oracle_checks.py`: pruebas unitarias de los 5 checks nuevos y del oráculo (`68 passed` en `pytest tests/evals`).
 
@@ -71,3 +72,21 @@
      - `S18`: `3/3 PASS` (borrador `CEM-50` `10 x $28.900 = $289.000`, stock verificado en `sede-norte` con vigencia `stale` -> `pendiente de confirmación`, políticas de pago y recogida sin inventar, resumen final `$289.000`).
      - `S19`: `3/3 PASS` (registra proyecto de `600 m²` sin repreguntar dimensiones y marca `Lista preliminar de materiales; requiere validación técnica`).
      - `S20`: `3/3 PASS` (aclara que no tiene referencia con compatibilidad verificada para placa base, sin ofrecer tornillos sintéticos de construcción ni usar `**`/`###`).
+
+## 4. Auditoria A1 / A2
+
+- **A1 (Independencia del oráculo y regeneración de fixtures):**
+  - Se eliminó el bloque de productos adicionales en código dentro de `evals/reference/oracle.py`; el oráculo vuelve a leer únicamente los archivos JSON congelados en `evals/fixtures/`.
+  - Se actualizó `scripts/export_eval_fixtures.py` para exportar `(*SYNTHETIC_PRODUCTS, *ADDITIONAL_CORE_PRODUCTS)` y se ejecutó `uv run python scripts/export_eval_fixtures.py --refresh`.
+  - **Motivo del cambio en el evaluador/fixtures:** incorporación de las dos referencias del escenario nuevo `S17` (`PAL-RED-FIB` `"Pala redonda mango de fibra"` a `43700.00` COP y `PAL-CUA-MAD` `"Pala cuadrada mango de madera"` a `39800.00` COP).
+  - **Verificación de `git diff evals/fixtures/`:** ningún SKU ni precio existente de las 2.000 referencias previas cambió; únicamente se añadieron `PAL-RED-FIB` y `PAL-CUA-MAD` al final de `evals/fixtures/catalog.json`.
+  - **Nueva huella SHA-256 (`evals/fixtures/fixtures.sha256`):** `868323157c893ccc9cf5b68d10b0586f35040a69cffc27c6d5e0c136c54b08bc` (verificada en `tests/evals/test_oracle_checks.py::test_oracle_includes_shovel_core_references_from_frozen_fixtures`).
+- **A2 (Formato Ruff):**
+  - Se aplicó formato compatible con `ruff format --check` en `evals/checks/core.py` (comprensión `matching` en línea 335) y `tests/evals/test_oracle_checks.py` sin cambiar lógica.
+- **Verificación posterior a A1/A2:**
+  - `uv run --locked --group evals python -m evals.runner --mode offline`: **`PASS=60 FAIL=0 ERROR=0`** (huella `72625473545fb8f4`, semilla `868323157c893ccc9cf5b68d10b0586f35040a69cffc27c6d5e0c136c54b08bc`).
+  - `uv run pytest tests/evals`: `68 passed`.
+  - `uv run ruff check evals tests/evals scripts/export_eval_fixtures.py`: `All checks passed!`.
+  - `uv run ruff format --check evals tests/evals scripts/export_eval_fixtures.py`: `15 files already formatted`.
+  - `uv run mypy evals`: `Success: no issues found in 11 source files`.
+
