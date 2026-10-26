@@ -239,6 +239,8 @@ def create_app(
             )
             if incoming is None:
                 continue
+            if incoming.option_id is not None and not runtime.settings.guided_funnel_enabled:
+                continue
             dedup_key = (incoming.instance, incoming.external_message_id)
             if dedup_key in seen_kapso_messages:
                 continue
