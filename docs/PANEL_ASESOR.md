@@ -52,10 +52,34 @@ mensajes, prompts ni variables de entorno.
   nonce), `X-Content-Type-Options`, `Referrer-Policy: no-referrer` y `Cache-Control: no-store`.
 - El teléfono no se escribe en logs (el evento solo registra tenant y tipo) ni en la bandeja.
 
+## PDF del borrador
+
+`GET /panel/quotes/{id}/pdf` (solo con sesión; el detalle de cada evento tiene el enlace «Descargar
+PDF») entrega el borrador como adjunto (`Content-Disposition: attachment`, nombre
+`cotizacion-COT-XXXXXXXX-vN.pdf`).
+
+- **Respuestas:** 401 sin sesión; 404 si el id no existe o no tiene evento en la bandeja; 409 si el
+  borrador sigue en `DRAFT` (el cliente no lo confirmó); 503 si no está instalado el grupo `pdf`.
+  Se puede descargar en `CONFIRMADO_POR_CLIENTE`, `APPROVED_FOR_BILLING` y `RECHAZADO_POR_ASESOR`.
+- **Contenido:** datos de la tienda (`nombre_comercial`, `nit`, `direccion` y `telefono_tienda` de
+  `config/policies/<tenant>.yaml`; si faltan, el tenant), número `COT-XXXXXXXX`, versión, fecha de
+  emisión (zona `DEFAULT_TIMEZONE`), estado, líneas con cantidad, precio unitario y subtotal, total en
+  pesos (`Decimal`, formato `$1.234.500`), entrega, sede, forma de pago, vigencia en días e IVA según
+  la política (pendiente de confirmar con un asesor si no está definido). Lleva la leyenda
+  «Borrador de cotización - no es factura ni reserva de inventario» arriba y abajo. **No incluye el
+  teléfono del cliente.**
+- **Diseño:** el puerto `QuotePdfRenderer` recibe un `QuotePdfDocument` ya formateado
+  (`application/quote_document.py`); el adaptador `adapters/pdf/reportlab_renderer.py` solo
+  dibuja. El núcleo no importa ReportLab: `load_pdf_renderer()` lo carga de forma perezosa.
+- **Librería:** ReportLab 5.1.0 (BSD), grupo opcional `pdf` (`uv sync --locked --group pdf`). Se
+  eligió sobre fpdf2 2.8.9 (LGPL-3.0, más pequeña y también de Python puro, pero licencia
+  copyleft débil que conviene evitar en un producto comercial). Con las fuentes integradas
+  (Helvetica, WinAnsi) las tildes y la «ñ» salen bien sin empaquetar tipografías; depende de
+  Pillow. Los bytes son deterministas (`invariant`). Las pruebas que leen el PDF usan `pypdf`
+  (grupo `pdf-test`) y se omiten si no está instalado.
+
 ## Límites y siguientes pasos
 
-- **PDF del borrador: fuera de este corte.** Siguiente paso: generarlo desde el borrador
-  aprobado (WeasyPrint u otra opción de la [propuesta de la fase 3](../wiki/pages/propuesta-fase3.md)).
 - **Bandeja y sesiones siguen en memoria** hasta fusionar la persistencia (A): un reinicio cierra
   las sesiones y borra los eventos pendientes y los intentos fallidos. Con varios workers cada uno
   tendría su propia sesión.

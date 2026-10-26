@@ -36,6 +36,13 @@ class QuoteStatus(StrEnum):
     RECHAZADO_POR_ASESOR = "RECHAZADO_POR_ASESOR"
 
 
+STATUS_LABEL_ES: dict[QuoteStatus, str] = {
+    QuoteStatus.DRAFT: "Borrador",
+    QuoteStatus.CONFIRMADO_POR_CLIENTE: "Confirmado por el cliente, en revisión",
+    QuoteStatus.APPROVED_FOR_BILLING: "Aprobado por un asesor para facturación",
+    QuoteStatus.RECHAZADO_POR_ASESOR: "Rechazado por un asesor",
+}
+
 HUMAN_TRANSITIONS: dict[QuoteStatus, frozenset[QuoteStatus]] = {
     QuoteStatus.CONFIRMADO_POR_CLIENTE: frozenset(
         {QuoteStatus.APPROVED_FOR_BILLING, QuoteStatus.RECHAZADO_POR_ASESOR}

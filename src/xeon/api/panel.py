@@ -9,10 +9,12 @@ from decimal import Decimal
 from html import escape
 from urllib.parse import parse_qs
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from xeon.adapters.pdf import load_pdf_renderer
 from xeon.api.panel_auth import (
     LoginThrottle,
     PanelSession,
@@ -24,6 +26,8 @@ from xeon.application.advisor_review import AdvisorReview, ReviewError
 from xeon.application.container import AppContainer
 from xeon.application.ports.advisor import AdvisorEvent, AttentionStatus
 from xeon.application.ports.channels import ChannelDeliveryError
+from xeon.application.quote_document import build_quote_pdf_document, quote_number
+from xeon.domain.quote import QuoteStatus
 
 SESSION_COOKIE = "xeon_panel_session"
 LOGIN_CSRF_COOKIE = "xeon_panel_login_csrf"
@@ -280,7 +284,8 @@ def build_panel_router(container: AppContainer) -> APIRouter:
                 "<div class='card'><h2>Cotización vigente</h2><table><tr><th>Producto</th>"
                 f"<th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr>{lines}</table>"
                 f"<p><strong>Total: {_money(quote.total.amount)} {escape(quote.currency)}</strong> "
-                f"· versión {quote.version} · estado {escape(quote.status.value)}</p>"
+                f"· versión {quote.version} · estado {escape(quote.status.value)} · "
+                f"<a href='/panel/quotes/{quote.id}/pdf'>Descargar PDF</a></p>"
                 f"<p>Entrega: {escape(state.delivery or 'pendiente')} · Sede: "
                 f"{escape(branch or 'pendiente')} · Pago: {escape(state.payment or 'pendiente')} "
                 f"· Vigencia: {escape(f'{validity} días' if validity else 'pendiente')}</p>"
@@ -363,6 +368,51 @@ def build_panel_router(container: AppContainer) -> APIRouter:
                     delivered = False
             review.mark_client_notified(parsed, delivered=delivered)
         return RedirectResponse(f"/panel/events/{parsed}", status_code=303)
+
+    @router.get("/quotes/{quote_id}/pdf")
+    async def quote_pdf(request: Request, quote_id: str) -> Response:
+        session = session_of(request)
+        if session is None or inbox is None:
+            return unauthorized()
+        parsed = parse_event_id(quote_id)
+        quote = container.quotes.get(parsed) if parsed else None
+        event = next((e for e in inbox.list_events() if parsed and e.quote_id == parsed), None)
+        if quote is None or event is None:
+            return respond(layout(session, "<h1>No encontrado</h1>"), status=404)
+        if quote.status is QuoteStatus.DRAFT:
+            return respond(
+                layout(session, "<h1>El borrador aún no fue confirmado por el cliente</h1>"),
+                status=409,
+            )
+        renderer = load_pdf_renderer()
+        if renderer is None:
+            return respond(
+                layout(session, "<h1>PDF no disponible</h1><p>Instala el grupo pdf.</p>"),
+                status=503,
+            )
+        state = container.agent.conversation_state(event.conversation_key or "")
+        branch = next(
+            (b.name for b in container.branches.list_branches() if b.id == state.branch_id), None
+        )
+        document = build_quote_pdf_document(
+            quote,
+            state=state,
+            policy=container.policies.load(quote.tenant_id),
+            tenant_id=quote.tenant_id,
+            branch_name=branch,
+            issued_on=datetime.now(ZoneInfo(settings.default_timezone)).date(),
+        )
+        content = renderer.render(document)
+        filename = f"cotizacion-{quote_number(quote)}-v{quote.version}.pdf"
+        return Response(
+            content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     @router.post("/events/{event_id}/approve")
     async def approve(request: Request, event_id: str) -> Response:
