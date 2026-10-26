@@ -23,6 +23,7 @@ ni llamadas pagadas a LLM. Coste real de proveedores en este corte: **0**.
 | Puerto de presentación y Kapso | `57b860b` | `src/xeon/application/reply.py`, `src/xeon/application/ports/channels.py`, `src/xeon/adapters/channels/kapso.py` | Reply texto/botones/lista, límites y entrada de `button_reply`/`list_reply`. |
 | Máquina de estados y confirmación | `f3dcbb1` | `src/xeon/agent/guided_funnel.py`, `src/xeon/application/ports/funnel.py`, `src/xeon/domain/quote.py`, `src/xeon/application/ports/advisor.py`, `src/xeon/api/app.py`, `tests/test_guided_funnel.py` | Un `CommercialExecutor`/`QuoteCart` calcula y versiona; confirmación del cliente y notificador sin datos sensibles. |
 | Arquitectura y activación | `0370a65` | `docs/ARCHITECTURE.md` | Documenta alcance y activación explícita. |
+| Resguardo del modo vigente | `dc2aa56` | `src/xeon/api/app.py` | Omite eventos interactivos si el embudo está desactivado. |
 
 ## Spike Kapso (documentación oficial, 2026-10-26)
 
