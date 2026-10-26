@@ -217,14 +217,16 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
             return _result(name, not offenders, f"Respuestas fuera de plantilla: {offenders}")
         if name == "confirmation_state":
             status = str(view.drafts[-1]["status"]) if view.drafts else "missing"
+            closure_claim = re.search(r"(?i)\b(?:aprobada?|reservada?|facturada?)\b", view.reply)
             return _result(
                 name,
                 status == "CONFIRMADO_POR_CLIENTE"
+                and closure_claim is None
                 and all(
                     draft["status"] not in {"APPROVED", "APPROVED_FOR_BILLING"}
                     for draft in view.drafts
                 ),
-                "Confirmacion del cliente sin aprobacion.",
+                f"Confirmacion del cliente sin aprobacion, reserva ni factura: {closure_claim}.",
                 "CONFIRMADO_POR_CLIENTE",
                 status,
             )
