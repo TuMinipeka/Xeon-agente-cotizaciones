@@ -58,6 +58,37 @@ class AgentService:
                 batch, message=user_message, conversation_key=key, request_id=request_id
             )
             rendered = result.text
+            transactional = any(
+                intent.kind
+                in {
+                    IntentKind.AGREGAR,
+                    IntentKind.MODIFICAR_CANTIDAD,
+                    IntentKind.QUITAR,
+                    IntentKind.ELEGIR_OPCION,
+                    IntentKind.RESPONDER_PENDIENTE,
+                }
+                for intent in batch.intents
+            )
+            if result.advice_requested and not transactional and self._llm.provider_name != "mock":
+                project = self._memory.project_data(key)
+                area = str(project.area_m2) if project.area_m2 is not None else "no confirmada"
+                advice = await self._llm.complete(
+                    (
+                        ChatMessage(
+                            role="system",
+                            content=(
+                                "Redacta una orientacion breve para un proyecto de ferreteria. "
+                                "La superficie informada es " + area + " m2. "
+                                "No calcules cantidades, precios ni stock. "
+                                "Es una lista preliminar que requiere validacion tecnica."
+                            ),
+                        ),
+                        ChatMessage(role="user", content=user_message),
+                    )
+                )
+                safe_advice = self._response_policy.sanitize(advice.text, fallback="")
+                if safe_advice:
+                    rendered += "\n" + safe_advice
             if self._llm.provider_name == "mock" and result.diagnostics:
                 rendered += "\n" + "\n".join(result.diagnostics)
             self._memory.record(key, user_message, rendered, result.selected_sku)

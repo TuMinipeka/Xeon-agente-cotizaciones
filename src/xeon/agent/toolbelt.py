@@ -534,16 +534,29 @@ def _pending_selection(text: str, pending: PendingCandidates | None) -> str | No
     )
     if direct is not None:
         return direct
-    tokens = set(re.findall(r"[a-z0-9]+", text.casefold())) - {"con", "de", "la", "el", "mango"}
+    tokens = set(re.findall(r"[a-z]{3,}", text.casefold())) - {
+        "con",
+        "del",
+        "las",
+        "los",
+        "mango",
+        "bultos",
+        "unidades",
+    }
     if not tokens:
         return None
-    scores = []
-    for position, (sku, name) in enumerate(zip(pending.skus, pending.names, strict=True)):
+    candidate_terms: list[set[str]] = []
+    for position, (_sku, name) in enumerate(zip(pending.skus, pending.names, strict=True)):
         specs = pending.attributes[position] if position < len(pending.attributes) else {}
-        candidate_tokens = set(
-            re.findall(r"[a-z0-9]+", (name + " " + " ".join(specs.values())).casefold())
+        candidate_terms.append(
+            set(re.findall(r"[a-z]{3,}", (name + " " + " ".join(specs.values())).casefold()))
         )
-        scores.append((len(tokens & candidate_tokens), sku))
+    scores = []
+    for position, (terms, sku) in enumerate(zip(candidate_terms, pending.skus, strict=True)):
+        shared = set().union(
+            *(other for index, other in enumerate(candidate_terms) if index != position)
+        )
+        scores.append((len(tokens & (terms - shared)), sku))
     best = max(score for score, _ in scores)
     winners = [sku for score, sku in scores if score == best and score > 0]
     return winners[0] if len(winners) == 1 else None

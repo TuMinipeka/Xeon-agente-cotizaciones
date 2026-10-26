@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from xeon.adapters.channels.whatsapp_formatter import WhatsAppFormatter
 from xeon.application.ports.channels import (
     ChannelDeliveryError,
     IncomingWhatsAppMessage,
@@ -80,6 +81,7 @@ class KapsoChannelAdapter:
         self._api_key = api_key
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=timeout_seconds)
+        self._formatter = WhatsAppFormatter()
 
     async def send_text(self, *, recipient_number: str, text: str) -> WhatsAppSendReceipt:
         number = recipient_number.strip().lstrip("+")
@@ -93,7 +95,7 @@ class KapsoChannelAdapter:
                     "messaging_product": "whatsapp",
                     "to": number,
                     "type": "text",
-                    "text": {"body": text},
+                    "text": {"body": self._formatter.format(text)},
                 },
             )
             response.raise_for_status()

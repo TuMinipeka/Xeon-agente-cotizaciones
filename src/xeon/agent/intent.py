@@ -166,7 +166,10 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
         )
 
     clauses = re.split(
-        r"\s+y\s+(?=(?:deja|agrega|anade|quita|busca|\d+|si\s+|que\s+))", cleaned, flags=re.I
+        r"\s+y\s+(?=(?:deja|agrega|anade|quita|busca|\d+|si\s+|"
+        r"que\s+|cuantos?|cu[aá]l|el\s+domicilio|domicilio|envio|entrega))",
+        cleaned,
+        flags=re.I,
     )
     intents: list[Intent] = []
     for clause in clauses:

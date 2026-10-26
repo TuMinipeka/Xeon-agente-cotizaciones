@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from decimal import Decimal
 
 from xeon.application.container import build_container
+from xeon.application.ports.llm import ChatMessage, LLMResponse
 from xeon.config import Settings
 
 
@@ -32,6 +34,47 @@ def test_cart_revision_and_attribute_choice_preserve_verified_total() -> None:
             assert sum(
                 (line.line_total.amount for line in cart.confirmed_lines()), Decimal(0)
             ) == Decimal("477200.00")
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_transactional_turn_uses_one_interpreter_call() -> None:
+    class JsonLLM:
+        calls = 0
+
+        @property
+        def provider_name(self) -> str:
+            return "json-test"
+
+        @property
+        def model(self) -> str:
+            return "json-test-v1"
+
+        async def complete(self, messages: Sequence[ChatMessage]) -> LLMResponse:
+            self.calls += 1
+            return LLMResponse(
+                text='{"intents":[{"kind":"agregar","product":"cemento","quantity":10}]}',
+                provider=self.provider_name,
+                model=self.model,
+            )
+
+        async def aclose(self) -> None:
+            return None
+
+    async def run() -> None:
+        llm = JsonLLM()
+        container = build_container(
+            Settings(llm_provider="mock", _env_file=None),
+            llm=llm,
+            use_commercial_executor=True,
+        )
+        try:
+            await container.agent.respond("10 bultos de cemento", conversation_key="one-call")
+            assert llm.calls == 1
+            cart = container.carts.get("one-call")
+            assert cart is not None and cart.confirmed_lines()[0].quantity == Decimal(10)
         finally:
             await container.aclose()
 
@@ -83,6 +126,23 @@ def test_hypothetical_and_project_data_do_not_change_cart() -> None:
             assert container.conversation_memory.project_data("qa-project").area_m2 == Decimal(600)
             assert "validación técnica" in advice.text
             assert "¿En qué sede" in stock.text
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_weight_and_delivery_questions_are_both_addressed() -> None:
+    async def run() -> None:
+        container = build_container(Settings(llm_provider="mock", _env_file=None))
+        try:
+            result = await container.agent.respond(
+                "cuantos kilos contiene un bulto de arena o gravilla y si domicilio es gratis?",
+                conversation_key="qa-multi",
+            )
+            assert "peso por bulto" in result.text.casefold()
+            assert "domicilio:" in result.text.casefold()
+            assert "pendiente de confirmar" in result.text.casefold()
         finally:
             await container.aclose()
 

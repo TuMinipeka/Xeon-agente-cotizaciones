@@ -334,6 +334,14 @@ class CommercialExecutor:
         *,
         add: bool,
     ) -> tuple[QuoteCart, str | None]:
+        if any(word in intent.source_text.casefold() for word in ("arena", "gravilla")) and (
+            "kilos" in intent.source_text.casefold() or "peso" in intent.source_text.casefold()
+        ):
+            replies.append(
+                "El peso por bulto de arena o gravilla está pendiente de confirmar "
+                "con un asesor; necesito la presentación exacta."
+            )
+            return cart, None
         query = intent.product or intent.source_text
         referential = any(
             phrase in intent.source_text.casefold()
