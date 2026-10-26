@@ -89,6 +89,8 @@ class Settings(BaseSettings):
     kapso_webhook_secret: SecretStr | None = None
     kapso_webhook_secret_file: Path | None = Path("secrets/kapso_webhook_secret.txt")
     meta_graph_version: str = "v24.0"
+    delivery_worker_enabled: bool = True
+    delivery_poll_seconds: float = Field(default=0.5, gt=0, le=30)
 
     log_level: str = "INFO"
 

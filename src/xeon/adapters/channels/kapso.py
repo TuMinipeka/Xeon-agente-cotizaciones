@@ -154,7 +154,8 @@ class KapsoChannelAdapter:
             body = response.json()
         except httpx.HTTPStatusError as exc:
             raise ChannelDeliveryError(
-                f"Kapso respondio con HTTP {exc.response.status_code}."
+                f"Kapso respondio con HTTP {exc.response.status_code}.",
+                status_code=exc.response.status_code,
             ) from exc
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             raise ChannelDeliveryError(

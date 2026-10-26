@@ -19,8 +19,9 @@ from xeon.adapters.persistence.postgres.repositories import ConcurrentCartUpdate
 from xeon.api.app import create_app
 from xeon.application.advisor_review import AdvisorReview, ReviewError
 from xeon.application.container import build_container
-from xeon.application.ports.advisor import AttentionStatus
-from xeon.application.ports.channels import WhatsAppSendReceipt
+from xeon.application.delivery_worker import DeliveryWorker
+from xeon.application.ports.advisor import AdvisorEvent, AttentionStatus
+from xeon.application.ports.channels import IncomingWhatsAppMessage, WhatsAppSendReceipt
 from xeon.application.ports.metrics import MetricEvent
 from xeon.application.reply import Reply
 from xeon.config import Settings
@@ -49,7 +50,8 @@ def settings() -> Settings:
         with engine.begin() as connection:
             connection.execute(
                 text(
-                    "TRUNCATE advisor_events, processed_events, quote_drafts, "
+                    "TRUNCATE inbound_deliveries, outbound_deliveries, advisor_events, "
+                    "processed_events, quote_drafts, "
                     "conversation_memories, cart_states, funnel_states"
                 )
             )
@@ -92,6 +94,187 @@ def test_restart_preserves_funnel_cart_quote_and_project_context(settings: Setti
             await second.aclose()
 
     asyncio.run(run())
+
+
+def test_signed_webhook_is_durable_before_ack_and_outbox_survives_restart(
+    settings: Settings,
+) -> None:
+    disabled = settings.model_copy(update={"delivery_worker_enabled": False})
+    event = {
+        "phone_number_id": "phone-123",
+        "conversation": {"phone_number": "+573001112233"},
+        "message": {"id": "durable-001", "type": "text", "text": {"body": "hola"}},
+    }
+    raw = json.dumps(event).encode()
+    headers = {
+        "X-Webhook-Signature": hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest(),
+        "X-Webhook-Event": "whatsapp.message.received",
+        "Content-Type": "application/json",
+    }
+
+    class Channel:
+        def __init__(self) -> None:
+            self.sent: list[Reply] = []
+
+        async def send_reply(self, *, recipient_number: str, reply: Reply) -> WhatsAppSendReceipt:
+            assert recipient_number == "573001112233"
+            self.sent.append(reply)
+            return WhatsAppSendReceipt(
+                "phone-123", recipient_number, "wamid.durable", "ACCEPTED_BY_PROVIDER"
+            )
+
+        async def send_text(self, *, recipient_number: str, text: str) -> WhatsAppSendReceipt:
+            return await self.send_reply(recipient_number=recipient_number, reply=Reply(text))
+
+        async def aclose(self) -> None:
+            pass
+
+    async def run() -> None:
+        first = build_container(disabled)
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=create_app(container=first)),
+                base_url="http://worker-one",
+            ) as client:
+                response = await client.post(
+                    "/v1/channels/whatsapp/kapso/webhook", content=raw, headers=headers
+                )
+                assert response.status_code == 200
+                assert response.json()["status"] == "processed"
+            engine = create_engine(settings.require_state_url(), hide_parameters=True)
+            try:
+                with engine.connect() as connection:
+                    assert (
+                        connection.execute(
+                            text(
+                                "SELECT status FROM inbound_deliveries "
+                                "WHERE message_id='durable-001'"
+                            )
+                        ).scalar_one()
+                        == "pending"
+                    )
+                    assert (
+                        connection.execute(text("SELECT count(*) FROM processed_events")).scalar()
+                        == 0
+                    )
+            finally:
+                engine.dispose()
+        finally:
+            await first.aclose()
+
+        second = build_container(disabled)
+        try:
+            assert second.inbound_queue is not None and second.outbound_queue is not None
+            assert second.state_unit is not None and second.processed_events is not None
+            worker = DeliveryWorker(
+                inbound=second.inbound_queue,
+                outbound=second.outbound_queue,
+                state=second.state_unit,
+                processed=second.processed_events,
+                agent=second.agent,
+                channel=None,
+            )
+            assert await worker.run_once()
+            assert second.agent.conversation_state("kapso-phone-123-573001112233").step == "inicio"
+            engine = create_engine(settings.require_state_url(), hide_parameters=True)
+            try:
+                with engine.connect() as connection:
+                    assert (
+                        connection.execute(
+                            text("SELECT status FROM outbound_deliveries")
+                        ).scalar_one()
+                        == "pending"
+                    )
+            finally:
+                engine.dispose()
+        finally:
+            await second.aclose()
+
+        channel = Channel()
+        third = build_container(disabled, whatsapp_channel=channel)
+        try:
+            assert third.inbound_queue is not None and third.outbound_queue is not None
+            assert third.state_unit is not None and third.processed_events is not None
+            worker = DeliveryWorker(
+                inbound=third.inbound_queue,
+                outbound=third.outbound_queue,
+                state=third.state_unit,
+                processed=third.processed_events,
+                agent=third.agent,
+                channel=channel,
+            )
+            assert await worker.run_once()
+            assert len(channel.sent) == 1
+            assert not await worker.run_once()
+            engine = create_engine(settings.require_state_url(), hide_parameters=True)
+            try:
+                with engine.connect() as connection:
+                    assert (
+                        connection.execute(
+                            text("SELECT status FROM inbound_deliveries")
+                        ).scalar_one()
+                        == "done"
+                    )
+                    assert (
+                        connection.execute(
+                            text("SELECT status FROM outbound_deliveries")
+                        ).scalar_one()
+                        == "sent"
+                    )
+            finally:
+                engine.dispose()
+        finally:
+            await third.aclose()
+
+    asyncio.run(run())
+
+
+def test_delivery_queues_keep_conversation_order_and_backoff(settings: Settings) -> None:
+    container = build_container(settings)
+    try:
+        assert container.inbound_queue is not None and container.outbound_queue is not None
+        inbound = container.inbound_queue
+        outbound = container.outbound_queue
+        for message_id in ("ordered-1", "ordered-2"):
+            assert inbound.put(
+                IncomingWhatsAppMessage(
+                    instance="phone-123",
+                    external_message_id=message_id,
+                    sender_jid="+573001112233",
+                    sender_number="573001112233",
+                    text="hola",
+                    raw_payload={"message": {"id": message_id}},
+                )
+            )
+        first = inbound.claim_due()
+        assert first is not None and first.message.external_message_id == "ordered-1"
+        assert inbound.claim_due() is None
+        inbound.complete(first)
+        second = inbound.claim_due()
+        assert second is not None and second.message.external_message_id == "ordered-2"
+        inbound.complete(second)
+
+        assert outbound.put(key="reply-1", recipient_number="573001112233", reply=Reply("uno"))
+        assert outbound.put(key="reply-2", recipient_number="573001112233", reply=Reply("dos"))
+        assert not outbound.put(key="reply-1", recipient_number="573001112233", reply=Reply("uno"))
+        first_send = outbound.claim_due()
+        assert first_send is not None and first_send.key == "reply-1"
+        assert outbound.claim_due() is None
+        outbound.failed(first_send, permanent=False, status_code=503)
+        assert outbound.claim_due() is None
+        engine = create_engine(settings.require_state_url(), hide_parameters=True)
+        try:
+            with engine.connect() as connection:
+                row = connection.execute(
+                    text(
+                        "SELECT status, attempts FROM outbound_deliveries WHERE send_key='reply-1'"
+                    )
+                ).one()
+                assert row == ("pending", 1)
+        finally:
+            engine.dispose()
+    finally:
+        asyncio.run(container.aclose())
 
 
 async def _confirm_for_advisor(container: object, key: str) -> None:
@@ -140,6 +323,74 @@ def test_advisor_inbox_and_review_survive_restart(settings: Settings) -> None:
             await third.aclose()
 
     asyncio.run(run())
+
+
+def test_advisor_decision_and_client_notice_are_committed_together(settings: Settings) -> None:
+    disabled = settings.model_copy(update={"delivery_worker_enabled": False})
+    first = build_container(disabled)
+    try:
+        asyncio.run(_confirm_for_advisor(first, "kapso-phone-123-573001112233"))
+        assert first.advisor_inbox is not None and first.outbound_queue is not None
+        event = first.advisor_inbox.list_events(status=AttentionStatus.PENDIENTE)[0]
+
+        def enqueue(saved: AdvisorEvent, message: str) -> None:
+            first.outbound_queue.put(
+                key=f"advisor:{saved.id}:decision",
+                recipient_number="573001112233",
+                reply=Reply(message),
+                advisor_event_id=saved.id,
+            )
+
+        AdvisorReview(first.advisor_inbox, first.quotes, on_decision=enqueue).approve(
+            event.id, advisor="asesor1"
+        )
+        engine = create_engine(settings.require_state_url(), hide_parameters=True)
+        try:
+            with engine.connect() as connection:
+                assert (
+                    connection.execute(text("SELECT status FROM outbound_deliveries")).scalar_one()
+                    == "pending"
+                )
+        finally:
+            engine.dispose()
+    finally:
+        asyncio.run(first.aclose())
+
+    class Channel:
+        async def send_reply(self, *, recipient_number: str, reply: Reply) -> WhatsAppSendReceipt:
+            assert recipient_number == "573001112233" and "asesor" in reply.text
+            return WhatsAppSendReceipt(
+                "phone-123", recipient_number, "wamid.advisor", "ACCEPTED_BY_PROVIDER"
+            )
+
+        async def send_text(self, *, recipient_number: str, text: str) -> WhatsAppSendReceipt:
+            return await self.send_reply(recipient_number=recipient_number, reply=Reply(text))
+
+        async def aclose(self) -> None:
+            pass
+
+    async def dispatch() -> None:
+        channel = Channel()
+        second = build_container(disabled, whatsapp_channel=channel)
+        try:
+            assert second.inbound_queue is not None and second.outbound_queue is not None
+            assert second.state_unit is not None and second.processed_events is not None
+            worker = DeliveryWorker(
+                inbound=second.inbound_queue,
+                outbound=second.outbound_queue,
+                state=second.state_unit,
+                processed=second.processed_events,
+                agent=second.agent,
+                channel=channel,
+            )
+            assert await worker.run_once()
+            assert second.advisor_inbox is not None
+            saved = second.advisor_inbox.get(event.id)
+            assert saved is not None and saved.client_notified is True
+        finally:
+            await second.aclose()
+
+    asyncio.run(dispatch())
 
 
 def test_concurrent_advisor_decisions_only_one_wins(settings: Settings) -> None:
