@@ -12,6 +12,20 @@ consulta stock con el id verificado. Precio y subtotal siguen bajo `Money(Decima
 
 ## Estado implementado
 
+### Embudo guiado D14 (activación explícita)
+
+`GUIDED_FUNNEL_ENABLED=true` activa `GuidedFunnel` para `/v1/chat`, CLI y Kapso. El estado
+`FunnelState` vive por conversación en memoria; `Reply` presenta opciones independientes del canal.
+El paso de producto consulta `search_products` y las operaciones del carrito pasan por el mismo
+`CommercialExecutor` y `QuoteCart` del flujo vigente. Las respuestas de botones usan el id exacto;
+el texto de pasos cerrados se valida como una opción permitida o `no_encaja`. La configuración
+predeterminada conserva el flujo conversacional mientras el evaluador se adapta a D14.
+
+Las políticas de `config/policies/<tenant>.yaml` se validan con Pydantic. La plantilla `whatsapp`
+es demo para Colombia; un campo nulo queda pendiente de confirmar con un asesor. Confirmar cambia
+el borrador a `CONFIRMADO_POR_CLIENTE` y emite un evento sin datos del cliente a `AdvisorNotifier`;
+no aprueba, reserva ni factura. El adaptador inicial del notificador solo registra metadatos.
+
 El sistema conecta tres planos a traves de `AppContainer` (composition root) bajo arquitectura
 hexagonal:
 
@@ -113,10 +127,11 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
 - Cuando `WHATSAPP_SEND_ENABLED=true`, el contenedor crea `KapsoChannelAdapter`; requiere
   `KAPSO_PHONE_NUMBER_ID` y clave explicita por valor o archivo.
 - `POST /v1/channels/whatsapp/kapso/webhook` comprueba HMAC-SHA256 del cuerpo crudo antes de
-  interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto, incluidos lotes;
+  interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto o respuesta interactiva,
+  incluidos lotes;
   deduplica IDs en memoria y programa el turno comercial y el envio en segundo plano.
   El acuse `processed` significa que se programo el trabajo, no que WhatsApp entrego el mensaje.
-- `KapsoChannelAdapter` envia texto a la API oficial de WhatsApp via Kapso Meta proxy con
+- `KapsoChannelAdapter` envia texto o `interactive` (botones/listas) a la API oficial de WhatsApp via Kapso Meta proxy con
   `X-API-Key`. El webhook requiere secreto configurado; no se admiten mensajes proactivos ni
   plantillas fuera de la ventana de 24 h.
 - La deduplicacion y el trabajo de fondo son locales al proceso. Persistencia, cola durable,
