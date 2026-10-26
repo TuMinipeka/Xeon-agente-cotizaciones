@@ -282,3 +282,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Archivo:** `video/hito2/entrega/Entregable_XEON_Hito2.{md,html}`, ignorado por Git.
 - **Contenido:** la estructura de 10 secciones del Hito 1, actualizada al Hito 2, más las notas de entrega y los anexos de reproducción y enlaces.
 - **Correcciones sobre el borrador mezclado que pegó el usuario:** se quitó el contenido obsoleto del Hito 1 (Evolution API, Hermes, 80 pruebas) y se marcó la tarifa de Grok como interpretación.
+
+## [2026-10-26] integración | Grafo Graphify del proyecto
+
+- **Codex (`07281a5`):** Graphify 0.9.95 fijado en el grupo `graph`; script `scripts/build_graphify_map.py`; skill en `.claude/skills/graphify/`; puentes en `wiki/graph/`. AST local, sin costo.
+- **Auditoría del orquestador:** barrido de claves y rutas de `secrets/` sobre la salida con 0 coincidencias; `explain` y `query` funcionan; avance rápido a `developer/daniel`.
+- **Nueva página:** [grafo del proyecto](pages/grafo-proyecto.md), con la clasificación de qué herramienta usar. `AGENTS.md` incluye ahora la sección «Navegar el proyecto sin leer cada archivo».
+- **Inbox:** se integró y retiró la nota `codex-graphify`.
