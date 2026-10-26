@@ -289,3 +289,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Auditoría del orquestador:** barrido de claves y rutas de `secrets/` sobre la salida con 0 coincidencias; `explain` y `query` funcionan; avance rápido a `developer/daniel`.
 - **Nueva página:** [grafo del proyecto](pages/grafo-proyecto.md), con la clasificación de qué herramienta usar. `AGENTS.md` incluye ahora la sección «Navegar el proyecto sin leer cada archivo».
 - **Inbox:** se integró y retiró la nota `codex-graphify`.
+
+## [2026-10-26] decisión | Reporte QA de Conde, RAG (D12) y conector de la ferretería (D13)
+
+- **Ramas:** `origin/develop` y `origin/QA/testing` se fusionaron en `developer/daniel` (`3c56547`). El reporte se movió a `docs/qa/` (`da20d43`).
+- **Diagnóstico:** los 23 fallos salen de 4 causas raíz. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
+- **Decisiones:** [D12 y D13](pages/decisiones-pendientes.md). XEON es un agente con herramientas; el RAG será solo una herramienta de búsqueda y conocimiento; el conector será declarativo con SQLAlchemy.
+- **Delegación:** Codex hace la fase 1 en `fix/qa-conde-cart` y agy los escenarios S15–S20.

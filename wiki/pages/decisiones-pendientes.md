@@ -163,3 +163,36 @@ El usuario pidió el 2026-10-24 un sistema de pruebas conversacionales con clien
   - `scenarios` se descargó con `gh`, porque el instalador falla en Windows por rutas largas del monorepo de LangWatch.
   - `ai-system-testing`, `agent-evals` y `promptfoo-evaluation` se instalaron con `npx skills add`.
   - Las cuatro fueron revisadas por el orquestador sin hallar comandos peligrosos.
+
+## D12: ¿XEON es un RAG?
+
+El usuario preguntó el 2026-10-26 si XEON es un RAG y si conviene convertirlo «meramente en un RAG avanzado».
+
+- **Hoy:** XEON es un **agente con herramientas deterministas**. Grok interpreta y redacta, y el backend busca, consulta stock y calcula. No hay recuperación de fragmentos de texto ni embeddings: la búsqueda es léxica (`InMemoryProductCatalog.search_candidates`).
+- **Resolución (orquestador, dentro del plan aprobado por el usuario):**
+  - **No se convierte solo en un RAG.** Un RAG fundamenta texto, pero no puede agregar, modificar ni quitar líneas, sumar totales exactos ni garantizar stock vigente, que son justo las operaciones que falla el [reporte QA de Conde](qa-conde-2026-10-24.md).
+  - **Arquitectura híbrida:** agente con herramientas transaccionales más recuperación como **una herramienta más**, en dos usos:
+    1. búsqueda híbrida de productos (léxica para SKU y códigos, vectorial con `pgvector` para descripciones vagas, fusión RRF y *reranker* opcional);
+    2. base de conocimiento (fichas técnicas, guías de proyecto y políticas en texto).
+  - **Precios, stock y totales nunca salen del RAG:** siempre de una consulta directa a la fuente de la ferretería. Es coherente con `docs/XeonContexto.md` y `docs/ARCHITECTURE.md`.
+- **Estado:** `propuesta`. El índice híbrido es la fase 3 y queda por definir con el usuario.
+
+## D13: Conectar XEON a la base de datos de cualquier ferretería
+
+El usuario indicó el 2026-10-26 que XEON debe instalarse sobre el software de cualquier ferretería y depender de **su** base de datos, no de la nuestra. Pidió investigar la tecnología.
+
+- **Opciones investigadas:**
+
+| Opción | Resultado |
+|---|---|
+| MCP Toolbox for Databases (`googleapis/mcp-toolbox`, Apache-2.0) | Más de 20 motores y SQL parametrizado en `tools.yaml`, pero exige un servidor y un binario aparte, y trae `execute_sql` genérico. Queda como adaptador opcional |
+| dlt (dlthub) | Cargas incrementales desde SQL y REST. Se reserva para sincronizar el índice de búsqueda (fase 3) |
+| API de ERP colombianos (Siigo, Alegra, Loggro) | Futuro adaptador REST. Alegra está confirmada por *wrappers* de terceros; Siigo queda por verificar |
+| Text-to-SQL (Vanna, WrenAI) | **Descartado:** AGENTS.md prohíbe que un modelo ejecute SQL libre |
+
+- **Resolución:** **conector declarativo de la ferretería**, en tres partes.
+  1. **Contrato:** los puertos `ProductCatalog`, `BranchInventory` y el nuevo `BranchDirectory`.
+  2. **Adaptador principal:** SQLAlchemy 2 Core de solo lectura (PostgreSQL, MySQL/MariaDB, SQL Server, SQLite, Oracle y, opcionalmente, Firebird). Cada ferretería tiene un `connectors/<tenant>.yaml` con consultas parametrizadas y el mapeo de columnas a los campos canónicos.
+  3. **Selección:** `DATA_SOURCE=synthetic|sql|rest|csv`. Los datos sintéticos pasan a ser un adaptador más.
+- **Políticas** de pago, entrega y horarios: archivo de configuración por ferretería (decisión del usuario).
+- **Estado:** `aprobado` (plan del 2026-10-26). La implementación es la fase 2 y se hace después de las correcciones de QA. Detalle en el [conector de la ferretería](conector-ferreteria.md).
