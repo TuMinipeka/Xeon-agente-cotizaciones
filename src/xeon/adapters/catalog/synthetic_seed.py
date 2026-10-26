@@ -305,3 +305,4 @@ def build_synthetic_products() -> tuple[Product, ...]:
 
 
 SYNTHETIC_PRODUCTS = build_synthetic_products()
+SYNTHETIC_QUOTE_NOTE = "Datos sinteticos de Ferreteria Demo XEON. No atribuir a una empresa real."

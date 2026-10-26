@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,7 +42,11 @@ class Settings(BaseSettings):
     )
 
     app_env: Literal["development", "test", "production"] = "development"
-    data_mode: Literal["synthetic"] = "synthetic"
+    data_source: Literal["synthetic", "sql", "rest", "csv"] = "synthetic"
+    tenant_id: str = "whatsapp"
+    currency: str = "COP"
+    connector_root: Path = Path("connectors")
+    sql_url_file: Path = Path("secrets/store_database_url.txt")
     default_timezone: str = "America/Bogota"
 
     llm_provider: Literal["mock", "groq", "grok"] = "grok"
@@ -71,6 +75,25 @@ class Settings(BaseSettings):
     meta_graph_version: str = "v24.0"
 
     log_level: str = "INFO"
+
+    @field_validator("currency")
+    @classmethod
+    def canonical_currency(cls, value: str) -> str:
+        code = value.strip().upper()
+        if len(code) != 3 or not code.isalpha():
+            raise ValueError("CURRENCY debe ser un codigo monetario de tres letras.")
+        return code
+
+    def require_sql_url(self) -> str:
+        if "secrets" not in self.sql_url_file.parts:
+            raise SettingsError("SQL_URL_FILE debe apuntar a un archivo dentro de secrets/.")
+        try:
+            value = self.sql_url_file.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise SettingsError("No se pudo leer SQL_URL_FILE.") from exc
+        if not value:
+            raise SettingsError("SQL_URL_FILE esta vacio.")
+        return value
 
     def require_groq_api_key(self) -> SecretStr:
         return _require_api_key(

@@ -332,9 +332,7 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
                     "0 borradores",
                 )
             final_draft = view.drafts[-1]
-            matching = [
-                line for line in final_draft["lines"] if line["sku"] == product["sku"]
-            ]
+            matching = [line for line in final_draft["lines"] if line["sku"] == product["sku"]]
             actual_qty = Decimal(str(matching[-1]["quantity"])) if matching else None
             actual_line_total = Decimal(str(matching[-1]["line_total"])) if matching else None
             total_ok = True

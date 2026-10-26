@@ -10,7 +10,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity, _has_branch
+from xeon.agent.toolbelt import _extract_requested_quantity
+from xeon.application.ports.branches import BranchDirectory, resolve_branch
 from xeon.application.ports.conversation_memory import PendingCandidates
 from xeon.application.ports.llm import ChatMessage, LLMPort, LLMProviderError, LLMResponse
 
@@ -148,17 +149,28 @@ def _product_phrase(text: str) -> str | None:
     return cleaned or None
 
 
-def _from_clause(kind: IntentKind, clause: str, *, product: str | None = None) -> Intent:
+def _from_clause(
+    kind: IntentKind,
+    clause: str,
+    *,
+    product: str | None = None,
+    branches: BranchDirectory | None = None,
+) -> Intent:
     return Intent(
         kind=kind,
         product=product,
         quantity=_quantity(clause),
-        branch=_extract_requested_branch(clause) if _has_branch(clause) else None,
+        branch=resolved.id if (resolved := resolve_branch(clause, branches)) else None,
         source_text=clause,
     )
 
 
-def fallback_intents(message: str, *, pending: PendingCandidates | None = None) -> IntentBatch:
+def fallback_intents(
+    message: str,
+    *,
+    pending: PendingCandidates | None = None,
+    branches: BranchDirectory | None = None,
+) -> IntentBatch:
     cleaned = " ".join(message.split())
     normalized = _normalize(cleaned)
     if normalized in {"hola", "buenas", "buenos dias", "gracias"}:
@@ -207,20 +219,39 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
             continue
         if _HYPOTHETICAL.search(clause):
             intents.append(
-                _from_clause(IntentKind.HIPOTETICA, clause, product=_product_phrase(clause))
+                _from_clause(
+                    IntentKind.HIPOTETICA,
+                    clause,
+                    product=_product_phrase(clause),
+                    branches=branches,
+                )
             )
             continue
         if _REMOVE.search(clause):
-            intents.append(_from_clause(IntentKind.QUITAR, clause, product=_product_phrase(clause)))
+            intents.append(
+                _from_clause(
+                    IntentKind.QUITAR, clause, product=_product_phrase(clause), branches=branches
+                )
+            )
             continue
         if _MODIFY.search(clause) or re.search(r"\blos?\s+\w+\s+a\s+\d+", clause, re.I):
             intents.append(
-                _from_clause(IntentKind.MODIFICAR_CANTIDAD, clause, product=_product_phrase(clause))
+                _from_clause(
+                    IntentKind.MODIFICAR_CANTIDAD,
+                    clause,
+                    product=_product_phrase(clause),
+                    branches=branches,
+                )
             )
             continue
         if _STOCK.search(clause):
             intents.append(
-                _from_clause(IntentKind.CONSULTAR_STOCK, clause, product=_product_phrase(clause))
+                _from_clause(
+                    IntentKind.CONSULTAR_STOCK,
+                    clause,
+                    product=_product_phrase(clause),
+                    branches=branches,
+                )
             )
             continue
         if _SUMMARY.search(clause):
@@ -251,7 +282,7 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
                 Intent(
                     kind=IntentKind.CONSULTAR_POLITICA,
                     policy=item,
-                    branch=_extract_requested_branch(clause) if _has_branch(clause) else None,
+                    branch=resolved.id if (resolved := resolve_branch(clause, branches)) else None,
                     source_text=clause,
                 )
                 for item in policies or ["general"]
@@ -259,11 +290,18 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
             continue
         if _ADD.search(clause) or _quantity(clause) is not None:
             intents.append(
-                _from_clause(IntentKind.AGREGAR, clause, product=_product_phrase(clause))
+                _from_clause(
+                    IntentKind.AGREGAR, clause, product=_product_phrase(clause), branches=branches
+                )
             )
             continue
         intents.append(
-            _from_clause(IntentKind.CONSULTAR_PRODUCTO, clause, product=_product_phrase(clause))
+            _from_clause(
+                IntentKind.CONSULTAR_PRODUCTO,
+                clause,
+                product=_product_phrase(clause),
+                branches=branches,
+            )
         )
     if not intents:
         intents = [Intent(kind=IntentKind.FUERA_DE_ALCANCE, source_text=cleaned)]
@@ -271,6 +309,9 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
 
 
 class IntentInterpreter:
+    def __init__(self, branches: BranchDirectory | None = None) -> None:
+        self._branches = branches
+
     async def interpret(
         self,
         message: str,
@@ -280,7 +321,7 @@ class IntentInterpreter:
         context: str = "",
         history: Sequence[ChatMessage] = (),
     ) -> tuple[IntentBatch, LLMResponse | None]:
-        local = fallback_intents(message, pending=pending)
+        local = fallback_intents(message, pending=pending, branches=self._branches)
         if all(intent.kind is IntentKind.FUERA_DE_ALCANCE for intent in local.intents):
             return local, None
         try:
@@ -293,6 +334,22 @@ class IntentInterpreter:
                 )
             )
             parsed = IntentBatch.model_validate_json(response.text)
-            return parsed, response
+            return IntentBatch(
+                intents=tuple(
+                    intent.model_copy(
+                        update={
+                            "branch": resolved.id
+                            if (
+                                resolved := resolve_branch(
+                                    intent.branch or intent.source_text or message,
+                                    self._branches,
+                                )
+                            )
+                            else None
+                        }
+                    )
+                    for intent in parsed.intents
+                )
+            ), response
         except ValidationError, ValueError, LLMProviderError:
-            return fallback_intents(message, pending=pending), None
+            return fallback_intents(message, pending=pending, branches=self._branches), None

@@ -140,7 +140,7 @@ def build_draft_quote(
     request_id: str,
     quote_id: UUID | None = None,
     version: int = INITIAL_QUOTE_VERSION,
-    notes: str = "Datos sinteticos de Ferreteria Demo XEON. No atribuir a una empresa real.",
+    notes: str = "Borrador pendiente de confirmacion.",
 ) -> Quote:
     if not lines:
         raise EmptyQuoteError("Un borrador requiere al menos una linea.")
@@ -157,7 +157,7 @@ def build_draft_quote(
         sources.add(line.source)
 
     catalog_version = next(iter(catalog_versions)) if len(catalog_versions) == 1 else "mixed"
-    source = next(iter(sources)) if len(sources) == 1 else "synthetic-mixed"
+    source = next(iter(sources)) if len(sources) == 1 else "mixed"
     return Quote(
         id=quote_id or uuid4(),
         tenant_id=tenant_id,

@@ -15,6 +15,7 @@ from xeon.agent.toolbelt import (
     _pending_selection,
     _requests_discount,
 )
+from xeon.application.ports.branches import BranchDirectory, resolve_branch
 from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import CatalogUnavailableError, ProductCatalog
 from xeon.application.ports.conversation_memory import (
@@ -36,8 +37,9 @@ from xeon.domain.product import Product
 _LOG = logging.getLogger(__name__)
 
 
-def _money(value: Decimal) -> str:
-    return "$" + f"{value:,.0f}".replace(",", ".")
+def _money(value: Decimal, currency: str = "COP") -> str:
+    amount = f"{value:,.0f}".replace(",", ".")
+    return f"${amount}" if currency == "COP" else f"{currency} {amount}"
 
 
 def _quantity(value: Decimal) -> str:
@@ -61,12 +63,20 @@ class CommercialExecutor:
         carts: CartRepository,
         memory: ConversationMemory,
         policies: PolicyRepository,
+        branches: BranchDirectory,
+        tenant_id: str,
+        currency: str,
+        synthetic: bool,
     ) -> None:
         self._catalog = catalog
         self._tools = tools
         self._carts = carts
         self._memory = memory
         self._policies = policies
+        self._branches = branches
+        self._tenant_id = tenant_id
+        self._currency = currency
+        self._synthetic = synthetic
 
     def interpreter_context(self, key: str) -> str:
         cart = self._carts.get(key)
@@ -108,7 +118,7 @@ class CommercialExecutor:
             # The backend rejects discounts before idempotent replay. This call
             # records the same authorized tool event as ordinary quote attempts.
             result = self._tools.create_quote_draft(
-                tenant_id="whatsapp",
+                tenant_id=self._tenant_id,
                 request_id=request_id or "discount-inquiry",
                 lines=(),
                 discount_requested=True,
@@ -149,7 +159,7 @@ class CommercialExecutor:
                     advice_requested = True
                 case IntentKind.CONSULTAR_POLITICA:
                     topic = intent.policy or "general"
-                    answer = self._policies.get("whatsapp", topic)
+                    answer = self._policies.get(self._tenant_id, topic)
                     replies.append(
                         f"{topic.capitalize()}: {answer}"
                         if answer is not None
@@ -210,7 +220,7 @@ class CommercialExecutor:
                 request_key = self._quote_request_id(conversation_key, cart.quote_version)
                 try:
                     result = self._tools.create_quote_draft(
-                        tenant_id="whatsapp",
+                        tenant_id=self._tenant_id,
                         request_id=request_key,
                         lines=tuple(
                             DraftLineRequest(line.sku, line.quantity)
@@ -270,18 +280,19 @@ class CommercialExecutor:
             "la cotización vigente sigue sin descuento."
         )
 
-    @staticmethod
-    def _summary(cart: QuoteCart) -> str:
+    def _summary(self, cart: QuoteCart) -> str:
         confirmed = cart.confirmed_lines()
         if not confirmed and not cart.lines:
             return "Tu cotización aún no tiene productos confirmados."
-        parts = ["Cotización vigente (borrador, datos sintéticos):"]
+        provenance = ", datos sintéticos" if self._synthetic else ""
+        parts = [f"Cotización vigente (borrador{provenance}):"]
         total = Decimal(0)
         for line in confirmed:
             total += line.line_total.amount
             parts.append(
                 f"{line.description}: {_quantity(line.quantity)} x "
-                f"{_money(line.unit_price.amount)} = {_money(line.line_total.amount)}"
+                f"{_money(line.unit_price.amount, line.unit_price.currency)} = "
+                f"{_money(line.line_total.amount, line.line_total.currency)}"
             )
         for pending_line in cart.lines:
             if pending_line.product is None:
@@ -289,7 +300,7 @@ class CommercialExecutor:
                     f"{pending_line.label}: {_quantity(pending_line.quantity)} "
                     "pendiente de elegir referencia"
                 )
-        parts.append(f"TOTAL confirmado: {_money(total)}")
+        parts.append(f"TOTAL confirmado: {_money(total, self._currency)}")
         return "\n".join(parts)
 
     def _remember_project(self, key: str, intent: Intent) -> None:
@@ -436,13 +447,6 @@ class CommercialExecutor:
             return cart, None
         diagnostics.append(f"[XEON_TOOL:search_products status={outcome.status}]")
         candidates = outcome.candidates
-        primary = tuple(item for item in candidates if "referencia_sintetica" not in item.specs)
-        if len(primary) == 1 and query.casefold().strip() in {
-            "cemento",
-            "bulto de cemento",
-            "10 bultos",
-        }:
-            candidates = primary
         if len(candidates) > 1:
             pending = PendingCandidates(
                 skus=tuple(item.sku for item in candidates),
@@ -503,7 +507,8 @@ class CommercialExecutor:
         *,
         product: Product | None = None,
     ) -> None:
-        if intent.branch is None:
+        branch = resolve_branch(intent.branch or "", self._branches)
+        if branch is None:
             replies.append("¿En qué sede quieres comprobar existencias?")
             return
         if product is None:
@@ -524,7 +529,7 @@ class CommercialExecutor:
         try:
             stock = self._tools.get_stock_by_branches(
                 sku=product.sku,
-                requested_branch_id=intent.branch,
+                requested_branch_id=branch.id,
                 evaluated_at=self._tools.evaluated_at(),
                 requested_quantity=amount,
             )
@@ -533,7 +538,7 @@ class CommercialExecutor:
             replies.append("Inventario pendiente de confirmación con un asesor.")
             diagnostics.append("[XEON_TOOL:get_stock_by_branches status=stock_unavailable]")
             return
-        local = next((item for item in stock.items if item.branch_id == intent.branch), None)
+        local = next((item for item in stock.items if item.branch_id == branch.id), None)
         if local is None or local.freshness is not Freshness.FRESH:
             status = "pendiente de confirmación"
         elif local.quantity == 0:
@@ -542,9 +547,9 @@ class CommercialExecutor:
             status = "pendiente de confirmación"
         else:
             status = "disponible"
-        replies.append(f"{product.name} en {intent.branch}: {status}.")
+        replies.append(f"{product.name} en {branch.name}: {status}.")
         diagnostics.append(
             f"[XEON_TOOL:get_stock_by_branches sku={product.sku} "
-            f"sede_solicitada={intent.branch} disponible_local={stock.local_available} "
+            f"sede_solicitada={branch.id} disponible_local={stock.local_available} "
             f"vigencia={local.freshness.value if local is not None else 'unknown'}]"
         )
