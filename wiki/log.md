@@ -296,3 +296,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Diagnóstico:** los 23 fallos salen de 4 causas raíz. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
 - **Decisiones:** [D12 y D13](pages/decisiones-pendientes.md). XEON es un agente con herramientas; el RAG será solo una herramienta de búsqueda y conocimiento; el conector será declarativo con SQLAlchemy.
 - **Delegación:** Codex hace la fase 1 en `fix/qa-conde-cart` y agy los escenarios S15–S20.
+
+## [2026-10-26] auditoría | Fase 1 de las correcciones de QA de Conde
+
+- **Codex:** seis commits, de `d29c45a` a `8503a15`. Carrito versionado, intérprete de intenciones, ejecutor comercial, formato para WhatsApp y flujo único.
+- **agy:** escenarios S15–S20 y 5 checks nuevos (`aaca88f`).
+- **Auditoría:** B1, el evaluador probaba el flujo viejo (corregido); A1, el oráculo agregaba productos en código (enviado a agy).
+- **Resultado:** S01–S20 dan 60/60 offline. Detalle en el [reporte QA de Conde](pages/qa-conde-2026-10-24.md).
+- **Inbox:** se integraron las notas `codex-qa-conde` y `agy-qa-conde-evals`. La de agy sigue abierta hasta cerrar A1.
