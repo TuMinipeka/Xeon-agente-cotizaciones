@@ -21,6 +21,10 @@ class PostgresUnit:
     def key(self, conversation_key: str) -> str:
         return f"{self._tenant_id}:{conversation_key}"
 
+    @property
+    def tenant_id(self) -> str:
+        return self._tenant_id
+
     @contextmanager
     def connection(self) -> Iterator[Connection]:
         current = self._current.get()
@@ -29,6 +33,19 @@ class PostgresUnit:
         else:
             with self._engine.begin() as connection:
                 yield connection
+
+    @contextmanager
+    def transaction(self) -> Iterator[Connection]:
+        current = self._current.get()
+        if current is not None:
+            yield current
+            return
+        with self._engine.begin() as connection:
+            token = self._current.set(connection)
+            try:
+                yield connection
+            finally:
+                self._current.reset(token)
 
     @asynccontextmanager
     async def conversation(self, key: str) -> AsyncIterator[None]:

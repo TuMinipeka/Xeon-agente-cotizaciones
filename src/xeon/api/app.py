@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request, Response
 
 from xeon.adapters.channels.kapso import parse_kapso_webhook, verify_kapso_signature
+from xeon.api.panel import build_panel_router
 from xeon.api.schemas import (
     AvailabilityItemOut,
     ChatRequest,
@@ -221,6 +222,8 @@ def create_app(
         except LLMProviderError, ChannelDeliveryError:
             # The signed webhook was accepted; provider errors cannot be returned after the ack.
             seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)
+
+    application.include_router(build_panel_router(runtime))
 
     @application.post("/v1/channels/whatsapp/kapso/webhook")
     async def kapso_webhook(request: Request, background_tasks: BackgroundTasks) -> dict[str, str]:

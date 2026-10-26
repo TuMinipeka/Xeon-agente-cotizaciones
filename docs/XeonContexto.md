@@ -11,7 +11,7 @@ Este documento establece qué construimos, qué problema resolvemos, cómo utili
 
 XEON es un agente de inteligencia artificial especializado en asistencia comercial y elaboración de cotizaciones para ferreterías, agroferreterías y distribuidores. Conversa con el comprador por WhatsApp, identifica productos (incluso ante descripciones ambiguas o jerga ferretera) y prepara un borrador calculado. El prototipo consulta datos sintéticos verificados; la integración con datos empresariales reales y la emisión de una cotización aprobada son posteriores.
 
-Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Hoy combina lenguaje natural, búsqueda lexical y cálculos programados (`Decimal`) sobre datos sintéticos; la búsqueda vectorial, las consultas transaccionales y la aprobación humana siguen planeadas.
+Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Hoy combina lenguaje natural, búsqueda lexical y cálculos programados (`Decimal`) sobre datos sintéticos; la persistencia operativa y la revisión humana por panel son opcionales. La búsqueda vectorial y la facturación siguen planeadas.
 
 ## 2. Problemática y usuarios
 
@@ -46,7 +46,7 @@ Según el caso aportado por Daniel, Ferragro cuenta con comerciantes en zonas co
 
 ### 3.1. Recorrido principal
 
-El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin aprobación, reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La persistencia operativa opcional en PostgreSQL propio de XEON (D15 A) guarda embudo, carrito, memoria, borradores y deduplicación; la revisión humana, la base híbrida comercial con RAG y el PDF aprobado forman parte de la visión posterior.
+El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La persistencia operativa opcional en PostgreSQL propio de XEON (D15 A) guarda embudo, carrito, memoria, borradores, deduplicación y bandeja del asesor. El panel permite revisión humana a `APPROVED_FOR_BILLING` o `RECHAZADO_POR_ASESOR`; la base híbrida comercial con RAG, la factura y el PDF siguen pendientes.
 
 ### 3.2. Alcance objetivo del MVP
 
@@ -58,8 +58,8 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 - Inventario por sucursal/bodega con clasificación de vigencia (`fresh`, `stale`, `unknown`) y tipo (`local`, `transfer`, `delivery`).
 - Precios y borradores calculados en el backend con `Decimal`; la política de descuentos y la logística empresarial están planeadas.
 - Borrador de cotización (`DRAFT`) versión 1 por la API directa; el flujo conversacional
-  versiona revisiones del carrito en memoria. Revisión humana, versionado de aprobaciones
-  y generación de PDF siguen planeados.
+  versiona revisiones del carrito en memoria o PostgreSQL propio. La revisión humana por panel
+  está implementada; el PDF sigue planeado.
 - Operación interna por CLI (`Typer`), sin exigir un frontend pesado.
 - Datos sintéticos verificados antes de conectar un ERP real. El conector SQL declarativo (D13) existe como opción de solo lectura; no hay prueba con una ferretería real.
 
@@ -70,7 +70,7 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
   - **Semáforo de descuentos en el Harness:** aplicación determinista de descuentos pre-aprobados por escala/volumen con `Decimal` y marcado de excepciones para autorización del supervisor humano en el correo.
   - **Hoja de alistamiento multi-sede (*Picking / Split-Order*):** inclusión automática en el correo del desglose de despacho por sede (retiro local vs. traslado entre bodegas) y tabla de SKUs lista para facturar en caja/POS.
   - **Confirmación humana de 1 clic y aviso al cliente:** al confirmar el trabajador desde el correo o CLI, se valida la versión del borrador y se notifica automáticamente por WhatsApp al cliente que puede pasar a facturar.
-- Panel web opcional (Jinja2 + HTMX), transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local.
+- Evolución del panel web, transcripción de audio/visión en WhatsApp, reservas reales en ERP, conversión automática a pedido y colas distribuidas si el volumen supera el procesamiento asíncrono local. El panel mínimo actual renderiza HTML en FastAPI, sin Jinja2 ni HTMX.
 
 ## 4. Principios obligatorios del producto
 

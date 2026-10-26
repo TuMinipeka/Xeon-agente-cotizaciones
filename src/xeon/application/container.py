@@ -18,7 +18,7 @@ from xeon.adapters.llm import build_llm
 from xeon.adapters.llm.metered import MeteredLLM
 from xeon.adapters.metrics.factory import build_metrics, build_pricing
 from xeon.adapters.metrics.safe import BestEffortMetrics
-from xeon.adapters.notifications.logging import LoggingAdvisorNotifier
+from xeon.adapters.notifications.inbox import InMemoryAdvisorInbox
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.adapters.policies.yaml_store import YamlPolicyRepository
 from xeon.agent.executor import CommercialExecutor
@@ -26,6 +26,7 @@ from xeon.agent.guided_funnel import GuidedFunnel
 from xeon.agent.service import AgentService
 from xeon.agent.toolbelt import CommercialToolbelt
 from xeon.application.observability import timed
+from xeon.application.ports.advisor import AdvisorInbox
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import ProductCatalog
@@ -63,6 +64,7 @@ class AppContainer:
     sql_reader: object | None = None
     state_unit: StateTransaction | None = None
     processed_events: ProcessedEventStore | None = None
+    advisor_inbox: AdvisorInbox | None = None
     metrics: MetricsRecorder | None = None
 
     async def aclose(self) -> None:
@@ -89,6 +91,7 @@ def build_container(
     whatsapp_channel: WhatsAppChannelPort | None = None,
     clock: Callable[[], datetime] | None = None,
     metrics: MetricsRecorder | None = None,
+    advisor_inbox: AdvisorInbox | None = None,
 ) -> AppContainer:
     sql_reader = None
     if settings.data_source == "synthetic":
@@ -120,6 +123,7 @@ def build_container(
     state_unit: StateTransaction | None = None
     processed_events: ProcessedEventStore | None = None
     if settings.state_store == "postgres":
+        from xeon.adapters.persistence.postgres.advisor import PostgresAdvisorInbox
         from xeon.adapters.persistence.postgres.memory import PostgresConversationMemory
         from xeon.adapters.persistence.postgres.repositories import (
             PostgresCartRepository,
@@ -139,6 +143,7 @@ def build_container(
         resolved_carts = carts or PostgresCartRepository(state_unit)
         resolved_states: FunnelRepository = PostgresFunnelRepository(state_unit)
         processed_events = PostgresProcessedEventStore(state_unit, settings.tenant_id)
+        resolved_inbox = advisor_inbox or PostgresAdvisorInbox(state_unit, settings.tenant_id)
     else:
         resolved_quotes = quotes or InMemoryQuoteDraftRepository()
         resolved_memory = conversation_memory or InMemoryConversationMemory(
@@ -149,6 +154,7 @@ def build_container(
             max_conversations=settings.conversation_max_conversations
         )
         resolved_states = InMemoryFunnelRepository()
+        resolved_inbox = advisor_inbox or InMemoryAdvisorInbox()
     resolved_llm: LLMPort = MeteredLLM(
         llm or build_llm(settings), resolved_metrics, build_pricing(settings)
     )
@@ -188,7 +194,7 @@ def build_container(
         states=resolved_states,
         branches=resolved_branches,
         policies=resolved_policies,
-        notifier=LoggingAdvisorNotifier(),
+        notifier=resolved_inbox,
         memory=resolved_memory,
         tenant_id=settings.tenant_id,
     )
@@ -226,5 +232,6 @@ def build_container(
         sql_reader=sql_reader,
         state_unit=state_unit,
         processed_events=processed_events,
+        advisor_inbox=resolved_inbox,
         metrics=resolved_metrics,
     )

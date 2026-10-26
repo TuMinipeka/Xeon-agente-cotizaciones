@@ -17,12 +17,15 @@ from sqlalchemy import create_engine, text
 
 from xeon.adapters.persistence.postgres.repositories import ConcurrentCartUpdate
 from xeon.api.app import create_app
+from xeon.application.advisor_review import AdvisorReview, ReviewError
 from xeon.application.container import build_container
+from xeon.application.ports.advisor import AttentionStatus
 from xeon.application.ports.channels import WhatsAppSendReceipt
 from xeon.application.ports.metrics import MetricEvent
 from xeon.application.reply import Reply
 from xeon.config import Settings
 from xeon.domain.cart import QuoteCart
+from xeon.domain.quote import QuoteStatus, build_draft_quote, build_quote_line
 
 pytestmark = pytest.mark.integration
 SECRET = "state-test-webhook-secret"
@@ -46,8 +49,8 @@ def settings() -> Settings:
         with engine.begin() as connection:
             connection.execute(
                 text(
-                    "TRUNCATE processed_events, quote_drafts, conversation_memories, "
-                    "cart_states, funnel_states"
+                    "TRUNCATE advisor_events, processed_events, quote_drafts, "
+                    "conversation_memories, cart_states, funnel_states"
                 )
             )
     finally:
@@ -89,6 +92,121 @@ def test_restart_preserves_funnel_cart_quote_and_project_context(settings: Setti
             await second.aclose()
 
     asyncio.run(run())
+
+
+async def _confirm_for_advisor(container: object, key: str) -> None:
+    for message in (
+        "start:products",
+        "cemento gris 50kg",
+        "product:CEM-50",
+        "quantity:10",
+        "more:view",
+        "delivery:pickup",
+        "branch:sede-norte",
+        "payment:0",
+        "summary:confirm",
+    ):
+        await container.agent.respond_reply(message, conversation_key=key)  # type: ignore[attr-defined]
+
+
+def test_advisor_inbox_and_review_survive_restart(settings: Settings) -> None:
+    async def run() -> None:
+        first = build_container(settings)
+        try:
+            await _confirm_for_advisor(first, "advisor-restart")
+            assert first.advisor_inbox is not None
+            event = first.advisor_inbox.list_events(status=AttentionStatus.PENDIENTE)[0]
+            assert event.quote_id is not None
+        finally:
+            await first.aclose()
+        second = build_container(settings)
+        try:
+            assert second.advisor_inbox is not None
+            saved = second.advisor_inbox.get(event.id)
+            assert saved == event
+            outcome = AdvisorReview(second.advisor_inbox, second.quotes).approve(
+                event.id, advisor="asesor1"
+            )
+            assert outcome.event.status is AttentionStatus.APROBADO
+        finally:
+            await second.aclose()
+        third = build_container(settings)
+        try:
+            assert third.advisor_inbox is not None
+            assert third.advisor_inbox.get(event.id).status is AttentionStatus.APROBADO  # type: ignore[union-attr]
+            quote = third.quotes.get(event.quote_id)
+            assert quote is not None and quote.status is QuoteStatus.APPROVED_FOR_BILLING
+        finally:
+            await third.aclose()
+
+    asyncio.run(run())
+
+
+def test_concurrent_advisor_decisions_only_one_wins(settings: Settings) -> None:
+    first = build_container(settings)
+    second = build_container(settings)
+    try:
+        asyncio.run(_confirm_for_advisor(first, "advisor-race"))
+        assert first.advisor_inbox is not None and second.advisor_inbox is not None
+        event = first.advisor_inbox.list_events(status=AttentionStatus.PENDIENTE)[0]
+        assert event.quote_id is not None
+        barrier = Barrier(2)
+
+        def decide(container: object, approve: bool) -> str:
+            inbox = container.advisor_inbox  # type: ignore[attr-defined]
+            quotes = container.quotes  # type: ignore[attr-defined]
+            review = AdvisorReview(inbox, quotes)
+            barrier.wait(timeout=5)
+            try:
+                if approve:
+                    review.approve(event.id, advisor="asesor1")
+                else:
+                    review.reject(event.id, advisor="asesor2", reason="Revisar precio")
+            except ReviewError:
+                return "conflict"
+            return "saved"
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            a = pool.submit(decide, first, True)
+            b = pool.submit(decide, second, False)
+            assert sorted((a.result(), b.result())) == ["conflict", "saved"]
+        saved = first.advisor_inbox.get(event.id)
+        quote = first.quotes.get(event.quote_id)
+        assert saved is not None and quote is not None
+        assert (saved.status, quote.status) in {
+            (AttentionStatus.APROBADO, QuoteStatus.APPROVED_FOR_BILLING),
+            (AttentionStatus.RECHAZADO, QuoteStatus.RECHAZADO_POR_ASESOR),
+        }
+    finally:
+        asyncio.run(first.aclose())
+        asyncio.run(second.aclose())
+
+
+def test_advisor_inbox_is_isolated_by_tenant(settings: Settings) -> None:
+    alpha = build_container(settings.model_copy(update={"tenant_id": "alpha"}))
+    beta = build_container(settings.model_copy(update={"tenant_id": "beta"}))
+    try:
+        assert alpha.advisor_inbox is not None and beta.advisor_inbox is not None
+        alpha.advisor_inbox.notify(
+            tenant_id="alpha", event="advisor_requested", conversation_key="same-conversation"
+        )
+        event = alpha.advisor_inbox.list_events()[0]
+        assert beta.advisor_inbox.list_events() == ()
+        assert beta.advisor_inbox.get(event.id) is None
+        product = alpha.catalog.find_exact("CEM-50")
+        assert product is not None
+        quote = alpha.quotes.save(
+            build_draft_quote(
+                (build_quote_line(product, 1),), tenant_id="alpha", request_id="tenant-check"
+            )
+        )
+        assert beta.quotes.get(quote.id) is None
+        assert beta.quotes.get_by_idempotency_key("alpha", "tenant-check") is None
+        with pytest.raises(ReviewError, match="inexistente"):
+            AdvisorReview(beta.advisor_inbox, beta.quotes).attend(event.id, advisor="asesor2")
+    finally:
+        asyncio.run(alpha.aclose())
+        asyncio.run(beta.aclose())
 
 
 def test_two_workers_claim_one_webhook_and_make_one_draft(settings: Settings) -> None:

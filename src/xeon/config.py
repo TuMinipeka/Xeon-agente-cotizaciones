@@ -75,6 +75,12 @@ class Settings(BaseSettings):
     llm_price_output_per_mtok: Decimal | None = None
     llm_price_unit: str = "unidad-no-documentada"
 
+    # Panel del asesor: `usuario:hash` por linea, dentro de secrets/. Ver docs/PANEL_ASESOR.md.
+    advisor_panel_credentials_file: Path = Path("secrets/advisor_panel_credentials.txt")
+    advisor_panel_session_minutes: int = Field(default=480, ge=5, le=1440)
+    advisor_panel_max_attempts: int = Field(default=5, ge=1, le=20)
+    advisor_panel_lockout_minutes: int = Field(default=15, ge=1, le=240)
+
     whatsapp_send_enabled: bool = False
     kapso_api_base_url: str = "https://api.kapso.ai"
     kapso_api_key: SecretStr | None = None

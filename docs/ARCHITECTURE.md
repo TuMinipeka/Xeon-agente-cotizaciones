@@ -23,6 +23,15 @@ serializa los turnos entre workers; el carrito verifica la versión y el evento
 entrante tiene clave única. La base del conector D13 sigue separada y de solo
 lectura. Ver [guía de persistencia](PERSISTENCIA.md).
 
+### Panel del asesor y estado persistido
+
+El panel `/panel` usa `AdvisorInbox` y `AdvisorReview`; solo el asesor autenticado
+puede pasar un borrador confirmado a `APPROVED_FOR_BILLING` o `RECHAZADO_POR_ASESOR`.
+Con `STATE_STORE=postgres`, la migración `0002_advisor_inbox` conserva los eventos
+por tenant. La revisión bloquea evento y borrador en una transacción, de modo que
+una decisión concurrente recibe conflicto. Las sesiones del panel expiran en memoria:
+solo se retiene la huella HMAC del token. Ver [panel](PANEL_ASESOR.md).
+
 ### Embudo guiado D14
 
 `GuidedFunnel` es el único flujo para `/v1/chat`, CLI y Kapso. El estado
@@ -190,8 +199,7 @@ La base híbrida comercial con `pgvector` sigue planeada (D12: la recuperación 
 ## Pendiente (no implementado)
 
 - Índice híbrido comercial en PostgreSQL 17 (`SQL + JSONB + pgvector`); la persistencia operativa con Alembic ya es opcional mediante D15 A.
-- Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
+- Generacion de PDF con WeasyPrint y politica de descuentos versionada.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
-- Embudo guiado con botones y confirmacion ante un asesor (D14): aprobado, aun sin implementar.
 - Conectores `rest` y `csv` de `DATA_SOURCE` (hoy solo `synthetic` y `sql`).
 - Registro y notificacion real al trabajador cuando un producto solicitado no figura en el catalogo.

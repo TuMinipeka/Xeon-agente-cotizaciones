@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from enum import StrEnum
 from uuid import UUID, uuid4
@@ -31,6 +31,16 @@ class InvalidQuoteError(ValueError):
 class QuoteStatus(StrEnum):
     DRAFT = "DRAFT"
     CONFIRMADO_POR_CLIENTE = "CONFIRMADO_POR_CLIENTE"
+    # Human-only states: reached through AdvisorReview, never from the agent or the funnel.
+    APPROVED_FOR_BILLING = "APPROVED_FOR_BILLING"
+    RECHAZADO_POR_ASESOR = "RECHAZADO_POR_ASESOR"
+
+
+HUMAN_TRANSITIONS: dict[QuoteStatus, frozenset[QuoteStatus]] = {
+    QuoteStatus.CONFIRMADO_POR_CLIENTE: frozenset(
+        {QuoteStatus.APPROVED_FOR_BILLING, QuoteStatus.RECHAZADO_POR_ASESOR}
+    ),
+}
 
 
 def as_positive_quantity(value: Decimal | int | str) -> Decimal:
@@ -99,7 +109,7 @@ class Quote:
         object.__setattr__(self, "currency", currency.upper())
         if self.version < INITIAL_QUOTE_VERSION:
             raise InvalidQuoteError("La version del borrador debe ser al menos 1.")
-        if self.status not in {QuoteStatus.DRAFT, QuoteStatus.CONFIRMADO_POR_CLIENTE}:
+        if self.status not in set(QuoteStatus):
             raise InvalidQuoteError("Estado de cotizacion invalido.")
         if not self.lines:
             raise EmptyQuoteError("Un borrador requiere al menos una linea.")
@@ -173,3 +183,10 @@ def build_draft_quote(
         source=source,
         notes=notes,
     )
+
+
+def review_quote(quote: Quote, target: QuoteStatus) -> Quote:
+    """Apply a human review decision; any other transition is refused."""
+    if target not in HUMAN_TRANSITIONS.get(quote.status, frozenset()):
+        raise InvalidQuoteError(f"Transicion no permitida: {quote.status.value} -> {target.value}.")
+    return replace(quote, status=target)

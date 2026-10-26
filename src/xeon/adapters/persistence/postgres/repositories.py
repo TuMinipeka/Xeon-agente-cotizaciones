@@ -130,6 +130,8 @@ class PostgresQuoteDraftRepository:
         self._unit = unit
 
     def save(self, quote: Quote) -> Quote:
+        if quote.tenant_id != self._unit.tenant_id:
+            raise ValueError("Tenant de borrador invalido.")
         values = {
             "id": str(quote.id),
             "tenant_id": quote.tenant_id,
@@ -165,11 +167,16 @@ class PostgresQuoteDraftRepository:
     def get(self, quote_id: UUID) -> Quote | None:
         with self._unit.connection() as connection:
             payload = connection.execute(
-                select(quote_drafts.c.payload).where(quote_drafts.c.id == str(quote_id))
+                select(quote_drafts.c.payload).where(
+                    quote_drafts.c.id == str(quote_id),
+                    quote_drafts.c.tenant_id == self._unit.tenant_id,
+                )
             ).scalar_one_or_none()
         return quote_in(payload) if payload is not None else None
 
     def get_by_idempotency_key(self, tenant_id: str, request_id: str) -> Quote | None:
+        if tenant_id != self._unit.tenant_id:
+            return None
         with self._unit.connection() as connection:
             payload = connection.execute(
                 select(quote_drafts.c.payload).where(

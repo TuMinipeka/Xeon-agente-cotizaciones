@@ -425,7 +425,9 @@ class GuidedFunnel:
             self._save(key, replace(state, step="cancelado"))
             return self.render(key)
         if _normalized(raw) in {"asesor", "hablar con asesor"} or raw == "global:advisor":
-            self._notifier.notify(tenant_id=self._tenant_id, event="advisor_requested")
+            self._notifier.notify(
+                tenant_id=self._tenant_id, event="advisor_requested", conversation_key=key
+            )
             self._save(key, replace(state, step="asesor"))
             return self.render(key)
         if option_id is not None:
@@ -635,8 +637,15 @@ class GuidedFunnel:
                     return self.render(
                         key, prefix="Borrador pendiente de confirmar con un asesor.\n"
                     )
-                self._quotes.save(replace(quote, status=QuoteStatus.CONFIRMADO_POR_CLIENTE))
-                self._notifier.notify(tenant_id=self._tenant_id, event="client_confirmed")
+                confirmed = self._quotes.save(
+                    replace(quote, status=QuoteStatus.CONFIRMADO_POR_CLIENTE)
+                )
+                self._notifier.notify(
+                    tenant_id=self._tenant_id,
+                    event="client_confirmed",
+                    conversation_key=key,
+                    quote_id=confirmed.id,
+                )
                 state = replace(state, step="confirmado")
             case "proyecto", choice if choice.startswith("project:"):
                 lookup = {
