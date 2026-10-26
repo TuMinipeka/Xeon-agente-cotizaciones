@@ -347,3 +347,22 @@ def test_fixture_drift_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert report["cases"][0]["status"] == "ERROR"
     assert report["cases"][0]["origin"] == "fixture"
     assert path.joinpath("report.json").exists()
+
+
+def test_offline_report_saves_observability_with_zero_tokens(tmp_path: Path) -> None:
+    report, path = asyncio.run(
+        run(
+            ids=["S01"],
+            reps=1,
+            max_calls=5,
+            concurrency=1,
+            mode="offline",
+            output_root=tmp_path,
+        )
+    )
+    row = report["observability"]["S01"]
+    assert row["llm_calls"] == 0
+    assert (row["prompt_tokens"], row["completion_tokens"]) == (0, 0)
+    assert {"turno", "ejecutor"} <= set(row["stages"])
+    assert report["cases"][0]["observability"] == row
+    assert (path / "observability.jsonl").read_text(encoding="utf-8").strip()

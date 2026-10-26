@@ -10,6 +10,7 @@ import httpx
 
 from evals.recording import RecordingLLM
 from xeon.adapters.llm import build_llm
+from xeon.adapters.metrics import InMemoryMetrics
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.agent.tool_trace import capture_tool_events
 from xeon.application.container import AppContainer, build_container
@@ -40,7 +41,10 @@ class XEONSUT:
 
         self.quotes = RecordingQuoteRepository()
         self.llm = RecordingLLM(build_llm(settings), on_call=on_llm_call)
-        self.container: AppContainer = build_container(settings, quotes=self.quotes, llm=self.llm)
+        self.metrics = InMemoryMetrics()
+        self.container: AppContainer = build_container(
+            settings, quotes=self.quotes, llm=self.llm, metrics=self.metrics
+        )
         self.app = create_app(container=self.container)
         self.client = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=self.app), base_url="http://xeon.local"
