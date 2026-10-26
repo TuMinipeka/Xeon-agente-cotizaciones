@@ -6,8 +6,12 @@ from pathlib import Path
 import pytest
 
 from evals.checks import EvalView, run_check
+from evals.recording import RecordingLLM
 from evals.reference.oracle import FixtureMismatch, Oracle
+from evals.sut import XEONSUT
 from scripts.export_eval_fixtures import export
+from xeon.adapters.llm.mock import MockLLM
+from xeon.config import Settings
 
 
 def test_oracle_uses_frozen_json_only() -> None:
@@ -422,3 +426,65 @@ def test_preliminary_project_advice_and_no_unverified_compatibility() -> None:
         ["tornillos para motherboard"],
     )
     assert run_check({"type": "no_unverified_compatibility"}, safe_compat).status == "PASS"
+
+
+def test_live_context_without_mock_markers_captures_branch_evidence() -> None:
+    """Live LLM replies do not contain mock diagnostics markers.
+    The evaluator captures tool execution events (e.g. from xeon.tools / record_tool)
+    so branch_matches evaluates actual branch queries without false negatives.
+    """
+    oracle = Oracle()
+    live_reply = [{"reply": "Cemento gris 50 kg en sede-norte: disponible.", "provider": "grok"}]
+
+    # 1. Reproduce old bug: live reply without tool_contexts -> false negative (FAIL)
+    old_empty_contexts: list[str] = []
+    old_view = EvalView(oracle, live_reply, old_empty_contexts, [], "live", ["hay en sede norte"])
+    assert run_check({"type": "branch_matches", "branch": "sede-norte"}, old_view).status == "FAIL"
+
+    # 2. With evaluator fix: tool event for sede-norte is observed into recording contexts
+    recording = RecordingLLM(MockLLM())
+    recording.observe_tool_event(
+        "TOOL get_stock_by_branches sku=CEM-50 sede=sede-norte disponible=unknown vigencia=stale"
+    )
+    fixed_view = EvalView(
+        oracle, live_reply, recording.tool_contexts(), [], "live", ["hay en sede norte"]
+    )
+    result_norte = run_check({"type": "branch_matches", "branch": "sede-norte"}, fixed_view)
+    assert result_norte.status == "PASS"
+
+    # 3. When XEON consulted another branch (e.g. sede-sur), it still fails
+    recording_sur = RecordingLLM(MockLLM())
+    recording_sur.observe_tool_event(
+        "TOOL get_stock_by_branches sku=CEM-50 sede=sede-sur disponible=unknown vigencia=stale"
+    )
+    sur_view = EvalView(
+        oracle, live_reply, recording_sur.tool_contexts(), [], "live", ["hay en sede sur"]
+    )
+    result_sur = run_check({"type": "branch_matches", "branch": "sede-norte"}, sur_view)
+    assert result_sur.status == "FAIL"
+
+
+@pytest.mark.asyncio
+async def test_sut_captures_live_tool_events_for_branch_check() -> None:
+    settings = Settings(
+        _env_file=None,
+        llm_provider="mock",
+        whatsapp_send_enabled=False,
+    )
+    sut = XEONSUT(settings)
+    try:
+        await sut.respond("¿Hay stock en sede norte de 10 bultos de cemento?")
+        oracle = Oracle()
+        clean_live_reply = [{"reply": "Stock pendiente de confirmación.", "provider": "grok"}]
+        view = EvalView(
+            oracle,
+            clean_live_reply,
+            sut.llm.tool_contexts(),
+            sut.drafts(),
+            "live",
+            ["hay en norte"],
+        )
+        assert run_check({"type": "branch_matches", "branch": "sede-norte"}, view).status == "PASS"
+        assert run_check({"type": "branch_matches", "branch": "sede-sur"}, view).status == "FAIL"
+    finally:
+        await sut.aclose()

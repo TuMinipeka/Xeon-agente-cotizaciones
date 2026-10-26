@@ -11,6 +11,7 @@ import httpx
 from evals.recording import RecordingLLM
 from xeon.adapters.llm import build_llm
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
+from xeon.agent.tool_trace import capture_tool_events
 from xeon.application.container import AppContainer, build_container
 from xeon.config import Settings
 from xeon.domain.quote import Quote
@@ -47,14 +48,20 @@ class XEONSUT:
         self.conversation_id: UUID = uuid4()
 
     async def respond(self, message: str) -> dict[str, Any]:
-        response = await self.client.post(
-            "/v1/chat",
-            json={"message": message, "conversation_id": str(self.conversation_id)},
-        )
-        response.raise_for_status()
-        payload = dict(response.json())
-        self.llm.observe_verified_reply(str(payload.get("reply", "")))
-        return payload
+        with capture_tool_events() as events:
+            response = await self.client.post(
+                "/v1/chat",
+                json={"message": message, "conversation_id": str(self.conversation_id)},
+            )
+            response.raise_for_status()
+            payload = dict(response.json())
+            self.llm.observe_verified_reply(str(payload.get("reply", "")))
+            for event in events:
+                self.llm.observe_tool_event(event)
+            return payload
+
+    def tool_contexts(self) -> list[str]:
+        return self.llm.tool_contexts()
 
     def drafts(self) -> list[dict[str, Any]]:
         return [

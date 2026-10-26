@@ -86,3 +86,21 @@
    - En `CommercialExecutor._remember_project`: registrar cuando el usuario ya confirmó que se trabajará toda la superficie para no repetir en bucle `¿Se trabajará toda esa superficie o solo una parte?`.
 5. **[S20 / C3 - Compatibilidad] Memoria contextual para consultas de hardware/electrónica**:
    - Retener en el contexto de la conversación que la consulta es para componentes de PC/electrónica (`motherboard`, `placa base`, `pc`), de modo que preguntas subsecuentes como `"tienen m3 para pc"` no caigan en tornillería galvanizada de construcción sintética.
+
+---
+
+## 4. Corrección en evaluador: alineación de evidencia de herramientas en modo live (branch_matches)
+
+- **Problema corregido:** En modo live, las respuestas del asistente hacia WhatsApp no contienen marcadores de diagnóstico `[XEON_TOOL:`. Por ello, `view.contexts` (`sut.llm.tool_contexts()`) llegaba vacío al evaluador y `branch_matches` daba un falso negativo aun cuando XEON consultaba `sede-norte`.
+- **Solución en zona QA (`evals/`):**
+  - `evals/recording.py`: función `format_tool_event(event)` y método `RecordingLLM.observe_tool_event(event)` para transformar eventos de traza segura `TOOL get_stock_by_branches ... sede=...` en contextos verificados con formato estándar `sede_solicitada=...`.
+  - `evals/sut.py`: `XEONSUT.respond` ejecuta la llamada HTTP dentro de `with capture_tool_events() as events:` e inyecta cada evento observado en `self.llm.observe_tool_event(event)`.
+  - La lógica de comparación y umbrales de `branch_matches` en `evals/checks/core.py` **no fue modificada**.
+- **Pruebas unitarias añadidas:**
+  - `tests/evals/test_oracle_checks.py::test_live_context_without_mock_markers_captures_branch_evidence`: reproduce que sin tool_contexts hay falso negativo en live; con la observación de eventos pasa cuando consultó `sede-norte` y falla cuando consultó `sede-sur`.
+  - `tests/evals/test_oracle_checks.py::test_sut_captures_live_tool_events_for_branch_check`: verifica que `sut.respond()` captura y propaga los eventos de sede directamente a `sut.llm.tool_contexts()`.
+- **Verificación:**
+  - `pytest tests/evals`: 70 passed.
+  - `ruff check evals tests/evals` y `ruff format --check evals tests/evals`: limpio (14 files formatted).
+  - `mypy evals`: 0 issues en 11 archivos.
+  - `uv run --locked --group evals python -m evals.runner --mode offline`: `PASS=60 FAIL=0 ERROR=0` (S01–S20).
