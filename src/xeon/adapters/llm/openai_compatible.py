@@ -5,11 +5,7 @@ from typing import Any
 
 import httpx
 
-from xeon.application.ports.llm import ChatMessage, LLMResponse
-
-
-class LLMProviderError(RuntimeError):
-    """Sanitized provider failure safe to map to an API error."""
+from xeon.application.ports.llm import ChatMessage, LLMProviderError, LLMResponse
 
 
 class OpenAICompatibleLLM:

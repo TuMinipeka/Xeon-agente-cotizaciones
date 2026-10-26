@@ -21,6 +21,7 @@ from xeon.application.ports.conversation_memory import (
     ConversationMemory,
     PendingCandidates,
     ProjectContext,
+    ProposedLine,
 )
 from xeon.application.ports.policies import PolicyRepository
 from xeon.application.quote_draft import (
@@ -66,6 +67,24 @@ class CommercialExecutor:
         self._carts = carts
         self._memory = memory
         self._policies = policies
+
+    def interpreter_context(self, key: str) -> str:
+        cart = self._carts.get(key)
+        entries = (
+            []
+            if cart is None
+            else [f"SKU={line.sku} cantidad={line.quantity}" for line in cart.confirmed_lines()]
+        )
+        previous = self._memory.last_sku(key)
+        if previous is not None:
+            entries.append(f"ultimo_SKU={previous}")
+        pending = self._memory.pending_candidates(key)
+        if pending is not None:
+            entries.append("opciones_pendientes=" + ",".join(pending.skus))
+        project = self._memory.project_data(key)
+        if project.area_m2 is not None:
+            entries.append(f"area_proyecto_m2={project.area_m2}")
+        return "Contexto comercial verificado: " + "; ".join(entries)
 
     def execute(
         self,
@@ -138,7 +157,23 @@ class CommercialExecutor:
                     )
                     if cart.confirmed_lines():
                         diagnostics.append(self._draft_marker(cart))
+                    if intent.branch is not None and cart.confirmed_lines():
+                        self._stock(intent, cart, conversation_key, replies, diagnostics)
                 case IntentKind.VER_RESUMEN_TOTAL:
+                    if "precio de lista" in intent.source_text.casefold():
+                        for proposal in self._memory.proposal_lines(conversation_key):
+                            try:
+                                product = self._catalog.find_exact(proposal.sku)
+                            except CatalogUnavailableError:
+                                product = None
+                            if product is None:
+                                replies.append("Una referencia propuesta requiere confirmación.")
+                                continue
+                            if any(line.key == proposal.sku for line in cart.lines):
+                                cart = cart.set_quantity(proposal.sku, proposal.quantity)
+                            else:
+                                cart = cart.add_item(product, proposal.quantity)
+                        self._memory.clear_proposal(conversation_key)
                     replies.append(self._summary(cart))
                     if cart.confirmed_lines():
                         diagnostics.append(self._draft_marker(cart))
@@ -156,6 +191,8 @@ class CommercialExecutor:
                     pending = self._memory.pending_candidates(conversation_key)
                 case IntentKind.AGREGAR | IntentKind.CONSULTAR_PRODUCTO:
                     if discount_requested:
+                        if intent.kind is IntentKind.AGREGAR:
+                            self._propose(intent, conversation_key, replies)
                         continue
                     cart, chosen = self._lookup(
                         intent,
@@ -171,18 +208,26 @@ class CommercialExecutor:
         if not discount_requested and cart.quote_version != initial_quote_version:
             if cart.confirmed_lines():
                 request_key = self._quote_request_id(conversation_key, cart.quote_version)
-                result = self._tools.create_quote_draft(
-                    tenant_id="whatsapp",
-                    request_id=request_key,
-                    lines=tuple(
-                        DraftLineRequest(line.sku, line.quantity) for line in cart.confirmed_lines()
-                    ),
-                    version=cart.quote_version,
-                )
-                if isinstance(result, QuoteDraftReady):
-                    diagnostics.append(_format_draft(result.quote))
-                else:
+                try:
+                    result = self._tools.create_quote_draft(
+                        tenant_id="whatsapp",
+                        request_id=request_key,
+                        lines=tuple(
+                            DraftLineRequest(line.sku, line.quantity)
+                            for line in cart.confirmed_lines()
+                        ),
+                        version=cart.quote_version,
+                    )
+                except Exception as exc:
+                    _LOG.error("Quote draft unavailable: %s", type(exc).__name__)
                     replies.append("No pude actualizar el borrador; los datos siguen pendientes.")
+                else:
+                    if isinstance(result, QuoteDraftReady):
+                        diagnostics.append(_format_draft(result.quote))
+                    else:
+                        replies.append(
+                            "No pude actualizar el borrador; los datos siguen pendientes."
+                        )
             self._carts.save(cart)
         elif cart.version or request_id is not None:
             self._carts.save(cart)
@@ -208,6 +253,21 @@ class CommercialExecutor:
             "[XEON_TOOL:create_quote_draft "
             f"status=DRAFT version=v{cart.quote_version} sku={first.sku} "
             f"cantidad={first.quantity}]"
+        )
+
+    def _propose(self, intent: Intent, key: str, replies: list[str]) -> None:
+        if intent.quantity is None:
+            return
+        query = _explicit_product_query(intent.source_text) or intent.product or intent.source_text
+        outcome = self._tools.search_products(query)
+        if len(outcome.candidates) != 1:
+            replies.append("La referencia para el descuento requiere confirmación.")
+            return
+        product = outcome.candidates[0]
+        self._memory.remember_proposal(key, ProposedLine(product.sku, intent.quantity))
+        replies.append(
+            f"Anoté {_quantity(intent.quantity)} de {product.name} como propuesta; "
+            "la cotización vigente sigue sin descuento."
         )
 
     @staticmethod
@@ -389,10 +449,7 @@ class CommercialExecutor:
             choices = "; ".join(f"{index}. {item.name}" for index, item in enumerate(candidates, 1))
             replies.append(f"Encontré varias opciones: {choices}. ¿Cuál eliges?")
             diagnostics.append("[XEON_TOOL:search_products status=clarification_required]")
-            diagnostics.extend(
-                f"- SKU={item.sku} nombre={item.name} precio_bd={item.unit_price} {item.currency}"
-                for item in candidates
-            )
+            diagnostics.extend(f"- SKU={item.sku} nombre={item.name}" for item in candidates)
             return cart, None
         item = candidates[0]
         try:
@@ -441,6 +498,8 @@ class CommercialExecutor:
             return
         if product is None:
             reference = self._reference(intent, cart, key) or self._memory.last_sku(key)
+            if reference is None:
+                reference = _explicit_product_query(intent.source_text)
             if reference is not None:
                 try:
                     product = self._catalog.find_exact(reference)

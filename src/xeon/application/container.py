@@ -62,7 +62,6 @@ def build_container(
     conversation_memory: ConversationMemory | None = None,
     carts: CartRepository | None = None,
     policies: PolicyRepository | None = None,
-    use_commercial_executor: bool | None = None,
     whatsapp_channel: WhatsAppChannelPort | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> AppContainer:
@@ -94,12 +93,10 @@ def build_container(
         memory=resolved_memory,
         policies=resolved_policies,
     )
-    enable_executor = llm is None if use_commercial_executor is None else use_commercial_executor
     agent = AgentService(
         resolved_llm,
-        tools=commercial_tools,
         memory=resolved_memory,
-        executor=executor if enable_executor else None,
+        executor=executor,
     )
 
     resolved_whatsapp = whatsapp_channel

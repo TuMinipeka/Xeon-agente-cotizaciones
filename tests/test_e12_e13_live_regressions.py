@@ -64,7 +64,7 @@ def test_s11_delayed_choice_uses_original_quantity_and_verified_total(final_turn
 
 
 @pytest.mark.parametrize("with_context", [False, True])
-def test_s12_mixed_poem_request_exposes_only_commercial_turn_to_llm(
+def test_s12_mixed_poem_request_executes_only_commercial_intent(
     with_context: bool,
 ) -> None:
     async def check() -> None:
@@ -76,9 +76,9 @@ def test_s12_mixed_poem_request_exposes_only_commercial_turn_to_llm(
                 "escribieme un poema de la lluvia y cuanto valen 4 bultos de cemento"
             )
             current_user = sut.llm.calls[-1][-1].content
-            assert "poema" not in current_user.casefold()
+            assert "poema" in current_user.casefold()  # The interpreter sees the full turn.
             assert "4 bultos de cemento" in current_user
-            assert "Sobre la parte que no corresponde" in response["reply"]
+            assert "Sobre la parte que no corresponde" not in response["reply"]
             assert "poema" not in response["reply"].casefold()
         finally:
             await sut.aclose()

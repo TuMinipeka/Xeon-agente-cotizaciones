@@ -12,6 +12,7 @@ class RecordingLLM:
         self.inner = inner
         self.on_call = on_call
         self.calls: list[tuple[ChatMessage, ...]] = []
+        self.verified_contexts: list[str] = []
         self.token_estimate = 0
 
     @property
@@ -32,12 +33,17 @@ class RecordingLLM:
         return await self.inner.complete(messages)
 
     def tool_contexts(self) -> list[str]:
-        return [
+        return self.verified_contexts + [
             message.content
             for call in self.calls
             for message in call
             if message.role == "system" and message.content.startswith("[XEON_TOOL:")
         ]
+
+    def observe_verified_reply(self, reply: str) -> None:
+        """Capture the new executor's mock-only tool markers for existing checks."""
+        if "[XEON_TOOL:" in reply:
+            self.verified_contexts.append(reply)
 
     async def aclose(self) -> None:
         await self.inner.aclose()

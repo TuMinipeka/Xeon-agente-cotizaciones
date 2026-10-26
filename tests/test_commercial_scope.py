@@ -1,35 +1,23 @@
-from xeon.application.commercial_scope import CommercialScopePolicy
+"""The intent boundary preserves every commercial request in a mixed turn."""
+
+from decimal import Decimal
+
+from xeon.agent.intent import IntentKind, fallback_intents
+from xeon.application.ports.conversation_memory import PendingCandidates
 
 
-def test_scope_blocks_general_knowledge_before_llm() -> None:
-    decision = CommercialScopePolicy().classify(
-        "Busca tarjetas gráficas para jugar y pásame enlaces"
+def _kinds(message: str) -> tuple[IntentKind, ...]:
+    return tuple(item.kind for item in fallback_intents(message).intents)
+
+
+def test_unrelated_request_is_outside_without_a_commercial_intent() -> None:
+    assert _kinds("Busca tarjetas gráficas para jugar y pásame enlaces") == (
+        IntentKind.FUERA_DE_ALCANCE,
     )
 
-    assert decision.kind == "out_of_scope"
-    assert decision.blocks_llm is True
-    assert decision.commercial_query is None
-    assert decision.customer_message is not None
-    assert "ferretería" in decision.customer_message
 
-
-def test_scope_allows_courtesy_and_operational_help_without_general_knowledge() -> None:
-    policy = CommercialScopePolicy()
-
-    greeting = policy.classify("Buenas tardes")
-    help_request = policy.classify("¿Cómo funciona este chat?")
-
-    assert greeting.kind == "courtesy"
-    assert greeting.blocks_llm is True
-    assert help_request.kind == "operational_help"
-    assert help_request.blocks_llm is True
-    assert "producto" in (help_request.customer_message or "")
-    assert "cantidad" in (help_request.customer_message or "")
-
-
-def test_scope_accepts_agreed_hardware_store_categories() -> None:
-    policy = CommercialScopePolicy()
-
+def test_greeting_and_hardware_categories_remain_commercial() -> None:
+    assert _kinds("hola") == (IntentKind.SALUDO,)
     for message in (
         "Necesito cemento para construcción",
         "Busco una herramienta para el taller",
@@ -37,56 +25,40 @@ def test_scope_accepts_agreed_hardware_store_categories() -> None:
         "Busco cable para electricidad",
         "Necesito alambre para el potrero",
     ):
-        decision = policy.classify(message)
-        assert decision.kind == "commercial"
-        assert decision.commercial_query == message
+        assert IntentKind.FUERA_DE_ALCANCE not in _kinds(message)
 
 
-def test_scope_separates_mixed_request_and_keeps_only_commercial_part() -> None:
-    decision = CommercialScopePolicy().classify(
-        "Necesito cemento y busca tarjetas gráficas con enlaces"
+def test_mixed_request_preserves_commercial_part_without_rejection_prefix() -> None:
+    batch = fallback_intents("Necesito cemento y busca tarjetas gráficas con enlaces")
+    assert tuple(item.kind for item in batch.intents) == (
+        IntentKind.AGREGAR,
+        IntentKind.FUERA_DE_ALCANCE,
+    )
+    assert batch.intents[0].source_text == "Necesito cemento"
+
+
+def test_short_choice_uses_pending_options() -> None:
+    pending = PendingCandidates(
+        skus=("CEM-50", "SYN-CEM-0001"),
+        names=("Cemento gris 50 kg", "Cemento gris referencia sintética 1"),
+        quantity=Decimal(10),
+        branch="",
+    )
+    assert fallback_intents("La primera opción", pending=pending).intents[0].kind is (
+        IntentKind.ELEGIR_OPCION
     )
 
-    assert decision.kind == "mixed"
-    assert decision.blocks_llm is False
-    assert decision.commercial_query == "Necesito cemento"
-    assert decision.customer_message is not None
-    assert "no manejo información" in decision.customer_message
 
-
-def test_scope_allows_natural_selection_and_existing_product_code_as_follow_up() -> None:
-    policy = CommercialScopePolicy()
-
-    natural_selection = policy.classify("La primera opción")
-    product_code = policy.classify("CEM-50")
-
-    assert natural_selection.kind == "commercial"
-    assert product_code.kind == "commercial"
-
-
-def test_scope_keeps_logistics_and_courtesy_in_commercial_request() -> None:
-    policy = CommercialScopePolicy()
+def test_logistics_and_multiple_questions_are_not_outside() -> None:
     for message in (
         "10 bultos de cemento y entrega en sede sur",
-        "buenas vecino, me regala cotizacion de 10 bultos de cemento",
-        "soy cliente frecuente, dame el descuento de siempre en 20 bultos de cemento",
+        "Lo recojo en la sede norte",
+        "¿Qué opciones tengo para pagar y recoger?",
     ):
-        decision = policy.classify(message)
-        assert decision.kind == "commercial"
-        assert decision.commercial_query == message
+        assert IntentKind.FUERA_DE_ALCANCE not in _kinds(message)
 
 
-def test_followup_requires_existing_commercial_context() -> None:
-    policy = CommercialScopePolicy()
-    assert policy.classify("Lo recojo en la sede norte.").kind == "out_of_scope"
-    for message in ("Lo recojo en la sede norte.", "Entrega en sede sur", "Si", "20 unidades"):
-        assert policy.classify(message, commercial_context=True).kind == "commercial"
-
-
-def test_poem_and_cement_request_keeps_only_commercial_clause() -> None:
-    message = "escribieme un poema de la lluvia y cuanto valen 4 bultos de cemento"
-    for active in (False, True):
-        decision = CommercialScopePolicy().classify(message, commercial_context=active)
-        assert decision.kind == "mixed"
-        assert decision.commercial_query == "cuanto valen 4 bultos de cemento"
-        assert decision.customer_message is not None
+def test_poem_and_cement_turn_keeps_sale_without_rejection_prefix() -> None:
+    batch = fallback_intents("escribieme un poema de la lluvia y cuanto valen 4 bultos de cemento")
+    assert IntentKind.FUERA_DE_ALCANCE in _kinds(batch.intents[0].source_text)
+    assert any(intent.kind is IntentKind.AGREGAR for intent in batch.intents)

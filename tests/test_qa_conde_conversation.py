@@ -68,7 +68,6 @@ def test_transactional_turn_uses_one_interpreter_call() -> None:
         container = build_container(
             Settings(llm_provider="mock", _env_file=None),
             llm=llm,
-            use_commercial_executor=True,
         )
         try:
             await container.agent.respond("10 bultos de cemento", conversation_key="one-call")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from decimal import Decimal
 from enum import StrEnum
 
@@ -11,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from xeon.agent.toolbelt import _extract_requested_branch, _extract_requested_quantity, _has_branch
 from xeon.application.ports.conversation_memory import PendingCandidates
-from xeon.application.ports.llm import ChatMessage, LLMPort, LLMResponse
+from xeon.application.ports.llm import ChatMessage, LLMPort, LLMProviderError, LLMResponse
 
 
 class IntentKind(StrEnum):
@@ -85,13 +86,19 @@ _POLICY = re.compile(
 _PROJECT = re.compile(r"\b(?:corral|ganado|proyecto|piso de concreto|pavimentar)\b", re.I)
 _STOCK = re.compile(r"\b(?:disponib|existencias?|inventario|hay\s+stock|agotad)\w*", re.I)
 _SUMMARY = re.compile(
-    r"\b(?:resum|total|cu[aá]nto llevo|producto por producto|mi cotizaci[oó]n)\w*", re.I
+    r"\b(?:resum|total|cu[aá]nto llevo|producto por producto|mi cotizaci[oó]n|"
+    r"precio de lista)\w*",
+    re.I,
 )
 _HYPOTHETICAL = re.compile(
     r"\b(?:qu[eé]\s+(?:descuento|precio)|si\s+(?:llevo|pido)|hipot[eé]tic)\w*", re.I
 )
-_REMOVE = re.compile(r"\b(?:quita|quitar|elimina|saca|retira)\w*", re.I)
-_MODIFY = re.compile(r"\b(?:cambia|c[aá]mbialo|modifica|ajusta|reduce|sube)\w*", re.I)
+_REMOVE = re.compile(r"\b(?:quita|quitar|elimina|saca|retira)\w*|\bno\s+(?:quiero|va)\b", re.I)
+_MODIFY = re.compile(
+    r"\b(?:cambia|cambie|c[aá]mbialo|modifica|ajusta|reduce|sube)\w*|"
+    r"\bd[eé]jamelo\s+en\b",
+    re.I,
+)
 _ADD = re.compile(r"\b(?:agrega|a[nñ]ade|suma|deja|quiero|necesito|dame|cotiza)\w*", re.I)
 
 
@@ -159,18 +166,37 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
     if pending is not None and (
         re.search(r"\b(?:el|del|opcion)\s*[1-3]\b", normalized)
         or re.fullmatch(r"\s*[1-3]\s*", cleaned)
-        or any(term in normalized for term in ("redonda", "cuadrada", "fibra", "madera", "opcion"))
+        or any(
+            term in normalized
+            for term in (
+                "redonda",
+                "cuadrada",
+                "fibra",
+                "madera",
+                "opcion",
+                "primero",
+                "primera",
+                "segundo",
+                "segunda",
+                "tercero",
+                "tercera",
+            )
+        )
+        or any(_normalize(name) in normalized for name in pending.names)
     ):
         return IntentBatch(
             intents=(Intent(kind=IntentKind.ELEGIR_OPCION, product=cleaned, source_text=cleaned),)
         )
 
+    cleaned = re.sub(r",\s+(?=\d+\s+(?:bultos?|tubos?|metros?|unidades?))", " ; ", cleaned)
     clauses = re.split(
         r"\s+y\s+(?=(?:deja|agrega|anade|quita|busca|\d+|si\s+|"
-        r"que\s+|cuantos?|cu[aá]l|el\s+domicilio|domicilio|envio|entrega))",
-        cleaned,
+        r"que\s+|cuantos?|cu[aá]l|el\s+domicilio|domicilio|envio|entrega|los\s+|"
+        r"llevo\s+|tambien\s+))",
+        cleaned.replace(";", " ; "),
         flags=re.I,
     )
+    clauses = [part for clause in clauses for part in clause.split(" ; ")]
     intents: list[Intent] = []
     for clause in clauses:
         clause = clause.strip(" ¿?.,!")
@@ -187,7 +213,7 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
         if _REMOVE.search(clause):
             intents.append(_from_clause(IntentKind.QUITAR, clause, product=_product_phrase(clause)))
             continue
-        if _MODIFY.search(clause):
+        if _MODIFY.search(clause) or re.search(r"\blos?\s+\w+\s+a\s+\d+", clause, re.I):
             intents.append(
                 _from_clause(IntentKind.MODIFICAR_CANTIDAD, clause, product=_product_phrase(clause))
             )
@@ -222,7 +248,12 @@ def fallback_intents(message: str, *, pending: PendingCandidates | None = None) 
             if re.search(r"\bhorario\b", clause, re.I):
                 policies.append("horarios")
             intents.extend(
-                Intent(kind=IntentKind.CONSULTAR_POLITICA, policy=item, source_text=clause)
+                Intent(
+                    kind=IntentKind.CONSULTAR_POLITICA,
+                    policy=item,
+                    branch=_extract_requested_branch(clause) if _has_branch(clause) else None,
+                    source_text=clause,
+                )
                 for item in policies or ["general"]
             )
             continue
@@ -247,18 +278,21 @@ class IntentInterpreter:
         llm: LLMPort,
         pending: PendingCandidates | None = None,
         context: str = "",
+        history: Sequence[ChatMessage] = (),
     ) -> tuple[IntentBatch, LLMResponse | None]:
-        if llm.provider_name == "mock":
-            return fallback_intents(message, pending=pending), None
+        local = fallback_intents(message, pending=pending)
+        if all(intent.kind is IntentKind.FUERA_DE_ALCANCE for intent in local.intents):
+            return local, None
         try:
             response = await llm.complete(
                 (
                     ChatMessage(role="system", content=_INTERPRETER_PROMPT),
                     ChatMessage(role="system", content=context),
+                    *history,
                     ChatMessage(role="user", content=message),
                 )
             )
             parsed = IntentBatch.model_validate_json(response.text)
             return parsed, response
-        except ValidationError, ValueError, RuntimeError:
+        except ValidationError, ValueError, LLMProviderError:
             return fallback_intents(message, pending=pending), None

@@ -11,7 +11,9 @@ POST /v1/chat   POST /v1/channels/whatsapp/kapso/webhook (Kapso, HMAC)
       +----------------+----------------+
                        |
                        v
-        AgentService + CommercialToolbelt ---- system prompt acotado
+        AgentService -> IntentInterpreter -> CommercialExecutor
+                                            |          |
+                                       QuoteCart  CommercialToolbelt
          /                             \
         v                               v
      LLMPort                    Herramientas comerciales autorizadas:
@@ -61,15 +63,16 @@ GET /v1/stock  CLI stock show
 - El contexto verificado usa marcadores internos `[XEON_TOOL:...]`; no autorizan al modelo a
   calcular precios ni a ejecutar herramientas. `CustomerResponsePolicy` filtra su exposicion en
   respuestas de proveedores reales.
-- `CommercialScopePolicy` clasifica el alcance de la consulta antes del modelo. Las solicitudes
-  ajenas al comercio se bloquean sin llamar al LLM; las mixtas conservan solo la parte comercial
-  para la busqueda y explican el limite al cliente.
+- `IntentInterpreter` valida JSON de intenciones; si el proveedor falla, usa un parser local.
+  Las solicitudes totalmente ajenas se responden localmente. En mensajes mixtos, el ejecutor
+  procesa la parte comercial sin insertar un prefijo de rechazo.
 - `CustomerResponsePolicy` revisa las respuestas de proveedores reales y sustituye salidas que
   exponen codigos internos, marcadores tecnicos o enlaces no autorizados. El perfil `mock` conserva
   sus marcadores de diagnostico para las pruebas locales.
-- `ConversationMemory` conserva un historial corto por conversacion, acotado por turnos y LRU;
-  el historial se entrega como mensajes `user`/`assistant` al modelo. No hay carrito persistente
-  ni seleccion confirmada de SKU por conversacion en este corte.
+- `ConversationMemory` conserva historial corto, opciones pendientes y datos de proyecto.
+  `CartRepository` guarda por conversacion un `QuoteCart` versionado en memoria del proceso;
+  las lineas confirmadas producen borradores `DRAFT` calculados con `Decimal`. No hay
+  persistencia entre reinicios ni aprobacion automatica.
 
 ### 1.1. Catalogo sintetico ampliado
 
@@ -138,7 +141,7 @@ inventario y borradores viven en memoria; la arquitectura futura separa tres res
 | T07 | Snapshot vencido: senala antiguedad y no promete disponibilidad firme | `classify_freshness`, `GetStockByBranches`, `GET /v1/stock`, CLI `stock show --evaluated-at` |
 | T08 | Descuento pedido sin politica: no se inventa porcentaje | `DiscountPolicyUnavailable` |
 | T10 | Webhook Kapso firmado: valida HMAC, ignora eventos ajenos y no-texto, deduplica mensajes | `POST /v1/channels/whatsapp/kapso/webhook`, `tests/test_kapso_channel.py`, `tests/test_multiturn_context.py` |
-| T11 | Consulta fuera del alcance comercial o salida insegura | `CommercialScopePolicy`, `CustomerResponsePolicy` y pruebas del arnes |
+| T11 | Consulta fuera del alcance comercial o salida insegura | `IntentInterpreter`, `CustomerResponsePolicy` y pruebas del arnes |
 | T19 | Perfil mock: cero llamadas a proveedores LLM | `/health`, `/v1/chat`, webhook Kapso y suite con `LLM_PROVIDER=mock` |
 
 ## Fronteras que no deben romperse

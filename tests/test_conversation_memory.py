@@ -9,7 +9,7 @@ from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.llm.openai_compatible import OpenAICompatibleLLM
 from xeon.agent.toolbelt import _requests_discount
 from xeon.api.app import create_app
-from xeon.application.ports.conversation_memory import PendingCandidates, ResolvedLine
+from xeon.application.ports.conversation_memory import PendingCandidates, ProposedLine
 from xeon.config import Settings
 
 
@@ -25,18 +25,18 @@ def test_pending_candidates_are_bounded_and_cleared_after_selection() -> None:
     assert memory.pending_candidates("first") is None
 
 
-def test_resolved_lines_and_unresolved_quantity_are_conversation_local() -> None:
+def test_discount_proposals_are_conversation_local_and_clearable() -> None:
     memory = InMemoryConversationMemory(max_turns=2, max_conversations=2)
-    memory.remember_unresolved_quantity("a", Decimal(5))
-    memory.remember_lines("a", (ResolvedLine("CEM-50", Decimal(20)),))
-    memory.remember_lines("a", (ResolvedLine("ALA-14", Decimal(100)),))
-    memory.remember_lines("a", (ResolvedLine("CEM-50", Decimal(30)),))
-    assert memory.resolved_lines("a") == (
-        ResolvedLine("CEM-50", Decimal(30)),
-        ResolvedLine("ALA-14", Decimal(100)),
+    memory.remember_proposal("a", ProposedLine("CEM-50", Decimal(20)))
+    memory.remember_proposal("a", ProposedLine("ALA-14", Decimal(100)))
+    memory.remember_proposal("a", ProposedLine("CEM-50", Decimal(30)))
+    assert memory.proposal_lines("a") == (
+        ProposedLine("CEM-50", Decimal(30)),
+        ProposedLine("ALA-14", Decimal(100)),
     )
-    assert memory.unresolved_quantity("a") == Decimal(5)
-    assert memory.resolved_lines("b") == ()
+    assert memory.proposal_lines("b") == ()
+    memory.clear_proposal("a")
+    assert memory.proposal_lines("a") == ()
 
 
 def test_conversation_memory_keeps_only_last_six_turns_and_last_sku() -> None:
