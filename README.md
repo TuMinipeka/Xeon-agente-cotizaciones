@@ -69,15 +69,19 @@ uv run xeon
 | `help` | `h`, `?` | Lista de comandos. |
 | `quit` | `q`, `exit` | Sale (código 0). Ctrl-C sale con 130; Ctrl-D/EOF con 0. |
 
-Ejemplo de sesión:
+Ejemplo de sesión (flujo guiado por opciones):
 
 ```text
-xeon > Tienen tubo pvc de 1/2 pulgada?
-xeon > Cotizame 5 unidades de ese mismo          # la memoria recuerda TUB-PVC-20
-xeon > dame el descuento de siempre en 10 bultos de cemento   # sin política: no inventa %
-xeon > s
-xeon > q
+xeon > 1                                         # Elige "1. Cotizar productos"
+xeon > tubo pvc 1/2                              # Busca referencia en catálogo
+xeon > 1                                         # Selecciona la opción 1 del listado
+xeon > 10                                        # Cantidad: 10 unidades
+xeon > s                                         # Consulta estado de la sesión
+xeon > q                                         # Sale del shell
 ```
+
+> [!NOTE]
+> Tras la integración del embudo guiado (D14), la conversación en el shell `xeon` y en `/v1/chat` presenta opciones numeradas interactivas. Para la guía completa de validación manual en WhatsApp con botones y listas, consulta [`docs/QA_EMBUDO.md`](docs/QA_EMBUDO.md).
 
 **Opciones útiles**
 
@@ -206,7 +210,7 @@ uv run uvicorn xeon.api.app:app --host 127.0.0.1 --port 8000
 | Subcomando (requiere la API) | Función |
 |---|---|
 | `uv run xeon health` | Estado, proveedor y modelo activos. |
-| `uv run xeon chat "cemento"` | Un turno por `POST /v1/chat`. |
+| `uv run xeon chat "cemento"` | Un turno por `POST /v1/chat` (devuelve el paso del embudo y opciones numeradas). |
 | `uv run xeon quotes create --tenant-id demo --request-id demo-001 --line CEM-50:2` | Crear o recuperar un `DRAFT` (`replayed: true` al repetir). |
 | `uv run xeon quotes show <UUID> --tenant-id demo` | Consultar un borrador. |
 | `uv run xeon stock show --sku CEM-50 --requested-branch-id sede-norte --evaluated-at 2026-10-08T15:00:00+00:00 --requested-quantity 50` | Origen, tipo, vigencia y faltante. |
@@ -290,8 +294,7 @@ con Grok real es deliberada y acotada: `uv run xeon` y un `run`.
 Trabajo **planeado**, todavía sin implementar:
 
 1. PostgreSQL 17 con esquema relacional, `JSONB`, `pgvector` y Alembic.
-2. Embudo guiado con botones y confirmación ante un asesor (D14: aprobado, no implementado; ver la
-   wiki). El carrito conversacional ya existe en memoria.
+2. Embudo guiado con botones y confirmación ante un asesor (D14): implementado e integrado en rama; ver guía de prueba manual en [`docs/QA_EMBUDO.md`](docs/QA_EMBUDO.md).
 3. Políticas de descuento versionadas, aprobación humana por versión y PDF.
 4. Copiloto del trabajador por Gmail con hoja de alistamiento multi-sede.
 5. Telemetría de costo por tarea (S3) y prueba de carga (S4).
