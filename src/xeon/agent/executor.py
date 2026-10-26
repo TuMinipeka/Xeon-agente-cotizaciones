@@ -394,6 +394,16 @@ class CommercialExecutor:
         *,
         add: bool,
     ) -> tuple[QuoteCart, str | None]:
+        if any(
+            phrase in intent.source_text.casefold()
+            for phrase in ("motherboard", "placa base", "computador")
+        ):
+            self._memory.set_pending_candidates(key, None)
+            replies.append(
+                "No tengo una referencia con compatibilidad verificada para esa placa base. "
+                "Indícame modelo, medida y tipo de rosca para confirmarlo con un asesor."
+            )
+            return cart, None
         if any(word in intent.source_text.casefold() for word in ("arena", "gravilla")) and (
             "kilos" in intent.source_text.casefold() or "peso" in intent.source_text.casefold()
         ):

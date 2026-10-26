@@ -146,3 +146,21 @@ def test_weight_and_delivery_questions_are_both_addressed() -> None:
             await container.aclose()
 
     asyncio.run(run())
+
+
+def test_motherboard_screws_need_verified_compatibility() -> None:
+    async def run() -> None:
+        container = build_container(Settings(llm_provider="mock", _env_file=None))
+        try:
+            for message in (
+                "Hola, ¿tienen tornillos para motherboard?",
+                "¿Esos tornillos sí sirven para fijar una placa base de computador?",
+            ):
+                result = await container.agent.respond(message, conversation_key="qa-screws")
+                assert "compatibilidad verificada" in result.text
+                assert "referencia sintetica" not in result.text.casefold()
+            assert container.carts.get("qa-screws") is None
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
