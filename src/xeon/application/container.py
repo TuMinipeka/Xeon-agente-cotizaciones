@@ -17,6 +17,7 @@ from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.llm import build_llm
 from xeon.adapters.llm.metered import MeteredLLM
 from xeon.adapters.metrics.factory import build_metrics, build_pricing
+from xeon.adapters.metrics.safe import BestEffortMetrics
 from xeon.adapters.notifications.inbox import InMemoryAdvisorInbox
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.adapters.policies.yaml_store import YamlPolicyRepository
@@ -31,11 +32,13 @@ from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import ProductCatalog
 from xeon.application.ports.channels import WhatsAppChannelPort
 from xeon.application.ports.conversation_memory import ConversationMemory
+from xeon.application.ports.funnel import FunnelRepository
 from xeon.application.ports.inventory import BranchInventory
 from xeon.application.ports.llm import LLMPort
 from xeon.application.ports.metrics import MetricsRecorder
 from xeon.application.ports.policies import PolicyRepository
 from xeon.application.ports.quotes import QuoteDraftRepository
+from xeon.application.ports.state_store import ProcessedEventStore, StateTransaction
 from xeon.application.quote_draft import CreateQuoteDraft, GetQuoteDraft
 from xeon.application.stock import GetStockByBranches
 from xeon.config import Settings, SettingsError
@@ -59,6 +62,8 @@ class AppContainer:
     get_stock_by_branches: GetStockByBranches
     whatsapp_channel: WhatsAppChannelPort | None = None
     sql_reader: object | None = None
+    state_unit: StateTransaction | None = None
+    processed_events: ProcessedEventStore | None = None
     advisor_inbox: AdvisorInbox | None = None
     metrics: MetricsRecorder | None = None
 
@@ -66,6 +71,8 @@ class AppContainer:
         await self.agent.aclose()
         if self.sql_reader is not None:
             self.sql_reader.close()  # type: ignore[attr-defined]
+        if self.state_unit is not None:
+            self.state_unit.close()
         if self.whatsapp_channel is not None:
             await self.whatsapp_channel.aclose()
 
@@ -109,20 +116,47 @@ def build_container(
         default_branches = SqlBranchDirectory(sql_reader, config)
     else:
         raise SettingsError(f"DATA_SOURCE={settings.data_source} aun no esta implementado.")
-    resolved_metrics = metrics or build_metrics(settings)
+    resolved_metrics = BestEffortMetrics(metrics or build_metrics(settings))
     resolved_catalog = timed(catalog or default_catalog, resolved_metrics, "catalogo")
     resolved_inventory = timed(inventory or default_inventory, resolved_metrics, "inventario")
     resolved_branches = branches or default_branches
-    resolved_quotes = quotes or InMemoryQuoteDraftRepository()
+    state_unit: StateTransaction | None = None
+    processed_events: ProcessedEventStore | None = None
+    if settings.state_store == "postgres":
+        from xeon.adapters.persistence.postgres.advisor import PostgresAdvisorInbox
+        from xeon.adapters.persistence.postgres.memory import PostgresConversationMemory
+        from xeon.adapters.persistence.postgres.repositories import (
+            PostgresCartRepository,
+            PostgresFunnelRepository,
+            PostgresProcessedEventStore,
+            PostgresQuoteDraftRepository,
+        )
+        from xeon.adapters.persistence.postgres.unit import PostgresUnit
+
+        state_unit = PostgresUnit(settings.require_state_url(), tenant_id=settings.tenant_id)
+        resolved_quotes = quotes or PostgresQuoteDraftRepository(state_unit)
+        resolved_memory = conversation_memory or PostgresConversationMemory(
+            state_unit,
+            max_turns=settings.conversation_max_turns,
+            max_conversations=settings.conversation_max_conversations,
+        )
+        resolved_carts = carts or PostgresCartRepository(state_unit)
+        resolved_states: FunnelRepository = PostgresFunnelRepository(state_unit)
+        processed_events = PostgresProcessedEventStore(state_unit, settings.tenant_id)
+        resolved_inbox = advisor_inbox or PostgresAdvisorInbox(state_unit, settings.tenant_id)
+    else:
+        resolved_quotes = quotes or InMemoryQuoteDraftRepository()
+        resolved_memory = conversation_memory or InMemoryConversationMemory(
+            max_turns=settings.conversation_max_turns,
+            max_conversations=settings.conversation_max_conversations,
+        )
+        resolved_carts = carts or InMemoryCartRepository(
+            max_conversations=settings.conversation_max_conversations
+        )
+        resolved_states = InMemoryFunnelRepository()
+        resolved_inbox = advisor_inbox or InMemoryAdvisorInbox()
     resolved_llm: LLMPort = MeteredLLM(
         llm or build_llm(settings), resolved_metrics, build_pricing(settings)
-    )
-    resolved_memory = conversation_memory or InMemoryConversationMemory(
-        max_turns=settings.conversation_max_turns,
-        max_conversations=settings.conversation_max_conversations,
-    )
-    resolved_carts = carts or InMemoryCartRepository(
-        max_conversations=settings.conversation_max_conversations
     )
     resolved_policies = policies or YamlPolicyRepository(Path("config/policies"))
     create_quote_draft = CreateQuoteDraft(
@@ -150,7 +184,6 @@ def build_container(
         synthetic=settings.data_source == "synthetic",
     )
     executor = timed(executor, resolved_metrics, "ejecutor", methods=("execute",))
-    resolved_inbox = advisor_inbox or InMemoryAdvisorInbox()
     funnel = GuidedFunnel(
         llm=resolved_llm,
         executor=executor,
@@ -158,7 +191,7 @@ def build_container(
         catalog=resolved_catalog,
         carts=resolved_carts,
         quotes=resolved_quotes,
-        states=InMemoryFunnelRepository(),
+        states=resolved_states,
         branches=resolved_branches,
         policies=resolved_policies,
         notifier=resolved_inbox,
@@ -197,6 +230,8 @@ def build_container(
         get_stock_by_branches=get_stock_by_branches,
         whatsapp_channel=resolved_whatsapp,
         sql_reader=sql_reader,
+        state_unit=state_unit,
+        processed_events=processed_events,
         advisor_inbox=resolved_inbox,
         metrics=resolved_metrics,
     )

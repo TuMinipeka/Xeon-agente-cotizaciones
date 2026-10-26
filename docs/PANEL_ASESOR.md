@@ -6,8 +6,8 @@ renderizado en el servidor, sin JavaScript ni recursos externos.
 
 ## Qué hace
 
-- **Bandeja** de pendientes y atendidos recientes (`AdvisorInbox`, hoy en memoria; con la
-  persistencia PostgreSQL usará el mismo puerto sin cambios).
+- **Bandeja** de pendientes y atendidos recientes (`AdvisorInbox`). Con `STATE_STORE=postgres`,
+  los eventos y su estado sobreviven a reinicios; el perfil predeterminado sigue en memoria.
 - **Detalle** de la cotización vigente: líneas, total, entrega, sede, pago, vigencia y, solo para el
   asesor autenticado, el WhatsApp del cliente (en la bandeja aparece enmascarado).
 - **Acciones humanas:** *Aprobar para facturación* (`APPROVED_FOR_BILLING`), *Rechazar* con motivo
@@ -80,9 +80,10 @@ PDF») entrega el borrador como adjunto (`Content-Disposition: attachment`, nomb
 
 ## Límites y siguientes pasos
 
-- **Bandeja y sesiones siguen en memoria** hasta fusionar la persistencia (A): un reinicio cierra
-  las sesiones y borra los eventos pendientes y los intentos fallidos. Con varios workers cada uno
-  tendría su propia sesión.
+- Las sesiones y los intentos fallidos permanecen en cada proceso con caducidad. Solo se retiene
+  una huella HMAC del token de sesión; no se guarda el token ni el CSRF en claro. Reiniciar cierra
+  las sesiones. Con varios workers, el panel necesita afinidad de sesión para mantener el login;
+  las decisiones y la bandeja sí comparten PostgreSQL. La autenticación distribuida queda pendiente.
 - Una cuenta compartida por asesor; sin roles. El panel no factura: `APPROVED_FOR_BILLING` solo
   indica que un humano autorizó seguir.
 - Probado con dobles HTTP y sin llamadas reales a Kapso; el aviso al cliente no se verificó en el

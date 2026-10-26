@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -52,3 +53,7 @@ class AdvisorInbox(AdvisorNotifier, Protocol):
     def list_events(self, *, status: AttentionStatus | None = None) -> tuple[AdvisorEvent, ...]: ...
 
     def save(self, event: AdvisorEvent) -> AdvisorEvent: ...
+
+    def review_transaction(self, event_id: UUID) -> AbstractContextManager[None]:
+        """Serialize an event and its quote while applying a human decision."""
+        ...

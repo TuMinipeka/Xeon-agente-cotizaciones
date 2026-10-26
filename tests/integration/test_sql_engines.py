@@ -15,6 +15,7 @@ import yaml
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from tests.guided_steps import add_product
 from xeon.adapters.sql.connection import SqlReader
 from xeon.application.container import build_container
 from xeon.config import Settings
@@ -91,16 +92,17 @@ def test_quote_and_stock_use_prices_from_the_real_database(engine: Engine, tmp_p
     async def run() -> None:
         container = build_container(_settings(tmp_path, engine))
         try:
-            quote = await container.agent.respond("2 bultos de cemento", conversation_key="db-1")
-            stock = await container.agent.respond(
-                "¿disponibles en sede Robles?", conversation_key="db-1"
-            )
-            summary = await container.agent.respond(
-                "resumeme mi cotizacion", conversation_key="db-1"
+            quote = await add_product(container, "db-1", "cemento", "FER-01", 2)
+            await container.agent.respond_reply("more:view", conversation_key="db-1")
+            # This tenant has no delivery policy; the guided fallback asks for a branch.
+            await container.agent.respond_reply("delivery:branch_inquiry", conversation_key="db-1")
+            stock = await container.agent.respond_reply("branch:BOD-7", conversation_key="db-1")
+            summary = await container.agent.respond_reply(
+                "payment:pending", conversation_key="db-1"
             )
             assert "Cemento Ferreteria Robles" in quote.text
             assert "Ferreteria Robles Principal" in stock.text
-            assert "TOTAL confirmado: $75.100" in summary.text
+            assert "TOTAL" in summary.text and "$75.100" in summary.text
             assert [branch.id for branch in container.branches.list_branches()] == ["BOD-7"]
             snapshots = container.inventory.list_snapshots("FER-01")
             assert snapshots[0].quantity == 12
@@ -177,10 +179,10 @@ def test_naive_datetime_is_reported_as_unavailable_not_guessed(tmp_path: Path) -
     async def run() -> None:
         container = build_container(_settings(tmp_path, ENGINES["mysql"], utc_text=False))
         try:
-            await container.agent.respond("2 bultos de cemento", conversation_key="db-2")
-            stock = await container.agent.respond(
-                "¿disponibles en sede Robles?", conversation_key="db-2"
-            )
+            await add_product(container, "db-2", "cemento", "FER-01", 2)
+            await container.agent.respond_reply("more:view", conversation_key="db-2")
+            await container.agent.respond_reply("delivery:branch_inquiry", conversation_key="db-2")
+            stock = await container.agent.respond_reply("branch:BOD-7", conversation_key="db-2")
             assert "pendiente de confirmaci" in stock.text
             assert "Ferreteria Robles Principal" not in stock.text
         finally:

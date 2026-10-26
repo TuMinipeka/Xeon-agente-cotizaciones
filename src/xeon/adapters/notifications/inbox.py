@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
+from threading import RLock
 from uuid import UUID, uuid4
 
 from xeon.application.ports.advisor import (
@@ -20,6 +22,7 @@ class InMemoryAdvisorInbox:
     def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
         self._events: dict[UUID, AdvisorEvent] = {}
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._lock = RLock()
 
     def notify(
         self,
@@ -60,3 +63,9 @@ class InMemoryAdvisorInbox:
     def save(self, event: AdvisorEvent) -> AdvisorEvent:
         self._events[event.id] = event
         return event
+
+    @contextmanager
+    def review_transaction(self, event_id: UUID) -> Iterator[None]:
+        del event_id
+        with self._lock:
+            yield

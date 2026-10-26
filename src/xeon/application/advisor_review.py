@@ -62,41 +62,43 @@ class AdvisorReview:
         return self._decide(event_id, advisor, QuoteStatus.RECHAZADO_POR_ASESOR, text)
 
     def attend(self, event_id: UUID, *, advisor: str) -> ReviewOutcome:
-        event = self._pending(event_id)
-        saved = self._inbox.save(
-            replace(
-                event,
-                status=AttentionStatus.ATENDIDO,
-                resolved_by=advisor,
-                resolved_at=self._clock(),
+        with self._inbox.review_transaction(event_id):
+            event = self._pending(event_id)
+            saved = self._inbox.save(
+                replace(
+                    event,
+                    status=AttentionStatus.ATENDIDO,
+                    resolved_by=advisor,
+                    resolved_at=self._clock(),
+                )
             )
-        )
         return ReviewOutcome(saved, None)
 
     def _decide(
         self, event_id: UUID, advisor: str, target: QuoteStatus, reason: str | None
     ) -> ReviewOutcome:
-        event = self._pending(event_id)
-        if event.kind != "client_confirmed" or event.quote_id is None:
-            raise ReviewError("Solo un borrador confirmado por el cliente puede revisarse.")
-        quote = self._quotes.get(event.quote_id)
-        if quote is None:
-            raise ReviewError("El borrador ya no existe.")
-        try:
-            reviewed = review_quote(quote, target)
-        except ValueError as exc:
-            raise ReviewError(str(exc)) from exc
-        self._quotes.save(reviewed)
-        approved = target is QuoteStatus.APPROVED_FOR_BILLING
-        saved = self._inbox.save(
-            replace(
-                event,
-                status=AttentionStatus.APROBADO if approved else AttentionStatus.RECHAZADO,
-                resolved_by=advisor,
-                resolved_at=self._clock(),
-                reason=reason,
+        with self._inbox.review_transaction(event_id):
+            event = self._pending(event_id)
+            if event.kind != "client_confirmed" or event.quote_id is None:
+                raise ReviewError("Solo un borrador confirmado por el cliente puede revisarse.")
+            quote = self._quotes.get(event.quote_id)
+            if quote is None:
+                raise ReviewError("El borrador ya no existe.")
+            try:
+                reviewed = review_quote(quote, target)
+            except ValueError as exc:
+                raise ReviewError(str(exc)) from exc
+            self._quotes.save(reviewed)
+            approved = target is QuoteStatus.APPROVED_FOR_BILLING
+            saved = self._inbox.save(
+                replace(
+                    event,
+                    status=AttentionStatus.APROBADO if approved else AttentionStatus.RECHAZADO,
+                    resolved_by=advisor,
+                    resolved_at=self._clock(),
+                    reason=reason,
+                )
             )
-        )
         return ReviewOutcome(saved, APPROVED_TEXT if approved else REJECTED_TEXT)
 
     def mark_client_notified(self, event_id: UUID, *, delivered: bool) -> AdvisorEvent:

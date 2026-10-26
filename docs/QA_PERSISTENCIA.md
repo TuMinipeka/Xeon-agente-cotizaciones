@@ -108,9 +108,9 @@ Para ejecutar las pruebas manuales contra el almacén relacional de estado:
 | 1 | En el inquilino A (`tenant_id: "demo"`), inicie conversación y agregue 10 bultos de cemento. | El carrito del inquilino A contiene 10 bultos y el paso del embudo es `mas`. |
 | 2 | Envíe una solicitud con el mismo identificador de conversación (`conversation_key: "cliente-prueba"`), pero configurando el inquilino B (`tenant_id: "ferreteria_b"`). | El inquilino B inicia en el paso `inicio`, con carrito vacío. |
 | 3 | Avance en el inquilino B agregando una referencia diferente (ej. alambre). | Los carritos y estados de ambos inquilinos coexisten de forma independiente. |
-| 4 | Verifique en PostgreSQL las tablas `cart_states`, `funnel_states` y `quote_drafts`. | Cada registro está estrictamente particionado por la columna `tenant_id`. Ninguna consulta o mutación del inquilino B puede leer o modificar datos del inquilino A. |
+| 4 | Verifique en PostgreSQL las tablas `cart_states`, `funnel_states` y `quote_drafts`. | Carrito y embudo usan una clave de conversación prefijada por tenant; `quote_drafts` tiene columna `tenant_id`. Ninguna consulta del inquilino B debe recuperar datos del inquilino A. |
 
-- **Criterio de aprobación:** Aislamiento total entre inquilinos garantizado por clave primaria compuesta `(tenant_id, ...)`.
+- **Criterio de aprobación:** El repositorio devuelve solo datos del tenant configurado, tanto por clave de conversación prefijada como por filtro `tenant_id` en borradores.
 - **Resultado:** `[ ] PASS    [ ] FAIL`
 
 ---

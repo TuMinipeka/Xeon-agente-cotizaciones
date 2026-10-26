@@ -199,6 +199,8 @@ def test_password_hashing_sessions_and_throttle_units(tmp_path: Path) -> None:
     store = SessionStore(ttl_seconds=10, clock=lambda: now[0])
     session = store.create("ana")
     assert store.get(session.token) == session
+    assert session.token not in repr(store._sessions)
+    assert session.csrf not in repr(store._sessions)
     now[0] = 11
     assert store.get(session.token) is None
     throttle = LoginThrottle(max_attempts=2, window_seconds=5, clock=lambda: now[0])

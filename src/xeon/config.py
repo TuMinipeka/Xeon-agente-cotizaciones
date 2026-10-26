@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     currency: str = "COP"
     connector_root: Path = Path("connectors")
     sql_url_file: Path = Path("secrets/store_database_url.txt")
+    state_store: Literal["memory", "postgres"] = "memory"
+    xeon_state_url_file: Path = Path("secrets/xeon_state_url.txt")
     default_timezone: str = "America/Bogota"
 
     llm_provider: Literal["mock", "groq", "grok"] = "grok"
@@ -107,6 +109,19 @@ class Settings(BaseSettings):
             raise SettingsError("No se pudo leer SQL_URL_FILE.") from exc
         if not value:
             raise SettingsError("SQL_URL_FILE esta vacio.")
+        return value
+
+    def require_state_url(self) -> str:
+        if "secrets" not in self.xeon_state_url_file.resolve().parts:
+            raise SettingsError("XEON_STATE_URL_FILE debe estar dentro de secrets/.")
+        try:
+            value = self.xeon_state_url_file.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise SettingsError("No se pudo leer XEON_STATE_URL_FILE.") from exc
+        if not value:
+            raise SettingsError("XEON_STATE_URL_FILE esta vacio.")
+        if not value.startswith("postgresql+psycopg://"):
+            raise SettingsError("STATE_STORE=postgres requiere una URL PostgreSQL psycopg.")
         return value
 
     def require_groq_api_key(self) -> SecretStr:

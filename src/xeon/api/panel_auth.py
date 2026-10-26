@@ -119,33 +119,44 @@ class SessionStore:
     ) -> None:
         self._ttl = ttl_seconds
         self._clock = clock
-        self._sessions: dict[str, PanelSession] = {}
+        self._secret = secrets.token_bytes(32)
+        # Only a keyed digest is retained; the cookie and CSRF tokens exist in requests.
+        self._sessions: dict[str, tuple[str, float]] = {}
+
+    def _key(self, token: str) -> str:
+        return hmac.new(self._secret, token.encode(), "sha256").hexdigest()
+
+    def _csrf(self, token: str) -> str:
+        return hmac.new(self._secret, f"csrf:{token}".encode(), "sha256").hexdigest()
 
     @property
     def ttl_seconds(self) -> float:
         return self._ttl
 
     def create(self, username: str) -> PanelSession:
-        session = PanelSession(
-            token=secrets.token_urlsafe(32),
+        token = secrets.token_urlsafe(32)
+        expires_at = self._clock() + self._ttl
+        self._sessions[self._key(token)] = (username, expires_at)
+        return PanelSession(
+            token=token,
             username=username,
-            csrf=secrets.token_urlsafe(24),
-            expires_at=self._clock() + self._ttl,
+            csrf=self._csrf(token),
+            expires_at=expires_at,
         )
-        self._sessions[session.token] = session
-        return session
 
     def get(self, token: str | None) -> PanelSession | None:
         if not token:
             return None
-        session = self._sessions.get(token)
-        if session is None:
+        key = self._key(token)
+        record = self._sessions.get(key)
+        if record is None:
             return None
-        if session.expires_at <= self._clock():
-            self._sessions.pop(token, None)
+        username, expires_at = record
+        if expires_at <= self._clock():
+            self._sessions.pop(key, None)
             return None
-        return session
+        return PanelSession(token, username, self._csrf(token), expires_at)
 
     def delete(self, token: str | None) -> None:
         if token:
-            self._sessions.pop(token, None)
+            self._sessions.pop(self._key(token), None)

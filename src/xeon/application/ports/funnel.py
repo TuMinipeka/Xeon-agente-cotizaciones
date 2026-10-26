@@ -1,5 +1,6 @@
 """Conversation-local guided step state."""
 
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -24,6 +25,8 @@ class FunnelState:
 
 
 class FunnelRepository(Protocol):
+    def conversation(self, key: str) -> AbstractAsyncContextManager[None]: ...
+
     def get(self, conversation_key: str) -> FunnelState: ...
 
     def save(self, conversation_key: str, state: FunnelState) -> None: ...

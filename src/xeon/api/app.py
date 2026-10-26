@@ -46,6 +46,7 @@ from xeon.application.quote_draft import (
     QuoteDraftReady,
     QuoteNotFoundError,
 )
+from xeon.application.reply import Reply
 from xeon.application.stock import AvailabilityItem, GetStockByBranchesQuery, StockByBranches
 from xeon.config import Settings, SettingsError, get_settings
 from xeon.domain.inventory import InvalidInventoryError
@@ -181,23 +182,43 @@ def create_app(
         )
 
     async def process_kapso_message(incoming: IncomingWhatsAppMessage) -> None:
+        key = f"kapso-{incoming.instance}-{incoming.sender_number}"
+
+        async def send(reply: Reply) -> None:
+            if runtime.whatsapp_channel is None:
+                return
+            sent_at = time.perf_counter()
+            try:
+                await runtime.whatsapp_channel.send_reply(
+                    recipient_number=incoming.sender_number, reply=reply
+                )
+            finally:
+                if runtime.metrics is not None:
+                    with metric_context(step=reply.step):
+                        record_stage(runtime.metrics, "envio_kapso", sent_at)
+
         try:
-            reply = await runtime.agent.respond_reply(
-                incoming.text,
-                conversation_key=f"kapso-{incoming.instance}-{incoming.sender_number}",
-                request_id=f"kapso-{incoming.external_message_id}",
-                option_id=incoming.option_id,
-            )
-            if runtime.whatsapp_channel is not None:
-                sent_at = time.perf_counter()
-                try:
-                    await runtime.whatsapp_channel.send_reply(
-                        recipient_number=incoming.sender_number, reply=reply
+            if runtime.state_unit is not None and runtime.processed_events is not None:
+                async with runtime.state_unit.conversation(key):
+                    if not runtime.processed_events.claim(
+                        incoming.instance, incoming.external_message_id
+                    ):
+                        return
+                    reply = await runtime.agent.respond_reply(
+                        incoming.text,
+                        conversation_key=key,
+                        request_id=f"kapso-{incoming.external_message_id}",
+                        option_id=incoming.option_id,
                     )
-                finally:
-                    if runtime.metrics is not None:
-                        with metric_context(step=reply.step):
-                            record_stage(runtime.metrics, "envio_kapso", sent_at)
+                    await send(reply)
+            else:
+                reply = await runtime.agent.respond_reply(
+                    incoming.text,
+                    conversation_key=key,
+                    request_id=f"kapso-{incoming.external_message_id}",
+                    option_id=incoming.option_id,
+                )
+                await send(reply)
         except LLMProviderError, ChannelDeliveryError:
             # The signed webhook was accepted; provider errors cannot be returned after the ack.
             seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)
@@ -230,12 +251,13 @@ def create_app(
             )
             if incoming is None:
                 continue
-            dedup_key = (incoming.instance, incoming.external_message_id)
-            if dedup_key in seen_kapso_messages:
-                continue
-            seen_kapso_messages[dedup_key] = None
-            while len(seen_kapso_messages) > _MAX_SEEN_WEBHOOK_IDS:
-                seen_kapso_messages.popitem(last=False)
+            if runtime.state_unit is None:
+                dedup_key = (incoming.instance, incoming.external_message_id)
+                if dedup_key in seen_kapso_messages:
+                    continue
+                seen_kapso_messages[dedup_key] = None
+                while len(seen_kapso_messages) > _MAX_SEEN_WEBHOOK_IDS:
+                    seen_kapso_messages.popitem(last=False)
             background_tasks.add_task(process_kapso_message, incoming)
             accepted += 1
         return {"status": "processed" if accepted else "ignored"}
