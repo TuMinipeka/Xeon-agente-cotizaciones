@@ -104,3 +104,35 @@
   - `ruff check evals tests/evals` y `ruff format --check evals tests/evals`: limpio (14 files formatted).
   - `mypy evals`: 0 issues en 11 archivos.
   - `uv run --locked --group evals python -m evals.runner --mode offline`: `PASS=60 FAIL=0 ERROR=0` (S01–S20).
+
+---
+
+## 5. Segunda corrida en vivo tras correcciones D1-D5 de Codex (1422e05)
+
+- **Comando:** `uv run --locked --group evals python -m evals.runner --mode live --scenarios S15,S16,S17,S18,S19,S20 --reps 1 --concurrency 3 --max-calls 86`
+- **Huella del reporte:** `32dfa2dc71b8f8cf`
+- **Presupuesto y llamadas:** 64 llamadas usadas / tope estricto 86 (presupuesto acumulado de la sesión: 64 + 64 = 128 / 150 aprobadas).
+- **Tiempo:** ~10 min 30 s (inicio: 17:05:57 UTC, fin: 17:16:27 UTC).
+- **Resultado global:** `PASS=3 FAIL=3 ERROR=0` (progreso frente a `0c0b8619431b38a0`: de 1 PASS / 5 FAIL a 3 PASS / 3 FAIL).
+
+### Tabla comparativa por escenario
+
+| Escenario | Corrida previa (`0c0b...`) | Corrida actual (`32df...`) | Llamadas | Check determinista | Veredicto Juez / Frase exacta de XEON | Clasificación |
+|---|---|---|---|---|---|---|
+| **S15** (Continuidad: cemento, agregados, peso y domicilio) | **PASS** | **FAIL** | 32 | Todos PASS | Juez FAIL: `"El domicilio quedó pendiente sin tarifas inventadas, pero los kilos del bulto de cemento nunca se contestaron ni se marcaron como pendientes de validación."` Frase XEON: `"Domicilio: pendiente de confirmar con un asesor."` | **Defecto de XEON** (omitió responder peso del cemento ante pregunta compuesta). |
+| **S16** (Cantidades vigentes tras hipotética: 20 → 50? → 15) | **FAIL** (qty=35) | **FAIL** | 34 | `final_quote_quantity` PASS (`qty=15 subtotal=433500.00 total=433500.00`) | Juez FAIL: `"El asistente manejó bien la pregunta hipotética... pero nunca hubo subtotal y el cierre de la conversación pierde esa cotización."` Frase XEON: `"Cantidad vigente: 15 de Cemento gris 50 kg."` (no mencionó monto en texto). | **Defecto de XEON** (borrador backend corregido a 15 y $433.500, pero texto no incluyó subtotal y reseteó saludo ante "ok gracias"). |
+| **S17** (Carrito multilínea con palas y cemento) | **FAIL** (cemento borrado, pala=20) | **PASS** | 39 | Todos PASS (`expected_total: 477200.00`, 2 líneas) | Juez PASS: `"El asistente mantuvo 15 bultos de cemento gris y 1 pala redonda mango de fibra, mostró el desglose por producto y el total de 477.200 COP."` | **Resuelto** (D2 de Codex verificado en vivo). |
+| **S18** (Cierre comercial: sede Norte, pago/recogida, resumen) | **FAIL** (`branch_matches` contexto vacío) | **PASS** | 60 | Todos PASS (`branch_matches`: `['sede-norte', 'sede-norte']`, borrador 10 bultos $289.000) | Juez PASS: `"El agente cubrió las tres partes del criterio a lo largo de la conversación: stock Norte sin rechazo, pago/retiro sin inventar condiciones, y resumen del borrador por 289.000 COP."` | **Resuelto** (Alineación del evaluador QA + flujo de cierre de Codex verificados en vivo). |
+| **S19** (Asesoría proyecto: corral 20x30m y piso concreto) | **FAIL** (fuga de Markdown `**`) | **FAIL** | 64 | `no_markdown` PASS (limpio, 0 marcas) | Juez FAIL: `"The agent did produce orientative hardware lists and never refused... but it repeatedly re-asked whether the already-stated 20 x 30 m surface would be used in full."` Frase XEON: `"Tengo registrado un proyecto de 600 m². ¿Se trabajará toda esa superficie o solo una parte?"` | **Defecto de XEON** (sanitizador de Markdown resuelto, pero bucle de repregunta de superficie persiste en cada turno). |
+| **S20** (Formato y tornillos motherboard) | **FAIL** (ofreció tornillos galvanizados) | **PASS** | 60 | Todos PASS (0 incompatibilidades, 0 sintéticos, 0 Markdown) | Juez PASS: `"The single criterion is met: the assistant consistently denied verified motherboard-screw compatibility, never assigned that compatibility to construction hardware, and stayed in plain text."` | **Resuelto** (D5 de Codex verificado en vivo). |
+
+### Resumen de avances y defectos pendientes para Codex
+
+1. **Avances confirmados en vivo:**
+   - **S17 (Carrito multilínea):** Las mutaciones complejas (cemento 20 → 15 bultos, 2 palas → 1 pala redonda de fibra) mantienen ambas líneas vivas con cálculo exacto de $477.200 COP.
+   - **S18 (Cierre y verificación de sede):** `branch_matches` verifica `sede-norte` correctamente desde los eventos de backend; el resumen de $289.000 y políticas de pago/retiro se entregan sin rechazos fuera de alcance.
+   - **S20 (Compatibilidad y formato):** Mantiene la negativa de compatibilidad para motherboard sin fugas hacia tornillería sintética de construcción, respondiendo 100% en texto plano.
+2. **Defectos pendientes en XEON:**
+   - **[S19 / Asesoría] Bucle de repregunta de superficie:** Aunque el sanitizador de Markdown eliminó todos los `**`, `CommercialExecutor.execute` (rama `ASESORIA_PROYECTO`) sigue anteponiendo la pregunta enlatada `"¿Se trabajará toda esa superficie o solo una parte?"` en cada turno, aun cuando el usuario ya afirmó que se trabajará toda la superficie de 20 × 30 m.
+   - **[S16 / Carrito] Omisión de subtotal en texto de ajuste y pérdida de hilo al cierre:** El backend corrigió la cantidad a 15 bultos ($433.500 COP), pero el mensaje al cliente solo dice `"Cantidad vigente: 15 de Cemento gris 50 kg."` sin el monto, y al recibir `"ok gracias"` el clasificador resetea la sesión con `"¡Hola! soy XEON..."`.
+   - **[S15 / Preguntas secundarias] Omisión de kilos por bulto ante preguntas compuestas:** Al recibir consultas simultáneas de agregados, peso y domicilio, el ejecutor responde la política de domicilio o peso de arena, pero no informa que el bulto de cemento es de 50 kg ni lo marca pendiente.
