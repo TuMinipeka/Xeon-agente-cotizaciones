@@ -3012,6 +3012,7 @@ dependencies = [
 [package.dev-dependencies]
 db = [
     { name = "sqlalchemy" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 db-test = [
     { name = "cryptography" },
@@ -3047,7 +3048,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-db = [{ name = "sqlalchemy", specifier = ">=2.0.40,<3.0" }]
+db = [
+    { name = "sqlalchemy", specifier = ">=2.0.40,<3.0" },
+    { name = "tzdata", marker = "sys_platform == 'win32'", specifier = ">=2024.1" },
+]
 db-test = [
     { name = "cryptography", specifier = ">=43" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },

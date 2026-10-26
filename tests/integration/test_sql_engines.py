@@ -52,15 +52,12 @@ def engine(request: pytest.FixtureRequest) -> Engine:
 
 
 def _connector_root(tmp_path: Path, engine: Engine, *, utc_text: bool) -> Path:
-    """MySQL no tiene DATETIME con zona: el YAML debe emitir el instante UTC con sufijo."""
+    """MySQL no tiene DATETIME con zona: el YAML declara la zona con naive_datetime_timezone."""
     root = tmp_path / "connectors"
     root.mkdir(exist_ok=True)
     text_yaml = EXAMPLE.read_text(encoding="utf-8")
     if engine.name == "mysql" and utc_text:
-        for column in ("actualizado", "vigente_hasta"):
-            text_yaml = text_yaml.replace(
-                f"e.{column}", f"DATE_FORMAT(e.{column}, '%Y-%m-%dT%H:%i:%s+00:00') AS {column}"
-            )
+        text_yaml += "naive_datetime_timezone: UTC\n"
     (root / "example-ferreteria.yaml").write_text(text_yaml, encoding="utf-8")
     return root
 
@@ -148,19 +145,21 @@ def test_read_only_user_cannot_write_even_through_the_connector(engine: Engine) 
     assert _count(engine.admin_url, "articulos") == before
 
 
-def test_postgres_transaction_is_read_only_even_for_a_writer_account() -> None:
-    reader = SqlReader(ENGINES["postgresql"].admin_url, timeout_seconds=5)
-    before = _count(ENGINES["postgresql"].admin_url, "articulos")
+def test_session_is_read_only_even_for_a_writer_account(engine: Engine) -> None:
+    reader = SqlReader(engine.admin_url, timeout_seconds=5)
+    before = _count(engine.admin_url, "articulos")
     try:
-        with pytest.raises(SQLAlchemyError, match="read-only"):
+        with pytest.raises(SQLAlchemyError, match=r"(?i)read.only"):
             reader.rows(
                 ReadQuery.model_construct(
                     sql="INSERT INTO articulos VALUES ('HACK', 'x', 'UND', 1, 'x')", columns={}
                 )
             )
+        with pytest.raises(SQLAlchemyError, match=r"(?i)read.only"):
+            reader.rows(ReadQuery.model_construct(sql="DELETE FROM existencias", columns={}))
     finally:
         reader.close()
-    assert _count(ENGINES["postgresql"].admin_url, "articulos") == before
+    assert _count(engine.admin_url, "articulos") == before
 
 
 def test_connector_yaml_with_dml_is_rejected(tmp_path: Path) -> None:

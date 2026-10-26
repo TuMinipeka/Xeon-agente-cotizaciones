@@ -5,6 +5,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from pydantic import ValidationError
@@ -15,9 +16,22 @@ from xeon.config import Settings, SettingsError
 from xeon.connectors.schema import ReadQuery, load_connector
 
 
-def _store(tmp_path: Path) -> Settings:
+def _connector_root(tmp_path: Path, zone: str | None) -> Path:
+    if zone is None:
+        return Path("connectors")
+    root = tmp_path / "connectors"
+    root.mkdir(exist_ok=True)
+    source = Path("connectors/example-ferreteria.yaml").read_text(encoding="utf-8")
+    (root / "example-ferreteria.yaml").write_text(
+        source + f"naive_datetime_timezone: {zone}\n", encoding="utf-8"
+    )
+    return root
+
+
+def _store(tmp_path: Path, *, naive: bool = False, zone: str | None = None) -> Settings:
     db = tmp_path / "inventario.db"
     now = datetime.now(UTC)
+    local = now.astimezone(ZoneInfo(zone or "UTC"))
     with sqlite3.connect(db) as connection:
         connection.executescript("""
             CREATE TABLE articulos (codigo TEXT, titulo TEXT, unidad_venta TEXT,
@@ -36,7 +50,19 @@ def _store(tmp_path: Path) -> Settings:
         )
         connection.execute(
             "INSERT INTO existencias VALUES (?, ?, ?, ?, ?)",
-            ("FER-01", "BOD-7", "12", now.isoformat(), (now + timedelta(hours=2)).isoformat()),
+            (
+                "FER-01",
+                "BOD-7",
+                "12",
+                *(
+                    (
+                        local.replace(tzinfo=None).isoformat(sep=" "),
+                        (local + timedelta(hours=2)).replace(tzinfo=None).isoformat(sep=" "),
+                    )
+                    if naive
+                    else (now.isoformat(), (now + timedelta(hours=2)).isoformat())
+                ),
+            ),
         )
     secret_dir = tmp_path / "secrets"
     secret_dir.mkdir()
@@ -47,7 +73,7 @@ def _store(tmp_path: Path) -> Settings:
         data_source="sql",
         tenant_id="example-ferreteria",
         currency="COP",
-        connector_root=Path("connectors"),
+        connector_root=_connector_root(tmp_path, zone),
         sql_url_file=url_file,
         _env_file=None,
     )
@@ -118,3 +144,46 @@ def test_example_yaml_validates() -> None:
 def test_future_sources_fail_explicitly(source: str) -> None:
     with pytest.raises(SettingsError, match="aun no esta implementado"):
         build_container(Settings(data_source=source, llm_provider="mock", _env_file=None))
+
+
+def _stock_text(settings: Settings) -> str:
+    async def run() -> str:
+        container = build_container(settings)
+        try:
+            await container.agent.respond("2 bultos de cemento", conversation_key="sql-n")
+            reply = await container.agent.respond(
+                "¿disponibles en sede Robles?", conversation_key="sql-n"
+            )
+            return reply.text
+        finally:
+            await container.aclose()
+
+    return asyncio.run(run())
+
+
+def test_naive_datetime_is_rejected_unless_a_zone_is_declared(tmp_path: Path) -> None:
+    text = _stock_text(_store(tmp_path, naive=True))
+    assert "pendiente de confirmaci" in text
+    assert "Ferreteria Robles Principal" not in text
+
+
+def test_declared_zone_makes_naive_datetime_usable(tmp_path: Path) -> None:
+    text = _stock_text(_store(tmp_path, naive=True, zone="America/Bogota"))
+    assert "Ferreteria Robles Principal" in text
+
+
+def test_naive_zone_converts_to_that_offset_and_rejects_unknown_zone() -> None:
+    from datetime import datetime
+
+    from xeon.adapters.inventory.sql import _instant
+
+    naive = datetime(2026, 10, 26, 12, 0, 0)
+    assert _instant(naive, "UTC") == "2026-10-26T12:00:00+00:00"
+    assert _instant(naive, "America/Bogota") == "2026-10-26T12:00:00-05:00"
+    assert _instant("2026-10-26 12:00:00", "UTC") == "2026-10-26T12:00:00+00:00"
+    assert _instant("2026-10-26T12:00:00+00:00", "UTC") == "2026-10-26T12:00:00+00:00"
+    assert _instant(naive, None) == str(naive)
+    data = {"naive_datetime_timezone": "Marte/Olimpo"}
+    base = load_connector(Path("connectors/example-ferreteria.yaml")).model_dump()
+    with pytest.raises(ValidationError):
+        type(load_connector(Path("connectors/example-ferreteria.yaml"))).model_validate(base | data)

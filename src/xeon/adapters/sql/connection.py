@@ -25,6 +25,16 @@ class SqlReader:
             def postgres_readonly(connection: Any) -> None:
                 connection.exec_driver_sql("SET TRANSACTION READ ONLY")
 
+        elif dialect in {"mysql", "mariadb"}:
+
+            @event.listens_for(self._engine, "connect")
+            def mysql_readonly(connection: Any, _record: Any) -> None:
+                cursor = connection.cursor()
+                try:
+                    cursor.execute("SET SESSION TRANSACTION READ ONLY")
+                finally:
+                    cursor.close()
+
         self._timeout_seconds = timeout_seconds
 
     def rows(self, statement: ReadQuery, **params: str | int) -> tuple[Mapping[str, Any], ...]:

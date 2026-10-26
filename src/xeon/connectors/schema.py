@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -55,6 +56,19 @@ class ConnectorConfig(BaseModel):
     unit_map: dict[str, str] = Field(default_factory=dict)
     timeout_seconds: int = Field(default=5, ge=1, le=60)
     catalog_version: str = "sql-live"
+    # Zona IANA con la que se interpretan fechas sin tzinfo (p. ej. MySQL DATETIME).
+    # Sin declararla, una fecha sin zona se rechaza.
+    naive_datetime_timezone: str | None = None
+
+    @field_validator("naive_datetime_timezone")
+    @classmethod
+    def known_timezone(cls, value: str | None) -> str | None:
+        if value is not None:
+            try:
+                ZoneInfo(value)
+            except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
+                raise ValueError("naive_datetime_timezone no es una zona IANA conocida.") from exc
+        return value
 
     @model_validator(mode="after")
     def required_binds(self) -> ConnectorConfig:

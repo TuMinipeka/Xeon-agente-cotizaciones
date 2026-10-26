@@ -4,6 +4,9 @@ unit_map:
   SAC: bulto
 timeout_seconds: 5
 catalog_version: ejemplo-1
+# MySQL/MariaDB: DATETIME no trae zona. Declarala para interpretar esas fechas; sin ella el stock
+# queda pendiente de un asesor. Ejemplo: naive_datetime_timezone: UTC (o America/Bogota).
+# naive_datetime_timezone: UTC
 find_by_sku:
   sql: "SELECT codigo, titulo, unidad_venta, precio_centavos, alias_texto FROM articulos WHERE codigo = :sku OR alias_texto = :sku"
   columns: {sku: codigo, name: titulo, unit: unidad_venta, price: precio_centavos, aliases: alias_texto}

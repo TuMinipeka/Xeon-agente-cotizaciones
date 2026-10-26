@@ -32,3 +32,9 @@ docker compose -f compose.db-test.yaml down -v
 ```
 
 Nota: el puerto MySQL es 53450 porque Windows reserva 53232–53331 en esta máquina.
+
+## Decisiones H1/H2 (implementadas, 2026-10-26)
+
+- **H1:** campo opcional `naive_datetime_timezone` (zona IANA) en `ConnectorConfig`; `SqlBranchInventory` aplica esa zona solo a fechas sin `tzinfo` (también a cadenas ISO sin zona). Sin el campo se mantiene el rechazo (falla segura). Zona desconocida: el conector no carga. Documentado en `docs/CONECTOR_FERRETERIA.md` y en el YAML de ejemplo; `tzdata` se añadió al grupo `db` solo para Windows.
+- **H2:** `SqlReader` ejecuta `SET SESSION TRANSACTION READ ONLY` al conectar en MySQL/MariaDB. La integración prueba que, con la cuenta de escritura (`root` de prueba), un `INSERT` y un `DELETE` forjados fallan en ambos motores y el conteo no cambia.
+- **Pruebas:** 3 unitarias SQLite (sin campo, con campo, conversión y zona inválida) y la integración MySQL ahora usa `DATETIME` crudo con `naive_datetime_timezone: UTC`; conserva la prueba sin campo. Resultado: 313 passed y 10 integration passed (PostgreSQL 17.6 y MySQL 8.4.6). Contenedores retirados. Páginas por actualizar por el orquestador: [conector de la ferretería](../pages/conector-ferreteria.md).
