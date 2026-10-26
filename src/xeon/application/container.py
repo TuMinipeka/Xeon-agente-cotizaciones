@@ -15,6 +15,8 @@ from xeon.adapters.conversation.funnel import InMemoryFunnelRepository
 from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.llm import build_llm
+from xeon.adapters.llm.metered import MeteredLLM
+from xeon.adapters.metrics.factory import build_metrics, build_pricing
 from xeon.adapters.notifications.logging import LoggingAdvisorNotifier
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.adapters.policies.yaml_store import YamlPolicyRepository
@@ -22,6 +24,7 @@ from xeon.agent.executor import CommercialExecutor
 from xeon.agent.guided_funnel import GuidedFunnel
 from xeon.agent.service import AgentService
 from xeon.agent.toolbelt import CommercialToolbelt
+from xeon.application.observability import timed
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import ProductCatalog
@@ -29,6 +32,7 @@ from xeon.application.ports.channels import WhatsAppChannelPort
 from xeon.application.ports.conversation_memory import ConversationMemory
 from xeon.application.ports.inventory import BranchInventory
 from xeon.application.ports.llm import LLMPort
+from xeon.application.ports.metrics import MetricsRecorder
 from xeon.application.ports.policies import PolicyRepository
 from xeon.application.ports.quotes import QuoteDraftRepository
 from xeon.application.quote_draft import CreateQuoteDraft, GetQuoteDraft
@@ -54,6 +58,7 @@ class AppContainer:
     get_stock_by_branches: GetStockByBranches
     whatsapp_channel: WhatsAppChannelPort | None = None
     sql_reader: object | None = None
+    metrics: MetricsRecorder | None = None
 
     async def aclose(self) -> None:
         await self.agent.aclose()
@@ -76,6 +81,7 @@ def build_container(
     policies: PolicyRepository | None = None,
     whatsapp_channel: WhatsAppChannelPort | None = None,
     clock: Callable[[], datetime] | None = None,
+    metrics: MetricsRecorder | None = None,
 ) -> AppContainer:
     sql_reader = None
     if settings.data_source == "synthetic":
@@ -100,11 +106,14 @@ def build_container(
         default_branches = SqlBranchDirectory(sql_reader, config)
     else:
         raise SettingsError(f"DATA_SOURCE={settings.data_source} aun no esta implementado.")
-    resolved_catalog = catalog or default_catalog
-    resolved_inventory = inventory or default_inventory
+    resolved_metrics = metrics or build_metrics(settings)
+    resolved_catalog = timed(catalog or default_catalog, resolved_metrics, "catalogo")
+    resolved_inventory = timed(inventory or default_inventory, resolved_metrics, "inventario")
     resolved_branches = branches or default_branches
     resolved_quotes = quotes or InMemoryQuoteDraftRepository()
-    resolved_llm = llm or build_llm(settings)
+    resolved_llm: LLMPort = MeteredLLM(
+        llm or build_llm(settings), resolved_metrics, build_pricing(settings)
+    )
     resolved_memory = conversation_memory or InMemoryConversationMemory(
         max_turns=settings.conversation_max_turns,
         max_conversations=settings.conversation_max_conversations,
@@ -137,6 +146,7 @@ def build_container(
         currency=settings.currency,
         synthetic=settings.data_source == "synthetic",
     )
+    executor = timed(executor, resolved_metrics, "ejecutor", methods=("execute",))
     funnel = GuidedFunnel(
         llm=resolved_llm,
         executor=executor,
@@ -154,6 +164,7 @@ def build_container(
     agent = AgentService(
         resolved_llm,
         funnel=funnel,
+        metrics=resolved_metrics,
     )
 
     resolved_whatsapp = whatsapp_channel
@@ -182,4 +193,5 @@ def build_container(
         get_stock_by_branches=get_stock_by_branches,
         whatsapp_channel=resolved_whatsapp,
         sql_reader=sql_reader,
+        metrics=resolved_metrics,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -23,6 +24,7 @@ from xeon.api.schemas import (
     StockByBranchesOut,
 )
 from xeon.application.container import AppContainer, build_container
+from xeon.application.observability import metric_context, record_stage
 from xeon.application.ports.catalog import ProductCatalog
 from xeon.application.ports.channels import (
     ChannelDeliveryError,
@@ -186,9 +188,15 @@ def create_app(
                 option_id=incoming.option_id,
             )
             if runtime.whatsapp_channel is not None:
-                await runtime.whatsapp_channel.send_reply(
-                    recipient_number=incoming.sender_number, reply=reply
-                )
+                sent_at = time.perf_counter()
+                try:
+                    await runtime.whatsapp_channel.send_reply(
+                        recipient_number=incoming.sender_number, reply=reply
+                    )
+                finally:
+                    if runtime.metrics is not None:
+                        with metric_context(step=reply.step):
+                            record_stage(runtime.metrics, "envio_kapso", sent_at)
         except LLMProviderError, ChannelDeliveryError:
             # The signed webhook was accepted; provider errors cannot be returned after the ack.
             seen_kapso_messages.pop((incoming.instance, incoming.external_message_id), None)

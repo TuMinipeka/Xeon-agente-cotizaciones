@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -64,6 +65,13 @@ class Settings(BaseSettings):
     grok_api_key_file: Path | None = Path("secrets/grok_api_key.txt")
     grok_base_url: str = "https://api.reto.pltk.mx/v1"
     grok_model: str = "grok-4.6"
+
+    # Observabilidad: JSONL opcional y tarifa por millon de tokens. La unidad de la pasarela del
+    # reto no esta documentada; las tarifas son un supuesto configurable, no un precio oficial.
+    metrics_path: Path | None = None
+    llm_price_input_per_mtok: Decimal | None = None
+    llm_price_output_per_mtok: Decimal | None = None
+    llm_price_unit: str = "unidad-no-documentada"
 
     whatsapp_send_enabled: bool = False
     kapso_api_base_url: str = "https://api.kapso.ai"
