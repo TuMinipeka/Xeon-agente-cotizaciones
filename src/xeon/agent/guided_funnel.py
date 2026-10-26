@@ -515,7 +515,18 @@ class GuidedFunnel:
             case "entrega", "delivery:home":
                 state = replace(state, step="direccion", delivery="domicilio")
             case "sede", choice if choice.startswith("branch:"):
-                state = replace(state, step="pago", branch_id=choice.removeprefix("branch:"))
+                branch_id = choice.removeprefix("branch:")
+                status = self._branch_stock(key, branch_id)
+                branch = next(
+                    item for item in self._branches.list_branches() if item.id == branch_id
+                )
+                state = replace(state, step="pago", branch_id=branch_id)
+                self._save(key, state)
+                if status == "pendiente":
+                    return self.render(
+                        key, prefix="Stock pendiente de confirmación con un asesor.\n"
+                    )
+                return self.render(key, prefix=f"{branch.name}: stock {status}.\n")
             case "pago", choice if choice.startswith("payment:"):
                 methods = self._policies.load(self._tenant_id).pagos or []
                 if choice == "payment:pending":
