@@ -12,7 +12,7 @@ Notas de la wiki compartida (`wiki`). Regenerado por `scripts/build_graphify_map
 - [Grafo proyecto](../pages/grafo-proyecto.md)
 - [Orquestacion](../pages/orquestacion.md)
 
-## Notas del grafo (48)
+## Notas del grafo (49)
 
 - [wikiREADME](generated/wikiREADME.md)
 - [wikiSCHEMA](generated/wikiSCHEMA.md)
@@ -53,6 +53,7 @@ Notas de la wiki compartida (`wiki`). Regenerado por `scripts/build_graphify_map
 - [wikipagesgrafo-proyecto](generated/wikipagesgrafo-proyecto.md)
 - [wikipageshito-s2](generated/wikipageshito-s2.md)
 - [wikipagesorquestacion](generated/wikipagesorquestacion.md)
+- [wikipagespropuesta-fase3](generated/wikipagespropuesta-fase3.md)
 - [wikipagespropuestas-escalado](generated/wikipagespropuestas-escalado.md)
 - [wikipagesqa-conde-2026-10-24](generated/wikipagesqa-conde-2026-10-24.md)
 - [wikipagesque-es-xeon](generated/wikipagesque-es-xeon.md)

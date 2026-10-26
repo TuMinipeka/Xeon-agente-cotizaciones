@@ -26,6 +26,7 @@ Punto de entrada del grafo: enlaza la wiki, los documentos del repositorio y una
 - [grafo-proyecto](../pages/grafo-proyecto.md)
 - [hito-s2](../pages/hito-s2.md)
 - [orquestacion](../pages/orquestacion.md)
+- [propuesta-fase3](../pages/propuesta-fase3.md)
 - [propuestas-escalado](../pages/propuestas-escalado.md)
 - [qa-conde-2026-10-24](../pages/qa-conde-2026-10-24.md)
 - [que-es-xeon](../pages/que-es-xeon.md)

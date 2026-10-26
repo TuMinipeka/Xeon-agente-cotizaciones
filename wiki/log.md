@@ -352,3 +352,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Embudo (D14):** pasa a `implementado`: único flujo desde el merge `aa90b94` (`GUIDED_FUNNEL_ENABLED`, `IntentInterpreter` y `CustomerResponsePolicy` retirados; Grok solo clasifica texto de pasos cerrados); offline S01–S22 × 3 = 66 PASS según Codex. Límites: Kapso `interactive` verificado solo con documentación y dobles (falta el sandbox real), sin corrida en vivo del embudo, estado local al proceso. Las discrepancias entre el contrato y el código están en corrección por Codex.
 - **Páginas:** embudo de cotización, QA de Conde, conector de la ferretería (H1/H2 corregidos), estado del corte, arquitectura actual, grafo del proyecto (hubs, mapa, colores, bóveda `wiki/` en uso, pasos para el usuario), decisiones (estado de D14) e índice (leyenda con `hub` y `comunidad`). Grafo regenerado.
 - **Pendiente:** payload real de Kapso `interactive` en sandbox; corrida en vivo del embudo; aplicar los colores con Obsidian cerrado.
+
+## [2026-10-26] propuesta | Fase 3 para decisión del usuario
+
+- **Página nueva:** [propuesta de la fase 3](pages/propuesta-fase3.md) (`xeon/decision`, estado `propuesta`): cinco opciones (A persistencia en PostgreSQL propio, B asesor, aprobación humana y PDF, C búsqueda híbrida, D adaptadores REST Siigo/Alegra, E observabilidad), cada una con diseño hexagonal, tecnología con versión y fuente, esfuerzo, riesgos y criterio de aceptación; orden recomendado A, E, B, D, C y cinco preguntas.
+- **Procedencia y límites:** versiones de PyPI y README del 2026-10-26. La documentación oficial de Siigo (Apiary) y la autenticación de Alegra no se pudieron leer; esos datos quedan **por verificar**. Sin código ni dependencias.
