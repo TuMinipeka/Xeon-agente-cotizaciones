@@ -214,3 +214,15 @@ El usuario pidió el 2026-10-26 que XEON no divague ni ofrezca soluciones: debe 
 - **Estado:** `implementado` (merge `aa90b94`, 2026-10-26); Kapso `interactive` sin verificar en el sandbox.
 
 Grafo: [capa docs](../graph/hub-docs.md) · [mapa del proyecto](../graph/mapa-proyecto.md)
+
+## D15: Prioridades de la fase 3
+
+El usuario decidió el 2026-10-26, sobre la [propuesta de la fase 3](propuesta-fase3.md):
+
+- **Prioridad:** **A + E**.
+  - **A:** persistencia del estado operativo de XEON (embudo, carrito, borradores y deduplicación) en un **PostgreSQL propio de XEON**, que no es la base de la ferretería.
+  - **E:** medición real de tokens, latencia y costo por tarea.
+- **PostgreSQL:** autorizado como **contenedor local** de desarrollo. El alojamiento de producción y el tiempo de retención de los datos del cliente quedan por definir.
+- **Aviso al asesor:** **panel web** (opción B, después de A). El registro en log actual es provisional.
+- **Publicación:** se autorizó el push de `developer/daniel` y el PR hacia `develop`. La fusión requiere otra confirmación.
+- **Después:** B (panel del asesor, aprobación humana y PDF), D (REST para ERP, cuando haya acceso de prueba) y C (búsqueda híbrida, con un catálogo real).

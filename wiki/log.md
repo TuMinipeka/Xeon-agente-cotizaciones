@@ -357,3 +357,8 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **Página nueva:** [propuesta de la fase 3](pages/propuesta-fase3.md) (`xeon/decision`, estado `propuesta`): cinco opciones (A persistencia en PostgreSQL propio, B asesor, aprobación humana y PDF, C búsqueda híbrida, D adaptadores REST Siigo/Alegra, E observabilidad), cada una con diseño hexagonal, tecnología con versión y fuente, esfuerzo, riesgos y criterio de aceptación; orden recomendado A, E, B, D, C y cinco preguntas.
 - **Procedencia y límites:** versiones de PyPI y README del 2026-10-26. La documentación oficial de Siigo (Apiary) y la autenticación de Alegra no se pudieron leer; esos datos quedan **por verificar**. Sin código ni dependencias.
+
+## [2026-10-26] decisión | Fase 3 (D15) y PR
+
+- **Decisión del usuario:** A + E primero, PostgreSQL propio en contenedor local y panel web para el asesor. Detalle en [D15](pages/decisiones-pendientes.md).
+- **Embudo:** Codex lo alineó con el contrato D14 (`dcfc794`): 3 botones reales, cantidades según la unidad y políticas respondidas en cualquier paso. Gate en verde, con 66 de 66 offline.
