@@ -12,7 +12,7 @@ Notas de la wiki compartida (`wiki`). Regenerado por `scripts/build_graphify_map
 - [Grafo proyecto](../pages/grafo-proyecto.md)
 - [Orquestacion](../pages/orquestacion.md)
 
-## Notas del grafo (47)
+## Notas del grafo (48)
 
 - [wikiREADME](generated/wikiREADME.md)
 - [wikiSCHEMA](generated/wikiSCHEMA.md)
@@ -37,6 +37,7 @@ Notas de la wiki compartida (`wiki`). Regenerado por `scripts/build_graphify_map
 - [wikigraphhub-wiki](generated/wikigraphhub-wiki.md)
 - [wikigraphmapa-proyecto](generated/wikigraphmapa-proyecto.md)
 - [wikigraphxeon-cli](generated/wikigraphxeon-cli.md)
+- [wikiinbox2026-10-26T-codex-funnel-contract](generated/wikiinbox2026-10-26T-codex-funnel-contract.md)
 - [wikiinboxREADME](generated/wikiinboxREADME.md)
 - [wikiindex](generated/wikiindex.md)
 - [wikilog](generated/wikilog.md)
