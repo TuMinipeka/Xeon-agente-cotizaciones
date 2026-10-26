@@ -24,7 +24,18 @@ Fuente: nota de entrega de Codex (worktree `xf`, rama `feat/guided-funnel`) y `g
 - **Sin corrida en vivo del embudo** con Grok.
 - Estado del embudo, carrito y borradores en memoria: un reinicio los pierde y la idempotencia entre procesos distintos requiere estado compartido.
 - El paso `proyecto` ofrece una lista léxica preliminar sin cantidades técnicas; el costo del domicilio siempre lo confirma un asesor; la vista de stock por sede aún toma la primera línea confirmada (pendiente: todas las líneas).
-- **Discrepancias entre este contrato y el código: en corrección por Codex.** Esta página sigue siendo el contrato original; hasta esa corrección prevalece el código.
+- **Discrepancias entre este contrato y el código:** las 5 discrepancias reportadas por agy (opciones globales que forzaban lista, pregunta de cantidad sin producto, cantidades no ajustadas a la unidad, consultas de políticas sin manejador y resumen con 4 opciones) quedaron **resueltas** por Codex en `dcfc794`.
+
+### Ajuste al contrato (dcfc794, 2026-10-26)
+
+Implementado por Codex tras la auditoría de discrepancias de agy:
+
+- **3 botones reales:** en `inicio`, `cantidad`, `mas`, `entrega` y `resumen`.
+- **Entrega con 3 botones:** tiene como tercer botón `[Hablar con asesor]` (`global:advisor`) junto a `[Recoger en sede]` y `[Domicilio]` para completar las tres alternativas interactivas estándar de WhatsApp (cambio respecto a la tabla original de D14, que mostraba solo 2 alternativas).
+- **Comandos transversales por texto:** «cancelar» y «asesor» funcionan escritos en cualquier paso sin ocupar ranuras de botones.
+- **Cantidad con producto y unidad:** nombra el producto completo (`¿Cuántas unidades de <producto>?`) y sugiere opciones según la unidad del catálogo: `bulto` (10/20/Otra), `metro` (10/50/Otra) y `unidad` u otras unidades (1/2/Otra).
+- **Políticas desde YAML:** consultas sobre horario, domicilio, recogida, pago, IVA, descuentos y vigencia se responden desde el YAML del tenant en cualquier paso y repiten las opciones activas sin modificar el carrito.
+- **Verificación:** gate verde con 66 de 66 escenarios offline (`PASS`).
 
 ## Por qué
 
