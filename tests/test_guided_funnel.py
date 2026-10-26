@@ -186,21 +186,34 @@ def test_kapso_interactive_payload_and_webhook_replies() -> None:
         assert incoming is not None and incoming.option_id == "yes"
 
 
-def test_kapso_start_with_four_options_uses_list_not_reply_buttons() -> None:
+def test_kapso_three_choice_steps_use_three_reply_buttons() -> None:
     sent: list[dict[str, object]] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         sent.append(json.loads(request.content))
         return httpx.Response(200, json={"messages": [{"id": "wamid.start"}]})
 
-    async def run() -> tuple[str, ...]:
+    async def run() -> list[tuple[str, ...]]:
         container = _guided_container()
         try:
-            reply = await container.agent.respond_reply("hola", conversation_key="start-list")
-            assert reply.step == "inicio"
-            assert reply.kind == "list"
-            assert len(reply.options) == 4
-            assert all(len(option.title) <= 24 for option in reply.options)
+            key = "three-buttons"
+            replies = [await container.agent.respond_reply("hola", conversation_key=key)]
+            for message in (
+                "start:products",
+                "cemento",
+                "product:CEM-50",
+                "quantity:10",
+                "more:view",
+                "delivery:pickup",
+                "branch:sede-norte",
+                "payment:0",
+            ):
+                replies.append(await container.agent.respond_reply(message, conversation_key=key))
+            selected = [
+                reply
+                for reply in replies
+                if reply.step in {"inicio", "cantidad", "mas", "entrega", "resumen"}
+            ]
             async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
                 adapter = KapsoChannelAdapter(
                     base_url="https://api.kapso.ai",
@@ -209,21 +222,24 @@ def test_kapso_start_with_four_options_uses_list_not_reply_buttons() -> None:
                     api_key="test-only",
                     client=client,
                 )
-                await adapter.send_reply(recipient_number="573001112233", reply=reply)
-            return tuple(option.id for option in reply.options)
+                for reply in selected:
+                    assert reply.kind == "buttons"
+                    assert len(reply.options) == 3
+                    await adapter.send_reply(recipient_number="573001112233", reply=reply)
+            return [tuple(option.id for option in reply.options) for reply in selected]
         finally:
             await container.aclose()
 
     option_ids = asyncio.run(run())
-    assert len(sent) == 1
-    payload = sent[0]
-    assert payload["type"] == "interactive"
-    interactive = payload["interactive"]
-    assert interactive["type"] == "list"
-    assert "buttons" not in interactive["action"]
-    rows = interactive["action"]["sections"][0]["rows"]
-    assert len(rows) == 4
-    assert tuple(row["id"] for row in rows) == option_ids
+    assert len(sent) == len(option_ids) == 5
+    for payload, expected in zip(sent, option_ids, strict=True):
+        assert payload["type"] == "interactive"
+        interactive = payload["interactive"]
+        assert interactive["type"] == "button"
+        buttons = interactive["action"]["buttons"]
+        assert len(buttons) == 3
+        assert tuple(button["reply"]["id"] for button in buttons) == expected
+    assert option_ids[-1] == ("summary:confirm", "summary:modify", "global:cancel")
 
 
 def test_guided_chat_returns_step_and_numbered_options() -> None:
@@ -236,8 +252,152 @@ def test_guided_chat_returns_step_and_numbered_options() -> None:
             assert response.status_code == 200
             payload = response.json()
             assert payload["step"] == "producto"
-            assert payload["options"][0]["id"] == "global:advisor"
-            assert "1. Hablar con asesor" in payload["reply"]
+            assert payload["options"] == []
+            assert "¿Qué producto buscas?" in payload["reply"]
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("query", "sku", "expected"),
+    [
+        ("cemento", "CEM-50", ("quantity:10", "quantity:20", "quantity:other")),
+        (
+            "pala redonda mango de fibra",
+            "PAL-RED-FIB",
+            ("quantity:1", "quantity:2", "quantity:other"),
+        ),
+        ("alambre de pua", "ALA-14", ("quantity:10", "quantity:50", "quantity:other")),
+    ],
+)
+def test_quantity_names_product_and_suggests_its_unit(
+    query: str, sku: str, expected: tuple[str, ...]
+) -> None:
+    async def run() -> None:
+        container = _guided_container()
+        try:
+            key = f"quantity-{sku}"
+            await container.agent.respond_reply("start:products", conversation_key=key)
+            await container.agent.respond_reply(query, conversation_key=key)
+            reply = await container.agent.respond_reply(f"product:{sku}", conversation_key=key)
+            product = container.catalog.find_exact(sku)
+            assert product is not None
+            assert f"¿Cuántas unidades de {product.name}?" in reply.text
+            assert tuple(option.id for option in reply.options) == expected
+            assert reply.kind == "buttons"
+            added = await container.agent.respond_reply(expected[0], conversation_key=key)
+            assert added.step == "mas"
+            cart = container.carts.get(key)
+            assert cart is not None and cart.confirmed_lines()[0].quantity == int(
+                expected[0].split(":")[1]
+            )
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_policy_questions_keep_step_and_options_and_use_tenant_yaml(tmp_path: Path) -> None:
+    (tmp_path / "store.yaml").write_text(
+        "demo: false\npagos: [Efectivo, Transferencia]\n"
+        "entrega: {recoger_en_sede: {disponible: true, nota: Hoy}, "
+        "domicilio: {disponible: true, costo: null}}\n"
+        "horario: {lunes_a_viernes: '8:00-17:00', sabado: null, domingo: null}\n"
+        "vigencia_cotizacion_dias: null\niva: null\ndescuentos: null\n",
+        encoding="utf-8",
+    )
+
+    async def run() -> None:
+        container = build_container(
+            Settings(llm_provider="mock", tenant_id="store", _env_file=None),
+            policies=YamlPolicyRepository(tmp_path),
+        )
+        try:
+            key = "policy-any-step"
+            cases = (
+                (
+                    "¿Cuál es el horario del domingo?",
+                    "Horario:",
+                    "domingo: pendiente de confirmar con un asesor",
+                ),
+                ("¿Hacen domicilio?", "Domicilio:", "pendiente de confirmar con un asesor"),
+                ("¿Cómo puedo pagar?", "Medios de pago:", "Transferencia"),
+                ("¿El precio incluye IVA?", "IVA:", "pendiente de confirmar con un asesor"),
+                (
+                    "¿Hay descuento?",
+                    "Politica de descuentos:",
+                    "pendiente de confirmar con un asesor",
+                ),
+                ("¿Cuál es la vigencia?", "Vigencia:", "pendiente de confirmar con un asesor"),
+                ("¿Puedo recoger en sede?", "Recogida en sede:", "Hoy"),
+            )
+            before = await container.agent.respond_reply("hola", conversation_key=key)
+            for question, label, detail in cases:
+                reply = await container.agent.respond_reply(question, conversation_key=key)
+                assert reply.step == before.step
+                assert reply.options == before.options
+                assert label in reply.text and detail in reply.text
+                assert "Solo puedo ayudarte" not in reply.text
+            await container.agent.respond_reply("start:products", conversation_key=key)
+            before = await container.agent.respond_reply("cemento", conversation_key=key)
+            reply = await container.agent.respond_reply(
+                "¿Qué medios de pago hay?", conversation_key=key
+            )
+            assert reply.step == "producto" and reply.options == before.options
+            await container.agent.respond_reply("product:CEM-50", conversation_key=key)
+            before = await container.agent.respond_reply(
+                "¿Cuál es la vigencia?", conversation_key=key
+            )
+            assert before.step == "cantidad"
+            assert tuple(item.id for item in before.options) == (
+                "quantity:10",
+                "quantity:20",
+                "quantity:other",
+            )
+            await container.agent.respond_reply("quantity:10", conversation_key=key)
+            reply = await container.agent.respond_reply("¿Hacen domicilio?", conversation_key=key)
+            assert reply.step == "mas" and len(reply.options) == 3
+            await container.agent.respond_reply("more:view", conversation_key=key)
+            for step, question, next_choice in (
+                ("entrega", "¿Hay descuento?", "delivery:pickup"),
+                ("sede", "¿El precio incluye IVA?", "branch:sede-norte"),
+                ("pago", "¿Cuál es el horario?", "payment:0"),
+                ("resumen", "¿Cuántos días de vigencia tiene?", None),
+            ):
+                before = container.agent._funnel.render(key)
+                reply = await container.agent.respond_reply(question, conversation_key=key)
+                assert reply.step == step and reply.options == before.options
+                assert "pendiente de confirmar con un asesor" in reply.text
+                assert "Solo puedo ayudarte" not in reply.text
+                if next_choice:
+                    await container.agent.respond_reply(next_choice, conversation_key=key)
+            cancelled = await container.agent.respond_reply("cancelar", conversation_key=key)
+            assert cancelled.step == "cancelado"
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("command", "expected_step"),
+    [("cancelar", "cancelado"), ("asesor", "asesor")],
+)
+def test_global_text_commands_work_without_occupying_quantity_buttons(
+    command: str, expected_step: str
+) -> None:
+    async def run() -> None:
+        container = _guided_container()
+        try:
+            key = f"global-{command}"
+            await container.agent.respond_reply("start:products", conversation_key=key)
+            await container.agent.respond_reply("cemento", conversation_key=key)
+            quantity = await container.agent.respond_reply("product:CEM-50", conversation_key=key)
+            assert all(not option.id.startswith("global:") for option in quantity.options)
+            reply = await container.agent.respond_reply(command, conversation_key=key)
+            assert reply.step == expected_step
+        finally:
+            await container.aclose()
 
     asyncio.run(run())
 

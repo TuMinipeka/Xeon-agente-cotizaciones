@@ -513,7 +513,7 @@ def test_e19_discount_followup_never_replays_previous_draft(followup: str) -> No
         return second.text, tuple(events)
 
     reply, events = asyncio.run(run())
-    assert "politica de descuentos" in reply
+    assert "politica de descuentos" in reply.casefold()
     assert "quote_id=" not in reply
     assert len(quotes_repo._quotes) == 1
     assert not any("TOOL create_quote_draft" in event for event in events)

@@ -17,8 +17,8 @@ async def add_product(
         await agent.respond_reply("more:add", conversation_key=key)
     search = await agent.respond_reply(query, conversation_key=key)
     assert any(option.id == f"product:{sku}" for option in search.options)
-    await agent.respond_reply(f"product:{sku}", conversation_key=key)
-    if quantity in {10, 20}:
+    selected = await agent.respond_reply(f"product:{sku}", conversation_key=key)
+    if f"quantity:{quantity}" in {option.id for option in selected.options}:
         return await agent.respond_reply(f"quantity:{quantity}", conversation_key=key)
     await agent.respond_reply("quantity:other", conversation_key=key)
     return await agent.respond_reply(str(quantity), conversation_key=key)

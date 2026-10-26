@@ -223,7 +223,9 @@ def test_e10_pending_choice_creates_one_draft(selection: str) -> None:
                 await sut.click(1)
             else:
                 await sut.respond(candidates[0]["title"])
-            await sut.click("quantity:10")
+            # Unidad: 1/2/Otra; 10 se escribe tras escoger Otra.
+            await sut.click("quantity:other")
+            await sut.respond("10")
             assert len(sut.drafts()) == 1
             expected_sku = candidates[0]["id"].removeprefix("product:")
             assert sut.drafts()[0]["lines"][0]["sku"] == expected_sku

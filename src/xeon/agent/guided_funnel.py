@@ -19,7 +19,7 @@ from xeon.agent.intent import (
     fallback_intents,
     is_explicit_addition,
 )
-from xeon.agent.toolbelt import CommercialToolbelt, _explicit_product_query, _requests_discount
+from xeon.agent.toolbelt import CommercialToolbelt, _explicit_product_query
 from xeon.application.ports.advisor import AdvisorNotifier
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.cart import CartRepository
@@ -96,6 +96,7 @@ class GuidedFunnel:
                 options = (
                     Option("start:products", "Cotizar productos"),
                     Option("start:project", "Proyecto u obra"),
+                    Option("global:advisor", "Hablar con asesor"),
                 )
             case "producto" if state.candidates:
                 options = tuple(
@@ -103,9 +104,11 @@ class GuidedFunnel:
                     for sku in state.candidates[:8]
                 )
             case "cantidad":
+                unit = self._selected_unit(state.selected_sku)
+                suggested = (10, 50) if unit == "metro" else (10, 20) if unit == "bulto" else (1, 2)
                 options = (
-                    Option("quantity:10", "10"),
-                    Option("quantity:20", "20"),
+                    Option(f"quantity:{suggested[0]}", str(suggested[0])),
+                    Option(f"quantity:{suggested[1]}", str(suggested[1])),
                     Option("quantity:other", "Otra"),
                 )
             case "mas":
@@ -134,6 +137,9 @@ class GuidedFunnel:
                     options += (Option("delivery:home", "Domicilio"),)
                 if not options:
                     options = (Option("delivery:branch_inquiry", "Consultar sede"),)
+                options += (Option("global:advisor", "Hablar con asesor"),)
+                if len(options) < 3:
+                    options += (Option("global:cancel", "Cancelar"),)
             case "sede":
                 options = tuple(
                     Option(
@@ -155,6 +161,7 @@ class GuidedFunnel:
                 options = (
                     Option("summary:confirm", "Confirmar"),
                     Option("summary:modify", "Modificar"),
+                    Option("global:cancel", "Cancelar"),
                 )
             case "proyecto":
                 options = (
@@ -164,19 +171,31 @@ class GuidedFunnel:
                 )
             case _:
                 options = ()
-        if state.step not in {"asesor", "confirmado", "cancelado"}:
-            options += (
-                Option("global:advisor", "Hablar con asesor"),
-                Option("global:cancel", "Cancelar"),
-            )
         return options[:10]
 
-    def _product_title(self, sku: str) -> str:
+    def _selected_unit(self, sku: str | None) -> str:
+        if sku is None:
+            return "unidad"
         try:
             product = self._catalog.find_exact(sku)
         except CatalogUnavailableError:
             product = None
-        return (product.name if product else sku)[:24]
+        unit = _normalized(product.unit).strip() if product else ""
+        if unit.startswith(("bulto", "saco")):
+            return "bulto"
+        if unit.startswith("metro") or unit == "m":
+            return "metro"
+        return "unidad"
+
+    def _product_title(self, sku: str) -> str:
+        return self._product_name(sku)[:24]
+
+    def _product_name(self, sku: str) -> str:
+        try:
+            product = self._catalog.find_exact(sku)
+        except CatalogUnavailableError:
+            product = None
+        return product.name if product else sku
 
     def _branch_title(self, key: str, branch_id: str, name: str) -> str:
         status = self._branch_stock(key, branch_id)
@@ -222,7 +241,7 @@ class GuidedFunnel:
         questions = {
             "inicio": "¿Qué necesitas?",
             "producto": "¿Qué producto buscas? Escribe nombre o referencia.",
-            "cantidad": "¿Cuántas unidades necesitas?",
+            "cantidad": f"¿Cuántas unidades de {self._product_name(state.selected_sku or '')}?",
             "mas": "¿Algo más para tu cotización?",
             "modificar": "¿Qué línea cambias?"
             if state.selected_line is None
@@ -245,7 +264,9 @@ class GuidedFunnel:
             "text"
             if not options
             else "buttons"
-            if len(options) <= 3 and all(len(item.title) <= 20 for item in options)
+            if state.step not in {"producto", "sede", "pago", "modificar"}
+            and len(options) <= 3
+            and all(len(item.title) <= 20 for item in options)
             else "list"
         )
         return Reply(
@@ -298,9 +319,67 @@ class GuidedFunnel:
                 else f"El peso de {product.name} está pendiente de confirmar con un asesor."
             )
         if "domicilio" in _normalized(message):
-            cost = self._policies.get(self._tenant_id, "domicilio")
-            weight += " Domicilio: " + (cost or "pendiente de confirmar con un asesor.")
+            weight += " " + self._policy_answer("domicilio")
         return weight
+
+    @staticmethod
+    def _policy_topics(message: str) -> tuple[str, ...]:
+        rules = (
+            ("horario", r"\b(?:horarios?|abren|cierran|atienden|domingo|sabado)\b"),
+            ("domicilio", r"\b(?:domicilio|envio|entrega a domicilio)\b"),
+            ("recogida", r"\b(?:recoger|recogida|retiro en sede)\b"),
+            ("pago", r"\b(?:pagos?|pagar|efectivo|transferencia|tarjeta|nequi)\b"),
+            ("iva", r"\b(?:iva|impuestos?)\b"),
+            ("descuento", r"\b(?:descuentos?|rebajas?)\b"),
+            ("vigencia", r"\b(?:vigencia|vence|vencimiento|validez|valida)\b"),
+        )
+        normalized = _normalized(message)
+        return tuple(topic for topic, pattern in rules if re.search(pattern, normalized))
+
+    def _policy_answer(self, topic: str) -> str:
+        policy = self._policies.load(self._tenant_id)
+        pending = "pendiente de confirmar con un asesor"
+        if topic == "horario":
+            hours = policy.horario
+            details = (
+                (
+                    ("lunes a viernes", hours.lunes_a_viernes),
+                    ("sábado", hours.sabado),
+                    ("domingo", hours.domingo),
+                )
+                if hours
+                else (("lunes a viernes", None), ("sábado", None), ("domingo", None))
+            )
+            return (
+                "Horario: "
+                + "; ".join(f"{day}: {value or pending}" for day, value in details)
+                + "."
+            )
+        if topic in {"domicilio", "recogida"}:
+            delivery = policy.entrega
+            option = (
+                (delivery.domicilio if topic == "domicilio" else delivery.recoger_en_sede)
+                if delivery
+                else None
+            )
+            title = "Domicilio" if topic == "domicilio" else "Recogida en sede"
+            if option is None or option.disponible is None:
+                return f"{title}: {pending}."
+            if not option.disponible:
+                return f"{title}: no disponible."
+            detail = option.costo if topic == "domicilio" else option.nota
+            return f"{title}: disponible; {detail or pending}."
+        if topic == "pago":
+            return "Medios de pago: " + (", ".join(policy.pagos) if policy.pagos else pending) + "."
+        if topic == "iva":
+            return f"IVA: {policy.iva or pending}."
+        if topic == "descuento":
+            return f"Politica de descuentos: {policy.descuentos or pending}."
+        return "Vigencia: " + (
+            f"{policy.vigencia_cotizacion_dias} días."
+            if policy.vigencia_cotizacion_dias is not None
+            else f"{pending}."
+        )
 
     async def handle(
         self, key: str, message: str, *, option_id: str | None = None, request_id: str | None = None
@@ -334,10 +413,6 @@ class GuidedFunnel:
             matching = [item for item in options if _normalized(raw) == _normalized(item.title)]
             if len(matching) == 1:
                 option_id = matching[0].id
-        if option_id is not None:
-            if option_id not in {item.id for item in options}:
-                return self.render(key, prefix="Solo puedo ayudarte con tu cotización.\n")
-            raw = option_id
         if _normalized(raw) in {"cancelar", "cancela"} or raw == "global:cancel":
             self._save(key, replace(state, step="cancelado"))
             return self.render(key)
@@ -345,6 +420,10 @@ class GuidedFunnel:
             self._notifier.notify(tenant_id=self._tenant_id, event="advisor_requested")
             self._save(key, replace(state, step="asesor"))
             return self.render(key)
+        if option_id is not None:
+            if option_id not in {item.id for item in options}:
+                return self.render(key, prefix="Solo puedo ayudarte con tu cotización.\n")
+            raw = option_id
         if state.step in {"confirmado", "cancelado", "asesor"}:
             return self.render(key)
         normalized_message = _normalized(message)
@@ -377,13 +456,9 @@ class GuidedFunnel:
             return self.render(key, prefix=f"Con gusto. Tu borrador sigue disponible.\n{summary}\n")
         if option_id is None and self._is_weight_question(normalized_message):
             return self.render(key, prefix=self._answer_weight_and_delivery(key, message) + "\n")
-        if option_id is None and _requests_discount(message):
+        if option_id is None and (topics := self._policy_topics(message)):
             return self.render(
-                key,
-                prefix=(
-                    "No hay politica de descuentos autorizada; "
-                    "pendiente de confirmar con un asesor.\n"
-                ),
+                key, prefix=" ".join(self._policy_answer(topic) for topic in topics) + "\n"
             )
         if option_id is None and self._is_project_statement(normalized_message):
             project_intents = tuple(
@@ -480,10 +555,12 @@ class GuidedFunnel:
                     selected_sku=choice.removeprefix("product:"),
                     candidates=(),
                 )
-            case "cantidad", "quantity:10":
-                return self._add_selected(key, state, Decimal(10), request_id)
-            case "cantidad", "quantity:20":
-                return self._add_selected(key, state, Decimal(20), request_id)
+            case "cantidad", choice if (
+                choice.startswith("quantity:") and choice != "quantity:other"
+            ):
+                return self._add_selected(
+                    key, state, Decimal(choice.removeprefix("quantity:")), request_id
+                )
             case "cantidad", "quantity:other":
                 state = replace(state, awaiting_number=True)
             case "mas", "more:add":
