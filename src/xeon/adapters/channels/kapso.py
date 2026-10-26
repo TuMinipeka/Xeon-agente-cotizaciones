@@ -18,8 +18,12 @@ from xeon.application.reply import Reply
 def verify_kapso_signature(raw_body: bytes, signature: str | None, secret: str) -> bool:
     if not signature or len(signature) != 64:
         return False
-    expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature.lower())
+    try:
+        supplied = bytes.fromhex(signature)
+    except ValueError:
+        return False
+    expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).digest()
+    return hmac.compare_digest(expected, supplied)
 
 
 def parse_kapso_webhook(

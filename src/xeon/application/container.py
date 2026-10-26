@@ -96,6 +96,8 @@ def build_container(
     metrics: MetricsRecorder | None = None,
     advisor_inbox: AdvisorInbox | None = None,
 ) -> AppContainer:
+    if settings.app_env == "production" and settings.state_store != "postgres":
+        raise SettingsError("APP_ENV=production requiere STATE_STORE=postgres.")
     sql_reader = None
     if settings.data_source == "synthetic":
         if settings.currency.upper() != "COP":
