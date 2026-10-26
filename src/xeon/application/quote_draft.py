@@ -22,6 +22,7 @@ class CreateQuoteDraftCommand:
     request_id: str
     lines: tuple[DraftLineRequest, ...]
     discount_requested: bool = False
+    version: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,7 +150,12 @@ class CreateQuoteDraft:
                 "El catalogo sintetico no esta disponible; no se puede confirmar existencia."
             )
 
-        draft = build_draft_quote(tuple(lines), tenant_id=tenant_id, request_id=request_id)
+        draft = build_draft_quote(
+            tuple(lines),
+            tenant_id=tenant_id,
+            request_id=request_id,
+            version=command.version,
+        )
         return QuoteDraftReady(quote=self._quotes.save(draft), replayed=False)
 
 

@@ -6,12 +6,14 @@ from datetime import datetime
 
 from xeon.adapters.catalog.memory import InMemoryProductCatalog
 from xeon.adapters.channels.kapso import KapsoChannelAdapter
+from xeon.adapters.conversation.cart import InMemoryCartRepository
 from xeon.adapters.conversation.memory import InMemoryConversationMemory
 from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.llm import build_llm
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.agent.service import AgentService
 from xeon.agent.toolbelt import CommercialToolbelt
+from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import ProductCatalog
 from xeon.application.ports.channels import WhatsAppChannelPort
 from xeon.application.ports.conversation_memory import ConversationMemory
@@ -31,6 +33,7 @@ class AppContainer:
     quotes: QuoteDraftRepository
     llm: LLMPort
     conversation_memory: ConversationMemory
+    carts: CartRepository
     commercial_tools: CommercialToolbelt
     agent: AgentService
     create_quote_draft: CreateQuoteDraft
@@ -52,6 +55,7 @@ def build_container(
     quotes: QuoteDraftRepository | None = None,
     llm: LLMPort | None = None,
     conversation_memory: ConversationMemory | None = None,
+    carts: CartRepository | None = None,
     whatsapp_channel: WhatsAppChannelPort | None = None,
     clock: Callable[[], datetime] | None = None,
 ) -> AppContainer:
@@ -62,6 +66,9 @@ def build_container(
     resolved_memory = conversation_memory or InMemoryConversationMemory(
         max_turns=settings.conversation_max_turns,
         max_conversations=settings.conversation_max_conversations,
+    )
+    resolved_carts = carts or InMemoryCartRepository(
+        max_conversations=settings.conversation_max_conversations
     )
     create_quote_draft = CreateQuoteDraft(resolved_catalog, resolved_quotes)
     get_quote_draft = GetQuoteDraft(resolved_quotes)
@@ -90,6 +97,7 @@ def build_container(
         quotes=resolved_quotes,
         llm=resolved_llm,
         conversation_memory=resolved_memory,
+        carts=resolved_carts,
         commercial_tools=commercial_tools,
         agent=agent,
         create_quote_draft=create_quote_draft,

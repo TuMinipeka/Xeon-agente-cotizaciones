@@ -142,6 +142,24 @@ CORE_SYNTHETIC_PRODUCTS: tuple[Product, ...] = (
         ),
         description_context="Cubierta prefabricada galvanizada liviana para techo.",
     ),
+    product(
+        "PAL-RED-FIB",
+        "Pala redonda mango de fibra",
+        "unidad",
+        "43700.00",
+        ("pala redonda de fibra", "pala redonda mango de fibra"),
+        specs=(("forma", "redonda"), ("mango", "fibra")),
+        description_context="Pala redonda de mango de fibra para tierra, arena y mezcla.",
+    ),
+    product(
+        "PAL-CUA-MAD",
+        "Pala cuadrada mango de madera",
+        "unidad",
+        "39800.00",
+        ("pala cuadrada de madera", "pala cuadrada mango de madera"),
+        specs=(("forma", "cuadrada"), ("mango", "madera")),
+        description_context="Pala cuadrada de mango de madera para recoger materiales.",
+    ),
 )
 
 
