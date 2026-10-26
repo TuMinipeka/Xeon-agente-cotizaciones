@@ -17,7 +17,7 @@ from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.llm import build_llm
 from xeon.adapters.llm.metered import MeteredLLM
 from xeon.adapters.metrics.factory import build_metrics, build_pricing
-from xeon.adapters.notifications.logging import LoggingAdvisorNotifier
+from xeon.adapters.notifications.inbox import InMemoryAdvisorInbox
 from xeon.adapters.persistence.memory import InMemoryQuoteDraftRepository
 from xeon.adapters.policies.yaml_store import YamlPolicyRepository
 from xeon.agent.executor import CommercialExecutor
@@ -25,6 +25,7 @@ from xeon.agent.guided_funnel import GuidedFunnel
 from xeon.agent.service import AgentService
 from xeon.agent.toolbelt import CommercialToolbelt
 from xeon.application.observability import timed
+from xeon.application.ports.advisor import AdvisorInbox
 from xeon.application.ports.branches import BranchDirectory
 from xeon.application.ports.cart import CartRepository
 from xeon.application.ports.catalog import ProductCatalog
@@ -58,6 +59,7 @@ class AppContainer:
     get_stock_by_branches: GetStockByBranches
     whatsapp_channel: WhatsAppChannelPort | None = None
     sql_reader: object | None = None
+    advisor_inbox: AdvisorInbox | None = None
     metrics: MetricsRecorder | None = None
 
     async def aclose(self) -> None:
@@ -82,6 +84,7 @@ def build_container(
     whatsapp_channel: WhatsAppChannelPort | None = None,
     clock: Callable[[], datetime] | None = None,
     metrics: MetricsRecorder | None = None,
+    advisor_inbox: AdvisorInbox | None = None,
 ) -> AppContainer:
     sql_reader = None
     if settings.data_source == "synthetic":
@@ -147,6 +150,7 @@ def build_container(
         synthetic=settings.data_source == "synthetic",
     )
     executor = timed(executor, resolved_metrics, "ejecutor", methods=("execute",))
+    resolved_inbox = advisor_inbox or InMemoryAdvisorInbox()
     funnel = GuidedFunnel(
         llm=resolved_llm,
         executor=executor,
@@ -157,7 +161,7 @@ def build_container(
         states=InMemoryFunnelRepository(),
         branches=resolved_branches,
         policies=resolved_policies,
-        notifier=LoggingAdvisorNotifier(),
+        notifier=resolved_inbox,
         memory=resolved_memory,
         tenant_id=settings.tenant_id,
     )
@@ -193,5 +197,6 @@ def build_container(
         get_stock_by_branches=get_stock_by_branches,
         whatsapp_channel=resolved_whatsapp,
         sql_reader=sql_reader,
+        advisor_inbox=resolved_inbox,
         metrics=resolved_metrics,
     )
