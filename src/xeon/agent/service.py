@@ -6,6 +6,7 @@ import time
 
 from xeon.agent.guided_funnel import GuidedFunnel
 from xeon.application.observability import metric_context, record_stage
+from xeon.application.ports.funnel import FunnelState
 from xeon.application.ports.llm import LLMPort, LLMResponse
 from xeon.application.ports.metrics import MetricsRecorder
 from xeon.application.reply import Reply
@@ -18,6 +19,10 @@ class AgentService:
         self._llm = llm
         self._funnel = funnel
         self._metrics = metrics
+
+    def conversation_state(self, conversation_key: str) -> FunnelState:
+        """Read-only view of a conversation's funnel state (used by the advisor panel)."""
+        return self._funnel.state(conversation_key)
 
     async def respond_reply(
         self,

@@ -57,7 +57,9 @@ class QuoteDraftOut(BaseModel):
     tenant_id: str
     request_id: str
     version: int
-    status: Literal["DRAFT", "CONFIRMADO_POR_CLIENTE"]
+    status: Literal[
+        "DRAFT", "CONFIRMADO_POR_CLIENTE", "APPROVED_FOR_BILLING", "RECHAZADO_POR_ASESOR"
+    ]
     currency: str
     subtotal: str
     total: str
