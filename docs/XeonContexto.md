@@ -46,7 +46,7 @@ Según el caso aportado por Daniel, Ferragro cuenta con comerciantes en zonas co
 
 ### 3.1. Recorrido principal
 
-El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin aprobación, reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La revisión humana, la persistencia empresarial y el PDF aprobado forman parte de la visión posterior.
+El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin aprobación, reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La persistencia operativa opcional en PostgreSQL propio de XEON (D15 A) guarda embudo, carrito, memoria, borradores y deduplicación; la revisión humana, la base híbrida comercial con RAG y el PDF aprobado forman parte de la visión posterior.
 
 ### 3.2. Alcance objetivo del MVP
 
@@ -100,14 +100,14 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 | Proveedor LLM | Grok por defecto; Groq de respaldo; `MockLLM` en pruebas | Inferencia vía `LLMPort` + `HTTPX` |
 | Canal WhatsApp | Kapso + `HTTPX` | Webhook firmado y envío por API oficial de WhatsApp vía Kapso |
 | Base de datos híbrida (planeada) | PostgreSQL 17 (`SQL` + `JSONB` + `pgvector`) | Transacciones, fichas polimórficas y búsqueda vectorial |
-| Acceso a datos (planeado) | SQLAlchemy 2 + psycopg 3 + Alembic | Repositorios transaccionales y migraciones |
+| Estado operativo opcional (D15 A) | PostgreSQL 17 + SQLAlchemy 2 + psycopg 3 + Alembic | Embudo, carrito, memoria, borradores y deduplicación; base propia de XEON |
 | PDF (planeado) | Jinja2 + WeasyPrint | Generación de cotización aprobada |
 | Terminal Interna | Typer + HTTPX | CLI para operar, consultar stock y revisar borradores |
 | Despliegue y Calidad | Docker Compose, Pytest, Ruff, mypy, GitHub Actions | Entorno reproducible y verificación continua |
 
 ## 6. Arquitectura del sistema
 
-Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; los datos comerciales del prototipo viven en memoria salvo que `DATA_SOURCE=sql` lea una base de ferretería (solo lectura). PostgreSQL 17 híbrido es una evolución planeada. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
+Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; el catálogo e inventario del prototipo son sintéticos salvo que `DATA_SOURCE=sql` lea una base de ferretería (solo lectura). `STATE_STORE=postgres` guarda el estado operativo en otra base propia de XEON; memoria sigue como opción predeterminada. PostgreSQL híbrido con RAG para catálogo es una evolución planeada. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
 
 ```mermaid
 flowchart TD
@@ -164,7 +164,7 @@ La arquitectura **planea** un modelo híbrido dentro de PostgreSQL 17. Las tabla
 ## 9. Canal WhatsApp con Kapso
 
 - **Recepción:** Kapso entrega eventos v2 `whatsapp.message.received` a `POST /v1/channels/whatsapp/kapso/webhook`. XEON comprueba `X-Webhook-Signature` con HMAC-SHA256 del cuerpo crudo antes de interpretar JSON; sin firma válida responde 401.
-- **Filtrado y continuidad:** solo se procesan mensajes de texto entrantes, también en lotes. Se deduplican en memoria por ID externo; `conversation_key=kapso-{phone_number_id}-{phone}` mantiene el historial corto y `request_id=kapso-{message.id}` estabiliza la creación de borradores.
+- **Filtrado y continuidad:** solo se procesan mensajes de texto entrantes, también en lotes. Se deduplican por ID externo en memoria o en PostgreSQL propio según `STATE_STORE`; `conversation_key=kapso-{phone_number_id}-{phone}` mantiene el contexto y `request_id=kapso-{message.id}` estabiliza la creación de borradores.
 - **Respuesta:** cuando `WHATSAPP_SEND_ENABLED=true`, `KapsoChannelAdapter` envía texto por la API oficial de WhatsApp vía Kapso, autenticado con `X-API-Key`. Un acuse `processed` indica trabajo programado en segundo plano, no entrega confirmada al teléfono.
 - **Operación:** el sandbox necesita `KAPSO_PHONE_NUMBER_ID`, `KAPSO_API_KEY` configurada a mano y URL pública por `cloudflared`. El registro del webhook deja el `secret_key` en `secrets/kapso_webhook_secret.txt`. No hay envíos proactivos ni plantillas fuera de la ventana de 24 h.
 

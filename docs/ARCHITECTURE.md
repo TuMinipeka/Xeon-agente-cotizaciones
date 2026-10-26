@@ -12,10 +12,21 @@ consulta stock con el id verificado. Precio y subtotal siguen bajo `Money(Decima
 
 ## Estado implementado
 
+### Persistencia operativa D15 A
+
+`STATE_STORE=memory` mantiene los adaptadores de desarrollo y pruebas. Con
+`STATE_STORE=postgres`, una base PostgreSQL 17 **propia de XEON** persiste
+`FunnelState`, `QuoteCart`, `ConversationMemory`, `QuoteDraftRepository` y los IDs de
+webhook procesados. SQLAlchemy Core y Alembic se cargan solo en ese perfil, desde
+`XEON_STATE_URL_FILE` bajo `secrets/`. Una transacción con bloqueo por conversación
+serializa los turnos entre workers; el carrito verifica la versión y el evento
+entrante tiene clave única. La base del conector D13 sigue separada y de solo
+lectura. Ver [guía de persistencia](PERSISTENCIA.md).
+
 ### Embudo guiado D14
 
 `GuidedFunnel` es el único flujo para `/v1/chat`, CLI y Kapso. El estado
-`FunnelState` vive por conversación en memoria; `Reply` presenta opciones independientes del canal.
+`FunnelState` vive por conversación en el repositorio elegido; `Reply` presenta opciones independientes del canal.
 El paso de producto consulta `search_products` y las operaciones del carrito pasan por el mismo
 `CommercialExecutor` y `QuoteCart`. Las respuestas de botones usan el id exacto;
 el texto de pasos cerrados se valida como una opción permitida o `no_encaja`. La configuración
@@ -52,7 +63,7 @@ POST /v1/quotes  GET /v1/quotes/{id}
       |
       +--> CreateQuoteDraft / GetQuoteDraft
       +--> ProductCatalog (sintético por defecto; SQL configurable)
-      +--> QuoteDraftRepository (memoria, clave idempotente tenant_id+request_id)
+      +--> QuoteDraftRepository (memoria o PostgreSQL propio, clave idempotente tenant_id+request_id)
       |
       v
  domain: Product(specs, description_context), Money(Decimal), QuoteLine,
@@ -91,9 +102,9 @@ GET /v1/stock  CLI stock show
   botón se procesan sin LLM. Las operaciones evidentes del carrito usan `CommercialExecutor`.
 - El texto del proveedor se limita a clasificar opciones cerradas; no se publica directamente.
 - `ConversationMemory` conserva historial corto, opciones pendientes y datos de proyecto.
-  `CartRepository` guarda por conversacion un `QuoteCart` versionado en memoria del proceso;
-  las lineas confirmadas producen borradores `DRAFT` calculados con `Decimal`. No hay
-  persistencia entre reinicios ni aprobacion automatica.
+  `CartRepository` guarda por conversacion un `QuoteCart` versionado en memoria o en
+  PostgreSQL propio; las lineas confirmadas producen borradores `DRAFT` calculados con
+  `Decimal`. El perfil PostgreSQL sobrevive a reinicios; no hay aprobacion automatica.
 
 ### 1.1. Catalogo sintetico ampliado
 
@@ -126,12 +137,12 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
 - `POST /v1/channels/whatsapp/kapso/webhook` comprueba HMAC-SHA256 del cuerpo crudo antes de
   interpretar JSON. Solo acepta eventos `whatsapp.message.received` de texto o respuesta interactiva,
   incluidos lotes;
-  deduplica IDs en memoria y programa el turno comercial y el envio en segundo plano.
+  deduplica IDs en memoria o PostgreSQL propio y programa el turno comercial y el envio en segundo plano.
   El acuse `processed` significa que se programo el trabajo, no que WhatsApp entrego el mensaje.
 - `KapsoChannelAdapter` envia texto o `interactive` (botones/listas) a la API oficial de WhatsApp via Kapso Meta proxy con
   `X-API-Key`. El webhook requiere secreto configurado; no se admiten mensajes proactivos ni
   plantillas fuera de la ventana de 24 h.
-- La deduplicacion y el trabajo de fondo son locales al proceso. Persistencia, cola durable,
+- La deduplicacion usa memoria local o una clave unica en PostgreSQL propio. El trabajo de fondo sigue local al proceso; cola durable,
   observabilidad de entregas y prueba de carga quedan pendientes. El usuario confirmo un ensayo
   real en el sandbox con respuesta comercial por WhatsApp; eso no prueba entrega general.
 - El procesamiento usa `conversation_key=kapso-{phone_number_id}-{phone}` y
@@ -139,8 +150,7 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
   `(tenant_id, request_id)`.
 
 ### 3. Modelo de Datos Hibrido Empresarial (SQL + NoSQL `JSONB` + RAG `pgvector`)
-La persistencia en PostgreSQL 17, `JSONB` y `pgvector` esta planeada (D12: la recuperacion vectorial sera una herramienta mas de un agente con herramientas, no un RAG de texto que sustituya al carrito; precios, stock y totales siguen saliendo de consultas directas). Hoy el catalogo,
-inventario y borradores viven en memoria; la arquitectura futura separa tres responsabilidades:
+La base híbrida comercial con `pgvector` sigue planeada (D12: la recuperación vectorial será una herramienta más de un agente con herramientas; precios, stock y totales siguen saliendo de consultas directas). El catálogo e inventario son sintéticos o del conector SQL; el estado operativo puede persistir en PostgreSQL propio mediante D15 A. La arquitectura futura separa tres responsabilidades:
 - **Capa SQL Relacional Estricta:** Precios (`Decimal` / `NUMERIC`), unidades comerciales, stock por
   sede (`fresh` / `stale` / `unknown`), borradores de cotizacion (`DRAFT`), versiones y llaves de
   idempotencia (`tenant_id + request_id`).
@@ -179,7 +189,7 @@ inventario y borradores viven en memoria; la arquitectura futura separa tres res
 
 ## Pendiente (no implementado)
 
-- Persistencia en PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic.
+- Índice híbrido comercial en PostgreSQL 17 (`SQL + JSONB + pgvector`); la persistencia operativa con Alembic ya es opcional mediante D15 A.
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
 - Embudo guiado con botones y confirmacion ante un asesor (D14): aprobado, aun sin implementar.
