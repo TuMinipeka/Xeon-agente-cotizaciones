@@ -327,3 +327,10 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **Incorporación:** el usuario sumó un agente Claude Sonnet 5.5 (panel `w7:pQ`) para trabajar en paralelo. Se registró en [orquestación](pages/orquestacion.md).
 - **Primera tarea (delegada):** colorear el grafo de Graphify por capa en las bóvedas de Obsidian.
+
+## [2026-10-26] operación | Armonización de documentación con el flujo actual
+
+- **Integrado:** notas `sonnet-graph-colors` (leyenda de capas del grafo, en el índice) y `codex-live-defects` (D1–D5, `1422e05`) más la sección 4 de `agy-live-qa-conde` (`branch_matches` en vivo, `045e7c7`). La nota de agy sigue abierta en el inbox.
+- **Páginas:** índice, estado del corte, arquitectura actual y QA de Conde. Docs: README, `XeonContexto.md` y `ARCHITECTURE.md`.
+- **Correcciones:** `CommercialScopePolicy` y `prepare_verified_context` ya no existen (flujo `IntentInterpreter` + `CommercialExecutor` + `QuoteCart`); el conector SQL opcional (`DATA_SOURCE`) existe; el modelo vigente es `grok-4.6`; el RAG se describe como D12 (propuesta); el embudo guiado D14 figura como aprobado y no implementado.
+- **Pendiente:** resultado de la re-ejecución en vivo S15–S20 (la corrida previa fue 1 PASS y 5 FAIL); aplicar los colores del grafo con Obsidian cerrado.

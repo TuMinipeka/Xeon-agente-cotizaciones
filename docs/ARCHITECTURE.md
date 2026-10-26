@@ -127,7 +127,7 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
   `(tenant_id, request_id)`.
 
 ### 3. Modelo de Datos Hibrido Empresarial (SQL + NoSQL `JSONB` + RAG `pgvector`)
-La persistencia en PostgreSQL 17, `JSONB` y `pgvector` esta planeada. Hoy el catalogo,
+La persistencia en PostgreSQL 17, `JSONB` y `pgvector` esta planeada (D12: la recuperacion vectorial sera una herramienta mas de un agente con herramientas, no un RAG de texto que sustituya al carrito; precios, stock y totales siguen saliendo de consultas directas). Hoy el catalogo,
 inventario y borradores viven en memoria; la arquitectura futura separa tres responsabilidades:
 - **Capa SQL Relacional Estricta:** Precios (`Decimal` / `NUMERIC`), unidades comerciales, stock por
   sede (`fresh` / `stale` / `unknown`), borradores de cotizacion (`DRAFT`), versiones y llaves de
@@ -157,7 +157,7 @@ inventario y borradores viven en memoria; la arquitectura futura separa tres res
 
 ## Fronteras que no deben romperse
 
-- `CommercialToolbelt` identifica candidatos en el catalogo sintetico; el dominio y la aplicacion
+- `CommercialToolbelt` identifica candidatos en el catalogo (sintetico o SQL); el dominio y la aplicacion
   deciden precios, descuentos, inventario y estados desde datos verificados del backend. La base
   empresarial y el calculo de impuestos estan pendientes.
 - La API transforma HTTP y delega. No contiene reglas comerciales.
@@ -170,4 +170,6 @@ inventario y borradores viven en memoria; la arquitectura futura separa tres res
 - Persistencia en PostgreSQL 17 (`SQL + JSONB + pgvector`) con Alembic.
 - Generacion de PDF con WeasyPrint, aprobacion humana y politica de descuentos versionada.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
+- Embudo guiado con botones y confirmacion ante un asesor (D14): aprobado, aun sin implementar.
+- Conectores `rest` y `csv` de `DATA_SOURCE` (hoy solo `synthetic` y `sql`).
 - Registro y notificacion real al trabajador cuando un producto solicitado no figura en el catalogo.

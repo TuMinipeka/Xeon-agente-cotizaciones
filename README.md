@@ -15,8 +15,10 @@
 </p>
 
 > [!IMPORTANT]
-> **Prototipo con datos ficticios.** El catálogo (2000 productos) y el inventario son sintéticos
-> y viven en memoria. No hay ERP, PostgreSQL comercial, aprobación humana ni PDF todavía. Un
+> **Prototipo con datos ficticios.** Por defecto (`DATA_SOURCE=synthetic`) el catálogo (2000
+> productos) y el inventario son sintéticos y viven en memoria. Un conector SQL opcional
+> (`DATA_SOURCE=sql`, `connectors/<tenant>.yaml`) lee una base de ferretería de solo lectura; no
+> hay ERP, PostgreSQL comercial propio, aprobación humana ni PDF todavía. Un
 > borrador `DRAFT` no reserva inventario ni es una cotización aprobada.
 
 **Principio rector:** la IA interpreta y redacta; el backend decide. Precios (`Decimal`),
@@ -100,7 +102,9 @@ El banner se adapta al ancho: completo (≥100 columnas, con logo), compacto (80
 | Borradores `DRAFT` con `Decimal`; idempotencia `(tenant_id, request_id)`, estable por mensaje de WhatsApp | En memoria: se pierden al reiniciar |
 | Memoria por conversación (últimos turnos a Grok y último SKU), acotada con LRU | Local al proceso; no se comparte entre workers |
 | Descuentos: sin política aprobada se rechazan, también cuando se piden por chat | Sin políticas versionadas |
-| `CommercialScopePolicy` (bloquea temas ajenos antes del LLM) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
+| `IntentInterpreter` (JSON validado con respaldo local; lo ajeno a la ferretería se responde sin llamar al modelo) y `CustomerResponsePolicy` (filtra la salida) | Reglas fijas en código |
+| `QuoteCart` versionado por conversación, `BranchDirectory` y políticas por ferretería en `config/policies/` | Carrito en memoria; las políticas de pago y entrega están en `null` hasta tener datos reales |
+| Conector SQL opcional por `DATA_SOURCE=sql` (SQLAlchemy de solo lectura, consultas parametrizadas en YAML) | Sin pruebas con una ferretería real; REST y CSV no implementados |
 | Webhook firmado de Kapso (`whatsapp.message.received`), lotes y deduplicación en memoria; ensayo en sandbox realizado | Acuse `processed` no confirma entrega al teléfono; sin cola durable |
 
 ---
@@ -114,35 +118,41 @@ flowchart LR
     U[Shell xeon] --> S
     C[POST /v1/chat] --> S
     W[Webhook Kapso con firma HMAC] --> F[Filtro y deduplicación] --> S
-    S[AgentService] --> P[CommercialScopePolicy]
+    S[AgentService] --> N[IntentInterpreter]
     S --> M[ConversationMemory]
-    S --> T[CommercialToolbelt]
-    T --> K[Catálogo sintético]
-    T --> I[Inventario sintético]
+    S --> X[CommercialExecutor]
+    X --> B[QuoteCart y políticas]
+    X --> T[CommercialToolbelt]
+    T --> K[Catálogo: sintético o SQL]
+    T --> I[Inventario y BranchDirectory]
     T --> Q[Borrador DRAFT]
     S --> L[LLMPort: Grok / Groq / mock]
     L --> R[CustomerResponsePolicy]
     R --> O[Respuesta / envío por WhatsApp]
 ```
 
-1. **Alcance.** `CommercialScopePolicy` responde localmente a lo que no es ferretería y separa
-   la parte comercial de las solicitudes mixtas.
-2. **Contexto verificado.** `CommercialToolbelt.prepare_verified_context` busca el producto (o usa el
-   último SKU de la conversación ante «ese mismo»), consulta stock y, si hay cantidad, crea un
-   `DRAFT`. Si detecta un pedido de descuento sin política, informa y no crea borrador.
-3. **Modelo.** `AgentService` envía a Grok el prompt de sistema, el contexto verificado, el
-   historial corto de la conversación y el turno actual. El LLM **no** ejecuta herramientas ni
-   calcula precios: redacta a partir de datos ya verificados.
-4. **Salida.** `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados de las
-   respuestas de proveedores reales.
+1. **Interpretación.** `IntentInterpreter` pide a Grok un JSON de intenciones (agregar, cambiar
+   cantidad, quitar, elegir opción, consultar stock, fuera de alcance), lo valida y, si el
+   proveedor falla, usa un parser local. Lo ajeno a la ferretería se responde sin llamar al
+   modelo y la parte comercial de un mensaje mixto se atiende igual.
+2. **Ejecución.** `CommercialExecutor` atiende todas las intenciones del mensaje: busca el
+   producto (o usa el último SKU ante «ese mismo»), consulta stock por sede con `BranchDirectory`,
+   actualiza el `QuoteCart` versionado y crea el `DRAFT`. Las políticas de `config/policies/` y
+   el rechazo de descuentos sin política los aplica el backend.
+3. **Redacción.** Precios, totales y stock salen de plantillas deterministas; el LLM **no**
+   ejecuta herramientas ni calcula cifras. Solo redacta la asesoría preliminar de un proyecto,
+   sin cantidades ni precios.
+4. **Salida.** `plain_text` convierte la respuesta a texto plano una sola vez (API, CLI y
+   Kapso) y `CustomerResponsePolicy` elimina códigos internos y enlaces no registrados del texto
+   de proveedores reales.
 
-El contexto inyectado al modelo lleva marcadores `[XEON_TOOL:...]`; son internos y el filtro de
-salida impide mostrarlos al comprador cuando responde un proveedor real.
+Los marcadores `[XEON_TOOL:...]` son diagnóstico interno del perfil `mock`; no se muestran al
+comprador.
 
 > [!WARNING]
-> En el chat, una búsqueda descriptiva toma el primer candidato para consultar stock y cotizar.
-> No lo interpretes como referencia confirmada por el comprador; para cotizar de forma explícita
-> usa `xeon quotes create` o `POST /v1/quotes` con SKU o alias exacto.
+> Si una búsqueda descriptiva tiene varios candidatos, el ejecutor ofrece opciones y conserva la
+> pregunta pendiente; no los trates como referencia confirmada hasta que el comprador elija. Para
+> cotizar de forma explícita usa `xeon quotes create` o `POST /v1/quotes` con SKU o alias exacto.
 
 Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no** significan
 «agotado».
@@ -154,12 +164,15 @@ Vigencia `fresh`/`stale`/`unknown`: una fuente caída o un SKU desconocido **no*
 ```text
 src/xeon/
 ├── domain/                 Money, Product, Quote, StockSnapshot e invariantes
-├── application/            Casos de uso, puertos (Protocol) y commercial_scope
+├── application/            Casos de uso, puertos (Protocol) y plain_text
 │   └── container.py        AppContainer: composición de adaptadores
-├── agent/                  AgentService, prompts, CommercialToolbelt, customer_safety
+├── agent/                  AgentService, IntentInterpreter, CommercialExecutor, CommercialToolbelt, customer_safety
 ├── adapters/
 │   ├── catalog/            Catálogo sintético (2000 productos con procedencia)
-│   ├── inventory/          Snapshots de stock en memoria
+│   ├── inventory/          Snapshots de stock en memoria (o SQL)
+│   ├── branches/           BranchDirectory: sedes y alias (memoria o SQL)
+│   ├── policies/           Políticas por ferretería desde `config/policies/`
+│   ├── sql/                Lector SQL de solo lectura (`DATA_SOURCE=sql`)
 │   ├── persistence/        Borradores e idempotencia en memoria
 │   ├── conversation/       Memoria de conversación acotada (LRU)
 │   ├── llm/                Mock y cliente OpenAI compatible (Grok, Groq)
@@ -294,8 +307,8 @@ con Grok real es deliberada y acotada: `uv run xeon` y un `run`.
 Trabajo **planeado**, todavía sin implementar:
 
 1. PostgreSQL 17 con esquema relacional, `JSONB`, `pgvector` y Alembic.
-2. Confirmación conversacional de candidatos ambiguos (el carrito de `developer/conde` queda como
-   referencia en [`docs/CAMBIOS_CONDE.md`](docs/CAMBIOS_CONDE.md)).
+2. Embudo guiado con botones y confirmación ante un asesor (D14: aprobado, no implementado; ver la
+   wiki). El carrito conversacional ya existe en memoria.
 3. Políticas de descuento versionadas, aprobación humana por versión y PDF.
 4. Copiloto del trabajador por Gmail con hoja de alistamiento multi-sede.
 5. Telemetría de costo por tarea (S3) y prueba de carga (S4).
