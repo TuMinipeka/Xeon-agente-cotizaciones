@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.seed_commercial_db import ensure_seed_allowed, load_seed
+from scripts.seed_commercial_db import UNITS, ensure_seed_allowed, load_seed
 from xeon.config import Settings
 
 
@@ -39,3 +39,9 @@ def test_production_rejects_test_stock_seed() -> None:
 
 def test_development_allows_test_stock_seed() -> None:
     ensure_seed_allowed(Settings(app_env="development", _env_file=None))
+
+
+def test_units_cover_selling_and_measurement_dimensions() -> None:
+    assert {"UNIDAD", "M", "PULG", "GAL", "KG", "BULTO", "ROLLO"} <= UNITS.keys()
+    assert UNITS["M"][1:] == ("LENGTH", True)
+    assert UNITS["UNIDAD"][1:] == ("COUNT", False)

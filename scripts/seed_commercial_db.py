@@ -160,7 +160,11 @@ def seed_database(
         for code, name in (("BODEGA_1", "Bodega 1"), ("BODEGA_2", "Bodega 2"))
     }
     connection.execute(
-        sa.text("INSERT INTO commercial.product_types VALUES (:code, :name, :stock)"),
+        sa.text(
+            """INSERT INTO commercial.product_types VALUES (:code, :name, :stock)
+            ON CONFLICT (code) DO UPDATE
+            SET name = EXCLUDED.name, manages_stock = EXCLUDED.manages_stock"""
+        ),
         [
             {"code": "V", "name": "Venta", "stock": True},
             {"code": "S", "name": "Servicio", "stock": False},
@@ -168,14 +172,20 @@ def seed_database(
     )
     connection.execute(
         sa.text("""INSERT INTO commercial.units_of_measure
-        (code, name, dimension, allows_fraction) VALUES (:code, :name, :dimension, :fraction)"""),
+        (code, name, dimension, allows_fraction) VALUES (:code, :name, :dimension, :fraction)
+        ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name,
+        dimension = EXCLUDED.dimension, allows_fraction = EXCLUDED.allows_fraction"""),
         [
             {"code": code, "name": values[0], "dimension": values[1], "fraction": values[2]}
             for code, values in UNITS.items()
         ],
     )
     connection.execute(
-        sa.text("INSERT INTO commercial.currencies VALUES ('COP', 'Peso colombiano', 0)")
+        sa.text(
+            """INSERT INTO commercial.currencies VALUES ('COP', 'Peso colombiano', 0)
+            ON CONFLICT (code) DO UPDATE
+            SET name = EXCLUDED.name, decimal_places = EXCLUDED.decimal_places"""
+        )
     )
     price_lists = {
         level: int(
@@ -196,7 +206,11 @@ def seed_database(
         for level in range(1, 6)
     }
     connection.execute(
-        sa.text("INSERT INTO commercial.stock_quantity_types VALUES (:code, :name, :effect)"),
+        sa.text(
+            """INSERT INTO commercial.stock_quantity_types VALUES (:code, :name, :effect)
+            ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name,
+            availability_effect = EXCLUDED.availability_effect"""
+        ),
         [
             {"code": "ON_HAND", "name": "Existencia", "effect": 1},
             {"code": "COMMITTED", "name": "Comprometido", "effect": -1},
