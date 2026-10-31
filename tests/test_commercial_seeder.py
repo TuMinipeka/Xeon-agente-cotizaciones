@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
-from scripts.seed_commercial_db import UNITS, ensure_seed_allowed, load_seed
+from scripts.seed_commercial_db import UNITS, _clear_business, ensure_seed_allowed, load_seed
 from xeon.config import Settings
 
 
@@ -45,3 +46,11 @@ def test_units_cover_selling_and_measurement_dimensions() -> None:
     assert {"UNIDAD", "M", "PULG", "GAL", "KG", "BULTO", "ROLLO"} <= UNITS.keys()
     assert UNITS["M"][1:] == ("LENGTH", True)
     assert UNITS["UNIDAD"][1:] == ("COUNT", False)
+
+
+def test_repeat_load_removes_products_before_business_dimensions() -> None:
+    connection = MagicMock()
+    _clear_business(connection)
+    statements = [str(call.args[0]) for call in connection.execute.call_args_list]
+    assert statements[0].startswith("DELETE FROM commercial.products")
+    assert statements[1].startswith("DELETE FROM commercial.businesses")

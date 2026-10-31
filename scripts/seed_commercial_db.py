@@ -97,6 +97,18 @@ def _insert_links(
     )
 
 
+def _clear_business(connection: sa.Connection) -> None:
+    connection.execute(
+        sa.text("""DELETE FROM commercial.products WHERE business_id IN
+        (SELECT id FROM commercial.businesses WHERE code = :code)"""),
+        {"code": BUSINESS_CODE},
+    )
+    connection.execute(
+        sa.text("DELETE FROM commercial.businesses WHERE code = :code"),
+        {"code": BUSINESS_CODE},
+    )
+
+
 def seed_database(
     connection: sa.Connection, manifest: dict[str, Any], products: list[dict[str, Any]]
 ) -> None:
@@ -105,9 +117,7 @@ def seed_database(
         raise RuntimeError(f"La base comercial debe estar migrada a {EXPECTED_REVISION}.")
     connection.execute(sa.text("SELECT pg_advisory_xact_lock(hashtext('xeon-commercial-seed'))"))
 
-    connection.execute(
-        sa.text("DELETE FROM commercial.businesses WHERE code = :code"), {"code": BUSINESS_CODE}
-    )
+    _clear_business(connection)
     connection.execute(
         sa.text(
             "DELETE FROM commercial.import_batches WHERE source_id IN "
