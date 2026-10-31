@@ -71,7 +71,8 @@ def test_s16_absolute_correction_overrides_model_addition() -> None:
             assert [(line.sku, line.quantity) for line in cart.confirmed_lines()] == [
                 ("CEM-50", Decimal(15))
             ]
-            assert "TOTAL confirmado: $433.500" in reply.text
+            assert "TOTAL BORRADOR: $433.500" in reply.text
+            assert "TOTAL confirmado" not in reply.text
             assert "$1.011.500" not in reply.text
         finally:
             await container.aclose()
@@ -147,7 +148,8 @@ def test_s17_pending_variant_keeps_its_own_quantity_and_cement() -> None:
                 ("PAL-RED-FIB", Decimal(1)),
             ]
             assert len(cart.lines) == 2
-            assert "TOTAL confirmado: $477.200" in reply.text
+            assert "TOTAL BORRADOR: $477.200" in reply.text
+            assert "TOTAL confirmado" not in reply.text
             assert "pendiente de elegir referencia" not in reply.text
         finally:
             await container.aclose()
@@ -170,7 +172,8 @@ def test_s18_stock_product_branch_same_turn_or_one_clarification() -> None:
             payment = await select_pickup(container, "s18", "sede-norte")
             assert payment.step == "pago"
             summary = await container.agent.respond_reply("payment:0", conversation_key="s18")
-            assert "TOTAL confirmado: $289.000" in summary.text
+            assert "TOTAL BORRADOR: $289.000" in summary.text
+            assert "TOTAL confirmado" not in summary.text
         finally:
             await container.aclose()
 

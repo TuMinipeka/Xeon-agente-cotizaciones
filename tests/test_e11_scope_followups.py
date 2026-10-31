@@ -18,7 +18,8 @@ def test_live_wording_after_pending_cement_choices_stays_commercial() -> None:
             payment = await select_pickup(container, key, "sede-norte")
             assert payment.step == "pago"
             summary = await container.agent.respond_reply("payment:0", conversation_key=key)
-            assert "TOTAL confirmado: $289.000" in summary.text
+            assert "TOTAL BORRADOR: $289.000" in summary.text
+            assert "TOTAL confirmado" not in summary.text
         finally:
             await container.aclose()
 

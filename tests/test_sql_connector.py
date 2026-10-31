@@ -94,7 +94,8 @@ def test_sql_connector_quotes_real_schema_and_resolves_branch(tmp_path: Path) ->
             assert "Cemento Ferreteria Robles" in summary.text
             assert payment.step == "pago"
             assert container.agent._funnel.state("sql-1").branch_id == "BOD-7"
-            assert "TOTAL confirmado: $75.100" in summary.text
+            assert "TOTAL BORRADOR: $75.100" in summary.text
+            assert "TOTAL confirmado" not in summary.text
             cart = container.carts.get("sql-1")
             assert cart is not None
             assert cart.confirmed_lines()[0].unit_price.amount == Decimal("37550")
