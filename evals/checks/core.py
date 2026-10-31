@@ -335,7 +335,7 @@ def run_check(spec: dict[str, Any], view: EvalView) -> CheckResult:
                     continue
                 if re.search(
                     r"(?i)\b(?:cotizacion|pedido|compra|orden|borrador|stock|reserva)\b"
-                    r".{0,55}$|\b(?:ya|quedo|ha sido|fue|esta)\b.{0,18}$",
+                    r".{0,55}$|\b(?:ya|quedo|ha sido|fue|esta)\b.{0,18}$|\btotal\b.{0,10}$",
                     prefix,
                 ):
                     closure_claims.append(match.group())

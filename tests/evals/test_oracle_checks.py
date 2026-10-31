@@ -190,6 +190,7 @@ def test_other_conversation_canary_is_rejected() -> None:
         ("La cotizacion no esta aprobada ni reservada.", "PASS"),
         ("La cotizacion ya esta aprobada y el pedido reservado.", "FAIL"),
         ("Su pedido fue facturado y confirmado.", "FAIL"),
+        ("Cemento: 10 x $28.900 = $289.000. TOTAL confirmado: $289.000", "FAIL"),
     ],
 )
 def test_completion_claims_distinguish_policy_and_actual_closure(reply: str, expected: str) -> None:
