@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from scripts.build_commercial_seed import (
     _colors,
     _excel_date,
@@ -64,3 +66,10 @@ def test_measurements_and_units_are_inferred_only_by_explicit_rules() -> None:
 
 def test_color_defaults_to_not_applicable() -> None:
     assert _colors("LAMINA LISA") == [{"code": "NO_APLICA", "name": "No aplica"}]
+
+
+def test_seed_fingerprints_are_independent_of_platform_line_endings() -> None:
+    lf = b'{"sku":"A-1"}\n'
+    crlf = lf.replace(b"\n", b"\r\n")
+    normalized = (crlf.decode().replace("\r\n", "\n")).encode()
+    assert hashlib.sha256(normalized).digest() == hashlib.sha256(lf).digest()

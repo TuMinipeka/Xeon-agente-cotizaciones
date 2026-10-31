@@ -283,12 +283,10 @@ def build_seed(source: Path, output_dir: Path) -> dict[str, Any]:
     serialized = (
         json.dumps(product, ensure_ascii=False, sort_keys=True) + "\n" for product in products
     )
-    products_path.write_text(
-        "".join(serialized),
-        encoding="utf-8",
-    )
+    payload = "".join(serialized)
+    products_path.write_text(payload, encoding="utf-8", newline="\n")
     source_hash = hashlib.sha256(source.read_bytes()).hexdigest().upper()
-    seed_hash = hashlib.sha256(products_path.read_bytes()).hexdigest().upper()
+    seed_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest().upper()
     manifest = {
         "organization": "Ferretería El Campín",
         "source_kind": "Profit Plus XLSX",
