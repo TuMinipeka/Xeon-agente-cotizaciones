@@ -231,26 +231,35 @@ class GuidedFunnel:
         cart = self._carts.get(key)
         if cart is None or not cart.confirmed_lines():
             return "pendiente"
-        line = cart.confirmed_lines()[0]
-        result = self._executor.execute(
-            IntentBatch(
-                intents=(
-                    Intent(
-                        kind=IntentKind.CONSULTAR_STOCK,
-                        product=line.sku,
-                        quantity=line.quantity,
-                        branch=branch_id,
-                        source_text=line.sku,
-                    ),
+        statuses: list[str] = []
+        for line in cart.confirmed_lines():
+            result = self._executor.execute(
+                IntentBatch(
+                    intents=(
+                        Intent(
+                            kind=IntentKind.CONSULTAR_STOCK,
+                            product=line.sku,
+                            quantity=line.quantity,
+                            branch=branch_id,
+                            source_text=line.sku,
+                        ),
+                    )
+                ),
+                message=line.sku,
+                conversation_key=key,
+            )
+            normalized = _normalized(result.text)
+            statuses.append(
+                next(
+                    (status for status in ("disponible", "agotado") if status in normalized),
+                    "pendiente",
                 )
-            ),
-            message=line.sku,
-            conversation_key=key,
-        )
-        for status in ("disponible", "agotado", "pendiente"):
-            if status in _normalized(result.text):
-                return status
-        return "pendiente"
+            )
+        if "pendiente" in statuses:
+            return "pendiente"
+        if "agotado" in statuses:
+            return "agotado"
+        return "disponible"
 
     def render(self, key: str, *, prefix: str = "") -> Reply:
         state = self.state(key)

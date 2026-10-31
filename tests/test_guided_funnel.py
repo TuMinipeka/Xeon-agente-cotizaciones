@@ -9,12 +9,15 @@ from pathlib import Path
 import httpx
 import pytest
 
+from tests.guided_steps import add_product
 from xeon.adapters.channels.kapso import KapsoChannelAdapter, parse_kapso_webhook
+from xeon.adapters.inventory.memory import InMemoryBranchInventory
 from xeon.adapters.policies.yaml_store import YamlPolicyRepository
 from xeon.api.app import create_app
 from xeon.application.container import build_container
 from xeon.application.reply import Option, Reply
 from xeon.config import Settings
+from xeon.domain.inventory import StockChannel, StockSnapshot
 from xeon.domain.quote import QuoteStatus
 
 
@@ -49,6 +52,53 @@ def test_button_journey_confirms_customer_without_approval() -> None:
                 quote.status is QuoteStatus.CONFIRMADO_POR_CLIENTE
                 for quote in container.quotes._quotes.values()  # type: ignore[attr-defined]
             )
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
+def test_branch_status_aggregates_every_cart_line() -> None:
+    async def run() -> None:
+        inventory = InMemoryBranchInventory(
+            (
+                StockSnapshot(
+                    sku="CEM-50",
+                    branch_id="sede-centro",
+                    origin_id="sede-centro",
+                    origin_name="Centro",
+                    quantity=100,
+                    channel=StockChannel.ON_HAND,
+                    source="qa",
+                    observed_at="2026-01-01T00:00:00+00:00",
+                    valid_until="2099-01-01T00:00:00+00:00",
+                ),
+                StockSnapshot(
+                    sku="PAL-RED-FIB",
+                    branch_id="sede-centro",
+                    origin_id="sede-centro",
+                    origin_name="Centro",
+                    quantity=0,
+                    channel=StockChannel.ON_HAND,
+                    source="qa",
+                    observed_at="2026-01-01T00:00:00+00:00",
+                    valid_until="2099-01-01T00:00:00+00:00",
+                ),
+            )
+        )
+        container = build_container(
+            Settings(llm_provider="mock", _env_file=None), inventory=inventory
+        )
+        key = "multiline-stock"
+        try:
+            await add_product(container, key, "cemento", "CEM-50", 10)
+            await add_product(container, key, "PAL-RED-FIB", "PAL-RED-FIB", 1)
+            await container.agent.respond_reply("more:view", conversation_key=key)
+            branches = await container.agent.respond_reply("delivery:pickup", conversation_key=key)
+            center = next(
+                option for option in branches.options if option.id == "branch:sede-centro"
+            )
+            assert center.title == "Centro: agotado"
         finally:
             await container.aclose()
 
