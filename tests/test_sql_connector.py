@@ -142,6 +142,12 @@ def test_example_yaml_validates() -> None:
     assert load_connector(Path("connectors/example-ferreteria.yaml")).price_divisor == 100
 
 
+def test_el_campin_commercial_connector_validates() -> None:
+    connector = load_connector(Path("connectors/ferreteria-el-campin.yaml"))
+    assert connector.price_divisor == 1
+    assert connector.catalog_version == "el-campin-2026-10-31"
+
+
 @pytest.mark.parametrize("source", ["rest", "csv"])
 def test_future_sources_fail_explicitly(source: str) -> None:
     with pytest.raises(SettingsError, match="aun no esta implementado"):

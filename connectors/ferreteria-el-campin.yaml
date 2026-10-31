@@ -1,0 +1,18 @@
+# Conector de solo lectura para las vistas comerciales administradas por XEON.
+price_divisor: 1
+unit_map: {}
+timeout_seconds: 5
+catalog_version: el-campin-2026-10-31
+naive_datetime_timezone: America/Bogota
+find_by_sku:
+  sql: "SELECT sku, name, unit_code, price, search_content FROM commercial.catalog_products WHERE sku = :sku"
+  columns: {sku: sku, name: name, unit: unit_code, price: price, aliases: search_content}
+search_text:
+  sql: "SELECT sku, name, unit_code, price, search_content FROM commercial.catalog_products WHERE search_content ILIKE '%' || :query || '%' ORDER BY name LIMIT :limit"
+  columns: {sku: sku, name: name, unit: unit_code, price: price, aliases: search_content}
+stock_by_sku:
+  sql: "SELECT p.sku, b.code AS branch_code, b.name AS branch_name, s.available, s.observed_at, s.valid_until FROM commercial.branch_stock s JOIN commercial.products p ON p.id = s.product_id JOIN commercial.branches b ON b.id = s.branch_id WHERE p.sku = :sku AND s.valid_until >= CURRENT_TIMESTAMP"
+  columns: {sku: sku, branch_id: branch_code, branch_name: branch_name, quantity: available, observed_at: observed_at, valid_until: valid_until}
+list_branches:
+  sql: "SELECT code, name FROM commercial.branches WHERE active ORDER BY name"
+  columns: {id: code, name: name}
