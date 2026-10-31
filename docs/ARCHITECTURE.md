@@ -162,16 +162,20 @@ sinteticos correspondientes. Son datos de demostracion, no precios ni existencia
   `(tenant_id, request_id)`.
 
 ### 3. Modelo de Datos Hibrido Empresarial (SQL + NoSQL `JSONB` + RAG `pgvector`)
-La base híbrida comercial con `pgvector` sigue planeada (D12: la recuperación vectorial será una herramienta más de un agente con herramientas; precios, stock y totales siguen saliendo de consultas directas). El catálogo e inventario son sintéticos o del conector SQL; el estado operativo puede persistir en PostgreSQL propio mediante D15 A. La arquitectura futura separa tres responsabilidades:
+El cimiento de la base híbrida comercial está implementado en migraciones Alembic separadas de la
+persistencia operativa. Normaliza catálogo, marca, color, taxonomía, unidades, impuestos, listas de
+precio y `stock`; usa `JSONB`, búsqueda textual y una columna `pgvector` sin índice ANN. El conector
+de solo lectura puede consumir sus vistas. La generación de embeddings y la recuperación vectorial
+siguen planeadas (D12):
 - **Capa SQL Relacional Estricta:** Precios (`Decimal` / `NUMERIC`), unidades comerciales, stock por
   sede (`fresh` / `stale` / `unknown`), borradores de cotizacion (`DRAFT`), versiones y llaves de
   idempotencia (`tenant_id + request_id`).
 - **Capa NoSQL Documental (`JSONB` / `Product.specs`):** Atributos tecnicos variables por categoria
   (`calibre`, `presion_psi`, `diametro`, `peso_kg`, `norma`), matrices de descuento y payloads
   crudos de webhooks de Kapso sin requerir migraciones rigidas por cada nuevo atributo.
-- **Capa Vectorial / RAG Semantico (`pgvector` / `Product.description_context`):** Resuelve lenguaje
-  coloquial o ambiguo del comprador para proponer `SKU`s candidatos. El RAG nunca almacena ni
-  decide precios ni existencias.
+- **Capa Vectorial / RAG Semantico (`pgvector` / `Product.description_context`):** el almacenamiento
+  está preparado; cuando se implemente, propondrá `SKU`s candidatos. Nunca almacenará ni decidirá
+  precios o existencias.
 
 ## Trazabilidad del corte
 
@@ -201,7 +205,7 @@ La base híbrida comercial con `pgvector` sigue planeada (D12: la recuperación 
 
 ## Pendiente (no implementado)
 
-- Índice híbrido comercial en PostgreSQL 17 (`SQL + JSONB + pgvector`); la persistencia operativa con Alembic ya es opcional mediante D15 A.
+- Generación de embeddings, elección de dimensión e índice ANN para la base comercial.
 - Generacion de PDF con WeasyPrint y politica de descuentos versionada.
 - Flujo copiloto para el trabajador (post-MVP): notificacion por Gmail (`WorkerNotificationPort` / SMTP) con tabla de pre-facturacion, hoja de alistamiento multi-sede, semaforo de descuentos del harness y confirmacion humana antes de facturar (`PENDING_APPROVAL` -> `APPROVED_FOR_BILLING`) con aviso de regreso al WhatsApp del cliente.
 - Conectores `rest` y `csv` de `DATA_SOURCE` (hoy solo `synthetic` y `sql`).

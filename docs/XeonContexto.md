@@ -5,11 +5,11 @@
 **Versión documental:** 2.0.  
 **Estado:** especificación vigente; D14 establece el embudo guiado como único flujo conversacional. Distingue el núcleo implementado (Kapso, Grok, Groq de respaldo, catálogo sintético o SQL de solo lectura y cotizador determinista) de las capacidades planeadas.
 
-Este documento establece qué construimos, qué problema resolvemos, cómo utilizamos las herramientas y qué condiciones debe cumplir cada entrega. El canal WhatsApp usa **Kapso**; **Grok** es el proveedor predeterminado, **Groq** el respaldo y `mock` el perfil de pruebas. `AgentService` delega en `GuidedFunnel`; `CommercialExecutor` y `CommercialToolbelt` preparan el contexto comercial con un `QuoteCart` versionado y las políticas de `config/policies/`. Un conector SQL opcional (`DATA_SOURCE=sql`) sustituye los datos sintéticos; el defecto sigue siendo sintético. La base híbrida empresarial (SQL relacional + `JSONB` + `pgvector`) sobre PostgreSQL 17 es una evolución planeada.
+Este documento establece qué construimos, qué problema resolvemos, cómo utilizamos las herramientas y qué condiciones debe cumplir cada entrega. El canal WhatsApp usa **Kapso**; **Grok** es el proveedor predeterminado, **Groq** el respaldo y `mock` el perfil de pruebas. `AgentService` delega en `GuidedFunnel`; `CommercialExecutor` y `CommercialToolbelt` preparan el contexto comercial con un `QuoteCart` versionado y las políticas de `config/policies/`. Un conector SQL opcional (`DATA_SOURCE=sql`) sustituye los datos sintéticos; el defecto sigue siendo sintético. La base híbrida empresarial ya tiene esquema, semilla y conector; la búsqueda vectorial sigue pendiente.
 
 ## 1. Qué es XEON
 
-XEON es un agente de inteligencia artificial especializado en asistencia comercial y elaboración de cotizaciones para ferreterías, agroferreterías y distribuidores. Conversa con el comprador por WhatsApp, identifica productos (incluso ante descripciones ambiguas o jerga ferretera) y prepara un borrador calculado. El prototipo consulta datos sintéticos verificados; la integración con datos empresariales reales y la emisión de una cotización aprobada son posteriores.
+XEON es un agente de inteligencia artificial especializado en asistencia comercial y elaboración de cotizaciones para ferreterías, agroferreterías y distribuidores. Conversa con el comprador por WhatsApp, identifica productos (incluso ante descripciones ambiguas o jerga ferretera) y prepara un borrador calculado. El perfil predeterminado consulta datos sintéticos; existe una base comercial real sanitizada que se activa mediante el conector SQL. La facturación no está implementada.
 
 Su ventaja buscada es reducir el tiempo operativo del vendedor y mejorar la atención simultánea a clientes. Hoy combina lenguaje natural, búsqueda lexical y cálculos programados (`Decimal`) sobre datos sintéticos; la persistencia operativa y la revisión humana por panel son opcionales. La búsqueda vectorial y la facturación siguen planeadas.
 
@@ -46,7 +46,7 @@ Según el caso aportado por Daniel, Ferragro cuenta con comerciantes en zonas co
 
 ### 3.1. Recorrido principal
 
-El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La persistencia operativa opcional en PostgreSQL propio de XEON (D15 A) guarda embudo, carrito, memoria, borradores, deduplicación y bandeja del asesor. El panel permite revisión humana a `APPROVED_FOR_BILLING` o `RECHAZADO_POR_ASESOR`; la base híbrida comercial con RAG, la factura y el PDF siguen pendientes.
+El comprador envía su solicitud por WhatsApp. **Kapso** entrega un webhook firmado a **XEON**. `AgentService` ejecuta `GuidedFunnel`: presenta opciones para producto, cantidad, entrega, sede, pago y resumen. `CommercialToolbelt` y `CommercialExecutor` consultan catálogo (sintético por defecto, SQL opcional) y stock y calculan con el backend un borrador `DRAFT`; el cliente puede confirmarlo como `CONFIRMADO_POR_CLIENTE`, sin reserva ni factura. Grok solo clasifica texto de pasos cerrados a opciones permitidas. La persistencia operativa opcional en PostgreSQL propio de XEON (D15 A) guarda embudo, carrito, memoria, borradores, deduplicación y bandeja del asesor. El panel permite revisión humana a `APPROVED_FOR_BILLING` o `RECHAZADO_POR_ASESOR`; el RAG vectorial y la factura siguen pendientes.
 
 ### 3.2. Alcance objetivo del MVP
 
@@ -54,14 +54,14 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 
 - Conversación en español por **WhatsApp mediante Kapso** y webhook firmado.
 - Embudo `GuidedFunnel` con contexto comercial verificado por `CommercialExecutor` y `CommercialToolbelt`; **Grok** predeterminado para clasificar opciones, **Groq** de respaldo y `mock` en pruebas.
-- Catálogo sintético en memoria con unidades, alias, `specs` y búsqueda lexical; `JSONB` y RAG vectorial con `pgvector` están planeados.
+- Catálogo sintético por defecto o comercial SQL; `JSONB` y el almacenamiento `pgvector` están implementados, mientras el RAG vectorial sigue planeado.
 - Inventario por sucursal/bodega con clasificación de vigencia (`fresh`, `stale`, `unknown`) y tipo (`local`, `transfer`, `delivery`).
 - Precios y borradores calculados en el backend con `Decimal`; la política de descuentos y la logística empresarial están planeadas.
 - Borrador de cotización (`DRAFT`) versión 1 por la API directa; el flujo conversacional
   versiona revisiones del carrito en memoria o PostgreSQL propio. La revisión humana por panel
   está implementada; el PDF sigue planeado.
 - Operación interna por CLI (`Typer`), sin exigir un frontend pesado.
-- Datos sintéticos verificados antes de conectar un ERP real. El conector SQL declarativo (D13) existe como opción de solo lectura; no hay prueba con una ferretería real.
+- Datos sintéticos por defecto. El conector SQL declarativo (D13) puede leer la base sanitizada proporcionada por Ferretería El Campín; aún no se ha validado contra su operación en sitio.
 
 ### 3.3. Posterior al MVP
 
@@ -99,7 +99,7 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 | Agente | `AgentService` + `GuidedFunnel` + `CommercialExecutor` | Presenta opciones; el modelo clasifica texto de pasos cerrados y el backend calcula |
 | Proveedor LLM | Grok por defecto; Groq de respaldo; `MockLLM` en pruebas | Inferencia vía `LLMPort` + `HTTPX` |
 | Canal WhatsApp | Kapso + `HTTPX` | Webhook firmado y envío por API oficial de WhatsApp vía Kapso |
-| Base de datos híbrida (planeada) | PostgreSQL 17 (`SQL` + `JSONB` + `pgvector`) | Transacciones, fichas polimórficas y búsqueda vectorial |
+| Base de datos híbrida | PostgreSQL 17 (`SQL` + `JSONB` + `pgvector`) | Esquema y semilla implementados; embeddings e índice ANN pendientes |
 | Estado operativo opcional (D15 A) | PostgreSQL 17 + SQLAlchemy 2 + psycopg 3 + Alembic | Embudo, carrito, memoria, borradores y deduplicación; base propia de XEON |
 | PDF (planeado) | Jinja2 + WeasyPrint | Generación de cotización aprobada |
 | Terminal Interna | Typer + HTTPX | CLI para operar, consultar stock y revisar borradores |
@@ -107,7 +107,7 @@ Los puntos siguientes describen el alcance buscado; las capacidades todavía no 
 
 ## 6. Arquitectura del sistema
 
-Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; el catálogo e inventario del prototipo son sintéticos salvo que `DATA_SOURCE=sql` lea una base de ferretería (solo lectura). `STATE_STORE=postgres` guarda el estado operativo en otra base propia de XEON; memoria sigue como opción predeterminada. PostgreSQL híbrido con RAG para catálogo es una evolución planeada. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
+Se utiliza un monolito modular con arquitectura hexagonal. Los adaptadores conectan **Kapso** y los proveedores LLM **Grok/Groq**; el catálogo e inventario del prototipo son sintéticos salvo que `DATA_SOURCE=sql` lea una base de ferretería (solo lectura). `STATE_STORE=postgres` guarda el estado operativo en otra base propia de XEON; memoria sigue como opción predeterminada. El PostgreSQL comercial híbrido está separado y su RAG vectorial continúa pendiente. Kapso necesita una URL HTTPS pública para entregar el webhook al servidor local; durante el ensayo se usa un túnel `cloudflared`.
 
 ```mermaid
 flowchart TD
@@ -132,7 +132,7 @@ flowchart TD
 | `domain` | Entidades, dinero (`Decimal`), unidades, vigencia de stock, estados | Importar FastAPI, Kapso o clientes HTTP de modelos. |
 | `application` | Casos de uso (`CreateQuoteDraft`, `GetStockByBranches`) y puertos | Depender de un formato concreto de mensajería. |
 | `agent` | `AgentService`, `GuidedFunnel`, `CommercialExecutor` y `CommercialToolbelt` | Calcular totales por texto ni emitir aprobaciones. |
-| `adapters` | Conectores hacia Grok, Groq, Kapso, memoria y SQL de solo lectura (`DATA_SOURCE=sql`); PostgreSQL comercial propio queda planeado | Incorporar descuentos o reglas comerciales ocultas. |
+| `adapters` | Conectores hacia Grok, Groq, Kapso, memoria y SQL de solo lectura (`DATA_SOURCE=sql`), incluida la base comercial | Incorporar descuentos o reglas comerciales ocultas. |
 | `api` | Endpoints HTTP (`/v1/chat`, `/v1/quotes`, `/v1/stock`, `/v1/channels/whatsapp/kapso/webhook`) | Duplicar la lógica de cotización. |
 | `cli` | Operaciones humanas desde terminal (`uv run xeon ...`) | Saltarse las validaciones del dominio. |
 
@@ -148,18 +148,23 @@ flowchart TD
 
 En una ferretería o agroferretería real, usar **solo SQL rígido** obliga a crear cientos de columnas nulas para atributos distintos (HP de una bomba, PSI de un tubo, calibre de un alambre), mientras que usar **solo NoSQL (ej. MongoDB)** debilita la integridad transaccional ACID de precios, stock y cotizaciones.
 
-La arquitectura **planea** un modelo híbrido dentro de PostgreSQL 17. Las tablas, índices y flujos siguientes no están implementados en el prototipo:
+El cimiento del modelo híbrido está implementado en un PostgreSQL comercial aislado: migraciones,
+tablas normalizadas, `JSONB`, búsqueda textual, almacenamiento `pgvector` sin ANN y un conector SQL
+de solo lectura. La generación de embeddings y la recuperación vectorial siguen pendientes:
 
 1. **Capa SQL Relacional (Exactitud comercial y financiera):**
    - Columnas estructuradas con tipos estrictos para `sku`, `name`, `unit`, `list_price NUMERIC(14,2)`, `currency`, `catalog_version`.
-   - Tablas `stock_snapshots`, `quotes` y `quote_lines` con integridad referencial y llave única de idempotencia `(tenant_id, request_id)`.
+   - Tablas efectivas de precios, impuestos y `stock`; las cotizaciones permanecen en la base
+     operativa para no duplicar responsabilidades.
 2. **Capa NoSQL Documental con `JSONB` e índices `GIN` (Agilidad polimórfica):**
    - `products.specs JSONB`: almacena especificaciones técnicas variables según la familia del producto (`{"diametro": "1/2 pulgada", "presion_psi": "200"}` o `{"calibre": "14", "uso": "cercas ganaderas"}`).
    - `whatsapp_events.raw_payload JSONB`: podría almacenar los payloads de webhooks de Kapso sin requerir migraciones de esquema ante cambios del proveedor.
    - `discount_policies.rules JSONB`: almacena condiciones promocionales o alianzas (ej. *RindeMás*).
 3. **Capa Vectorial / RAG Semántico con `pgvector` (Desambiguación de lenguaje natural):**
    - `products.description_context` y `products.embedding`: almacenan usos comunes, problemas que resuelve el material y jerga ferretera regional **sin quemar precios ni existencias en el texto del vector**.
-   - En una implementación futura, una consulta ambigua podría recuperar `SKU`s candidatos por similitud semántica y filtros `JSONB`; precio y stock vendrían de columnas SQL. Hoy la búsqueda es lexical sobre datos sintéticos en memoria.
+   - En una implementación futura, una consulta ambigua podrá recuperar `SKU`s candidatos por
+     similitud semántica y filtros `JSONB`; precio y stock seguirán viniendo de columnas SQL. Hoy
+     la consulta de esta base mediante el conector es lexical.
 
 ## 9. Canal WhatsApp con Kapso
 
