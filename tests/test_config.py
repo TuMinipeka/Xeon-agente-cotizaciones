@@ -153,3 +153,19 @@ def test_kapso_secrets_can_be_loaded_from_files(tmp_path: Path) -> None:
     )
     assert settings.require_kapso_api_key().get_secret_value() == "test-api-key"
     assert settings.require_kapso_webhook_secret().get_secret_value() == "test-webhook-secret"
+
+
+def test_commercial_url_requires_secret_file(tmp_path: Path) -> None:
+    settings = Settings(commercial_url_file=tmp_path / "missing.txt", _env_file=None)
+    with pytest.raises(SettingsError, match="COMMERCIAL_URL_FILE"):
+        settings.require_commercial_url()
+
+
+def test_commercial_url_rejects_non_postgresql_driver(tmp_path: Path) -> None:
+    secret_dir = tmp_path / "secrets"
+    secret_dir.mkdir()
+    url_file = secret_dir / "commercial.txt"
+    url_file.write_text("sqlite:///commercial.db", encoding="utf-8")
+    settings = Settings(commercial_url_file=url_file, _env_file=None)
+    with pytest.raises(SettingsError, match="PostgreSQL psycopg"):
+        settings.require_commercial_url()
