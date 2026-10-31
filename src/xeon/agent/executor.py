@@ -339,7 +339,7 @@ class CommercialExecutor:
                     f"{pending_line.label}: {_quantity(pending_line.quantity)} "
                     "pendiente de elegir referencia"
                 )
-        parts.append(f"TOTAL confirmado: {_money(total, self._currency)}")
+        parts.append(f"TOTAL BORRADOR: {_money(total, self._currency)}")
         return "\n".join(parts)
 
     def _remember_project(self, key: str, intent: Intent, message: str) -> None:

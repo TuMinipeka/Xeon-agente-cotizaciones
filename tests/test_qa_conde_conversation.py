@@ -26,7 +26,8 @@ def test_cart_revision_and_attribute_choice_preserve_verified_total() -> None:
             )
             assert "$433.500" in reply.text
             assert "$43.700" in reply.text
-            assert "TOTAL confirmado: $477.200" in reply.text
+            assert "TOTAL BORRADOR: $477.200" in reply.text
+            assert "TOTAL confirmado" not in reply.text
             assert "fuera de alcance" not in reply.text.casefold()
             cart = container.carts.get("qa-cart")
             assert cart is not None and cart.quote_version == 4
@@ -89,7 +90,8 @@ def test_stock_and_policy_followups_preserve_quote() -> None:
             assert any(option.id == "payment:0" for option in payment.options)
             summary = await container.agent.respond_reply("payment:0", conversation_key="qa-policy")
             assert "sede-norte" in summary.text
-            assert "TOTAL confirmado: $289.000" in summary.text
+            assert "TOTAL BORRADOR: $289.000" in summary.text
+            assert "TOTAL confirmado" not in summary.text
             assert "fuera de alcance" not in summary.text.casefold()
         finally:
             await container.aclose()
