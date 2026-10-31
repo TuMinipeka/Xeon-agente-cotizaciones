@@ -1,0 +1,17 @@
+{
+  "excluded": [
+    "business_tax_identifier",
+    "credentials",
+    "internal_costs",
+    "margins",
+    "supplier_data",
+    "internal_storage_locations",
+    "raw_workbook"
+  ],
+  "organization": "Ferretería El Campín",
+  "product_count": 4830,
+  "seed_sha256": "9F6D7A194DB04C90E2B2D7B80513476E82EBA28FCEF5A948F03A8A5D4503E8F8",
+  "source_kind": "Profit Plus XLSX",
+  "source_sha256": "78A3D8C095E6C09B8D7FCFF2CDA2C79554793C560FE52D775106D31117187057",
+  "source_sheet": "Profit_1 Todos"
+}
