@@ -22,6 +22,9 @@ def inspect_database(connection: sa.Connection) -> dict[str, object]:
     }
     if not schema_exists:
         return report
+    report["vector_installed_version"] = connection.execute(
+        sa.text("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+    ).scalar_one_or_none()
     revision = connection.execute(
         sa.text("SELECT version_num FROM alembic_version")
     ).scalar_one_or_none()
@@ -34,6 +37,9 @@ def inspect_database(connection: sa.Connection) -> dict[str, object]:
         "product_prices",
         "stock",
         "product_search_documents",
+        "product_embeddings",
+        "data_quality_issues",
+        "import_batches",
     )
     existing = {
         row[0]
@@ -50,6 +56,30 @@ def inspect_database(connection: sa.Connection) -> dict[str, object]:
             ).scalar_one()
             for table in expected_relations
         }
+    expected_views = {
+        "available_stock",
+        "branch_stock",
+        "catalog_products",
+        "current_product_prices",
+    }
+    existing_views = {
+        row[0]
+        for row in connection.execute(
+            sa.text("""SELECT table_name FROM information_schema.views
+            WHERE table_schema = 'commercial'""")
+        )
+    }
+    report["missing_views"] = sorted(expected_views - existing_views)
+    if expected_views <= existing_views:
+        report["view_counts"] = {
+            view: connection.execute(
+                sa.text(f"SELECT count(*) FROM commercial.{view}")
+            ).scalar_one()
+            for view in sorted(expected_views)
+        }
+    report["completed_batches"] = connection.execute(
+        sa.text("SELECT count(*) FROM commercial.import_batches WHERE status = 'COMPLETED'")
+    ).scalar_one()
     return report
 
 
