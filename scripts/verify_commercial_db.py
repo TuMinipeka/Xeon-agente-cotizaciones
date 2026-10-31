@@ -10,12 +10,13 @@ from xeon.config import Settings
 
 
 def inspect_database(connection: sa.Connection) -> dict[str, object]:
-    server_version, vector_available, schema_exists = connection.execute(
-        sa.text("""SELECT current_setting('server_version'),
+    database, server_version, vector_available, schema_exists = connection.execute(
+        sa.text("""SELECT current_database(), current_setting('server_version'),
         EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector'),
         EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'commercial')""")
     ).one()
     report: dict[str, object] = {
+        "database": database,
         "server_version": server_version,
         "vector_available": vector_available,
         "commercial_schema": schema_exists,
