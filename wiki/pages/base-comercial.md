@@ -5,7 +5,7 @@ tags:
 
 # Base comercial de Ferretería El Campín
 
-Estado: `implementado` en `QA/testing` el 2026-10-31; ejecución contra PostgreSQL local pendiente.
+Estado: `implementado` y cargado en PostgreSQL local el 2026-10-31.
 Relacionado: [conector de la ferretería](conector-ferreteria.md), [arquitectura actual](arquitectura-actual.md) y [estado del corte](estado-del-corte.md).
 
 El usuario proporcionó un reporte de 4.830 SKU únicos y declaró que sus artículos, impuestos y
@@ -25,6 +25,12 @@ forma independiente.
   verificables; `scripts/seed_commercial_db.py` carga la revisión esperada en una transacción.
 - El conector `ferreteria-el-campin.yaml` expone solo consultas `SELECT` para catálogo, búsqueda,
   stock por sucursal y sedes.
+- PostgreSQL 18.6 tiene pgvector 0.8.7 compilado e instalado. La revisión física es
+  `0005_vector_search_foundation`: 4.830 productos, 23.148 precios, 37.216 filas de stock, 19
+  incidencias por precio faltante, una sucursal y dos bodegas.
+- La repetición completa del seed produce los mismos conteos. El primer reintento reveló un orden
+  incorrecto bajo FK `RESTRICT`; se corrigió eliminando productos y tablas puente antes que las
+  dimensiones de empresa.
 
 ## Excepción vigente de la prueba
 
@@ -36,9 +42,9 @@ de procedencia.
 
 ## Límites
 
-La base aún no se migró ni sembró en la instancia local porque la URL debe ser creada por el usuario
-en `secrets/xeon_commercial_url.txt`. La base comercial no contiene cotizaciones ni estado del
-agente: esas responsabilidades permanecen en la persistencia operativa. La búsqueda consumida por
-el agente continúa siendo lexical.
+La base comercial no contiene cotizaciones ni estado del agente: esas responsabilidades permanecen
+en la persistencia operativa. La búsqueda consumida por el agente continúa siendo lexical y la
+tabla de embeddings está vacía hasta seleccionar modelo y dimensión.
 
-Fuente principal: [guía de base comercial](../../docs/BASE_COMERCIAL.md). Revisión: 2026-10-31.
+Fuentes: [guía de base comercial](../../docs/BASE_COMERCIAL.md) y
+[modelos E/R, lógico y físico](../../docs/MODELO_DATOS_COMERCIAL.md). Revisión: 2026-10-31.

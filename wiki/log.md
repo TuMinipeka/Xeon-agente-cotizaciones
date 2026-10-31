@@ -414,7 +414,11 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
   `pgvector` sin ANN, semilla con huella, cargador transaccional y conector SQL de solo lectura.
 - **Decisión temporal:** stock vendible en Bucaramanga para esta prueba, bloqueado en producción;
   antes de un uso real debe reemplazarse por inventario observado.
-- **Pendiente:** crear el secreto local de conexión, aplicar las migraciones y verificar la carga
-  contra PostgreSQL. Embeddings, dimensión e índice ANN continúan planificados.
+- **Verificación posterior:** PostgreSQL 18.6 con pgvector 0.8.7, revisión Alembic `0005`, 4.830
+  productos, 23.148 precios, 37.216 filas de stock y cuatro vistas sin objetos faltantes. La carga
+  repetida conserva exactamente los conteos después de corregir el orden de limpieza bajo FK.
+- **Documentación:** modelos E/R conceptual, lógico y físico añadidos en
+  `docs/MODELO_DATOS_COMERCIAL.md`.
+- **Pendiente:** embeddings, dimensión e índice ANN continúan planificados.
 - **Notas integradas:** revisión de recomendaciones del agente y decisiones/perfilado de la base
   comercial del 2026-10-31.

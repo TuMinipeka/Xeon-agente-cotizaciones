@@ -22,3 +22,4 @@ Revisión: 2026-10-24. Las huellas SHA-256 fijan el contenido observado al crear
 No se registraron fuentes privadas ni archivos de secretos. El repositorio externo es una copia Git local independiente: actualizarlo requiere una acción deliberada y una nueva entrada del log.
 | S10 | [Guía NodeStudio de Kapso](pages/canal-kapso.md) | `whatsapp.pdf`, consultada por su autor el 2026-10-13; el archivo local se retiró en D9 | Paso a paso del canal Kapso |
 | S11 | Reporte de artículos de Ferretería El Campín | XLSX local no versionado; SHA-256 `78A3D8C095E6C09B8D7FCFF2CDA2C79554793C560FE52D775106D31117187057`; perfilado 2026-10-31 | Fuente declarada real de 4.830 SKU; autenticidad y permiso no verificados independientemente |
+| S12 | [pgvector oficial](https://github.com/pgvector/pgvector/tree/v0.8.7) | tag `v0.8.7`, commit `f37c13f68b57d2c3472b2214fbcff699d6d34876`; compilado 2026-10-31 | Extensión vectorial para PostgreSQL 18 en Windows |
