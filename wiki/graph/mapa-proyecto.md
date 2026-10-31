@@ -68,6 +68,7 @@ Punto de entrada del grafo: enlaza la wiki, los documentos del repositorio y una
 - [docs/GLOSSARY.md](generated/docsGLOSSARY.md)
 - [docs/GRAPHIFY.md](generated/docsGRAPHIFY.md)
 - [docs/METODO_DE_TRABAJO.md](generated/docsMETODO_DE_TRABAJO.md)
+- [docs/MODELO_DATOS_COMERCIAL.md](generated/docsMODELO_DATOS_COMERCIAL.md)
 - [docs/OBSERVABILIDAD.md](generated/docsOBSERVABILIDAD.md)
 - [docs/PANEL_ASESOR.md](generated/docsPANEL_ASESOR.md)
 - [docs/PERSISTENCIA.md](generated/docsPERSISTENCIA.md)

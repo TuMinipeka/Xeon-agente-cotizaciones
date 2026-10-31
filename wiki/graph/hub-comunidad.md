@@ -11,7 +11,7 @@ Comunidades detectadas por Graphify. Regenerado por `scripts/build_graphify_map.
 
 - [Grafo proyecto](../pages/grafo-proyecto.md)
 
-## Notas del grafo (186)
+## Notas del grafo (188)
 
 - [_COMMUNITY_Community 0](generated/_COMMUNITY_Community%200.md)
 - [_COMMUNITY_Community 1](generated/_COMMUNITY_Community%201.md)
@@ -110,6 +110,8 @@ Comunidades detectadas por Graphify. Regenerado por `scripts/build_graphify_map.
 - [_COMMUNITY_Community 180](generated/_COMMUNITY_Community%20180.md)
 - [_COMMUNITY_Community 181](generated/_COMMUNITY_Community%20181.md)
 - [_COMMUNITY_Community 182](generated/_COMMUNITY_Community%20182.md)
+- [_COMMUNITY_Community 183](generated/_COMMUNITY_Community%20183.md)
+- [_COMMUNITY_Community 184](generated/_COMMUNITY_Community%20184.md)
 - [_COMMUNITY_Community 19](generated/_COMMUNITY_Community%2019.md)
 - [_COMMUNITY_Community 2](generated/_COMMUNITY_Community%202.md)
 - [_COMMUNITY_Community 20](generated/_COMMUNITY_Community%2020.md)

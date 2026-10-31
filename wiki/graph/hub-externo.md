@@ -11,7 +11,7 @@ Librerías y símbolos sin archivo propio (httpx, Any, etc.). Regenerado por `sc
 
 - [Grafo proyecto](../pages/grafo-proyecto.md)
 
-## Notas del grafo (309)
+## Notas del grafo (311)
 
 - [APIRouter](generated/APIRouter.md)
 - [AbstractAsyncContextManager](generated/AbstractAsyncContextManager.md)
@@ -67,6 +67,7 @@ Librerías y símbolos sin archivo propio (httpx, Any, etc.). Regenerado por `sc
 - [Client](generated/Client.md)
 - [Connection](generated/Connection.md)
 - [Connection_1](generated/Connection_1.md)
+- [Connection_2](generated/Connection_2.md)
 - [Console](generated/Console.md)
 - [Console_1](generated/Console_1.md)
 - [Context](generated/Context.md)
@@ -314,6 +315,7 @@ Librerías y símbolos sin archivo propio (httpx, Any, etc.). Regenerado por `sc
 - [typer_testing](generated/typer_testing.md)
 - [typing](generated/typing.md)
 - [unicodedata](generated/unicodedata.md)
+- [unittest_mock](generated/unittest_mock.md)
 - [urllib_parse](generated/urllib_parse.md)
 - [uuid_13](generated/uuid_13.md)
 - [xeon_adapters_notifications_inbox](generated/xeon_adapters_notifications_inbox.md)

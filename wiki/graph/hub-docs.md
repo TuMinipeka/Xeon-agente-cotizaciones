@@ -13,7 +13,7 @@ Documentación del repositorio (`docs`, README, AGENTS). Regenerado por `scripts
 - [Estado del corte](../pages/estado-del-corte.md)
 - [Decisiones pendientes](../pages/decisiones-pendientes.md)
 
-## Notas del grafo (27)
+## Notas del grafo (28)
 
 - [AGENTS](generated/AGENTS.md)
 - [CLAUDE](generated/CLAUDE.md)
@@ -30,6 +30,7 @@ Documentación del repositorio (`docs`, README, AGENTS). Regenerado por `scripts
 - [docsGLOSSARY](generated/docsGLOSSARY.md)
 - [docsGRAPHIFY](generated/docsGRAPHIFY.md)
 - [docsMETODO_DE_TRABAJO](generated/docsMETODO_DE_TRABAJO.md)
+- [docsMODELO_DATOS_COMERCIAL](generated/docsMODELO_DATOS_COMERCIAL.md)
 - [docsOBSERVABILIDAD](generated/docsOBSERVABILIDAD.md)
 - [docsPANEL_ASESOR](generated/docsPANEL_ASESOR.md)
 - [docsPERSISTENCIA](generated/docsPERSISTENCIA.md)
