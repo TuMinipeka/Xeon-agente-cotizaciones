@@ -703,12 +703,16 @@ class GuidedFunnel:
                 confirmed = self._quotes.save(
                     replace(quote, status=QuoteStatus.CONFIRMADO_POR_CLIENTE)
                 )
-                self._notifier.notify(
-                    tenant_id=self._tenant_id,
-                    event="client_confirmed",
-                    conversation_key=key,
-                    quote_id=confirmed.id,
-                )
+                try:
+                    self._notifier.notify(
+                        tenant_id=self._tenant_id,
+                        event="client_confirmed",
+                        conversation_key=key,
+                        quote_id=confirmed.id,
+                    )
+                except Exception:
+                    self._quotes.save(quote)
+                    raise
                 state = replace(state, step="confirmado")
             case "proyecto", choice if choice.startswith("project:"):
                 lookup = {

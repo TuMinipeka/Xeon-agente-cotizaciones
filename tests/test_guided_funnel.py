@@ -126,6 +126,40 @@ def test_address_step_preserves_words_that_overlap_policy_topics() -> None:
     asyncio.run(run())
 
 
+def test_failed_advisor_notification_does_not_leave_quote_confirmed() -> None:
+    class BrokenInbox:
+        def notify(self, **kwargs: object) -> None:
+            del kwargs
+            raise RuntimeError("advisor inbox unavailable")
+
+    async def run() -> None:
+        container = build_container(
+            Settings(llm_provider="mock", _env_file=None),
+            advisor_inbox=BrokenInbox(),  # type: ignore[arg-type]
+        )
+        key = "failed-confirmation-notification"
+        try:
+            await add_product(container, key, "cemento", "CEM-50", 10)
+            for message in (
+                "more:view",
+                "delivery:pickup",
+                "branch:sede-norte",
+                "payment:0",
+            ):
+                await container.agent.respond_reply(message, conversation_key=key)
+
+            with pytest.raises(RuntimeError, match="advisor inbox unavailable"):
+                await container.agent.respond_reply("summary:confirm", conversation_key=key)
+
+            quotes = tuple(container.quotes._quotes.values())  # type: ignore[attr-defined]
+            assert quotes and quotes[-1].status is QuoteStatus.DRAFT
+            assert container.agent._funnel.state(key).step == "resumen"  # type: ignore[union-attr]
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
 def test_numbered_text_and_unrelated_redirect() -> None:
     async def run() -> None:
         container = _guided_container()
