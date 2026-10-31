@@ -56,3 +56,6 @@ wiki/.write-lock/
 # Graphify caches and rendered output are regenerated locally.
 /graphify-out/
 /wiki/graph/generated/
+
+# Directorios efímeros usados por Pytest cuando el entorno restringe el TEMP global.
+/.tmp-pytest-*/
