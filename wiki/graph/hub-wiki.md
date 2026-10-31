@@ -12,7 +12,7 @@ Notas de la wiki compartida (`wiki`). Regenerado por `scripts/build_graphify_map
 - [Grafo proyecto](../pages/grafo-proyecto.md)
 - [Orquestacion](../pages/orquestacion.md)
 
-## Notas del grafo (51)
+## Notas del grafo (52)
 
 - [wikiREADME](generated/wikiREADME.md)
 - [wikiSCHEMA](generated/wikiSCHEMA.md)
@@ -45,6 +45,7 @@ Notas de la wiki compartida (`wiki`). Regenerado por `scripts/build_graphify_map
 - [wikilog](generated/wikilog.md)
 - [wikipagesarquitectura-actual](generated/wikipagesarquitectura-actual.md)
 - [wikipagesauditoria-2026-10-24](generated/wikipagesauditoria-2026-10-24.md)
+- [wikipagesbase-comercial](generated/wikipagesbase-comercial.md)
 - [wikipagescanal-kapso](generated/wikipagescanal-kapso.md)
 - [wikipagesconector-ferreteria](generated/wikipagesconector-ferreteria.md)
 - [wikipagescontratos-herramientas](generated/wikipagescontratos-herramientas.md)
