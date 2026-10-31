@@ -36,6 +36,9 @@ proveedor de embeddings evaluado. Los precios y el stock nunca se almacenan en e
 La base comercial es distinta de la base de estado operativo de XEON. Cotizaciones, conversaciones,
 outbox y panel siguen bajo `STATE_STORE`; no se duplican aquí.
 
+Los diagramas y el detalle de cardinalidades, claves, tipos, vistas e índices están en
+[MODELO_DATOS_COMERCIAL.md](MODELO_DATOS_COMERCIAL.md).
+
 ## Sucursal e inventario temporal de prueba
 
 La carga inicial crea la sucursal `Bucaramanga` y las bodegas `Bodega 1` y `Bodega 2`; el modelo
@@ -55,6 +58,7 @@ driver `postgresql+psycopg://`. Con PostgreSQL y pgvector disponibles:
 uv run --locked --group db alembic -c alembic.commercial.ini upgrade head
 $env:APP_ENV = "development"
 uv run --locked --group db python scripts/seed_commercial_db.py
+uv run --locked --group db python scripts/verify_commercial_db.py
 ```
 
 El cargador exige la revisión `0005_vector_search_foundation`, adquiere un bloqueo transaccional,
@@ -62,6 +66,11 @@ reemplaza solamente los datos de `FERRETERIA_EL_CAMPIN`, y confirma el lote en u
 Puede repetirse sin duplicar filas. Para que el agente consulte estas vistas, configure
 `DATA_SOURCE=sql`, `TENANT_ID=ferreteria-el-campin` y mantenga la URL del conector en el archivo de
 secretos previsto por `SQL_URL_FILE`.
+
+En Windows con PostgreSQL 18, pgvector 0.8.7 se compila siguiendo el procedimiento oficial. El
+script `scripts/install_pgvector_windows.cmd` valida Build Tools C++, la raíz de PostgreSQL y la
+fuente antes de ejecutar `nmake`; la copia final en `Program Files` requiere UAC. La instalación
+local verificada usa PostgreSQL 18.6 y pgvector 0.8.7.
 
 ## Límites actuales
 

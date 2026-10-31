@@ -5,6 +5,7 @@
 - [DESPLIEGUE_WHATSAPP.md](DESPLIEGUE_WHATSAPP.md): paso a paso para desplegar XEON en WhatsApp con Kapso y probar el bot.
 - [ARCHITECTURE.md](ARCHITECTURE.md): arquitectura implementada, límites y trabajo pendiente.
 - [BASE_COMERCIAL.md](BASE_COMERCIAL.md): PostgreSQL comercial normalizado, semilla real sanitizada y cimiento de pgvector.
+- [MODELO_DATOS_COMERCIAL.md](MODELO_DATOS_COMERCIAL.md): modelos E/R, lógico y físico del esquema comercial.
 - [DESIGN.md](DESIGN.md): identidad visual y reglas de uso de marca.
 - [GLOSSARY.md](GLOSSARY.md): términos del dominio y del proyecto.
 - [CAMBIOS_CONDE.md](CAMBIOS_CONDE.md): historial de aportes de la rama de Conde.
