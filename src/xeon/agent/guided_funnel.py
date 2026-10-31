@@ -489,6 +489,9 @@ class GuidedFunnel:
             raw = option_id
         if state.step in {"confirmado", "cancelado", "asesor"}:
             return self._reset_to_start(key)
+        if state.step == "direccion" and option_id is None:
+            self._save(key, replace(state, step="pago", address=message[:200]))
+            return self.render(key)
         normalized_message = _normalized(message)
         if (
             option_id is None
@@ -590,9 +593,6 @@ class GuidedFunnel:
                 key, replace(state, candidates=tuple(item.sku for item in search_result.candidates))
             )
             return self.render(key, prefix="Elige una referencia:\n")
-        if state.step == "direccion" and option_id is None:
-            self._save(key, replace(state, step="pago", address=message[:200]))
-            return self.render(key)
         if state.step == "cantidad" and (
             state.awaiting_number or (option_id is None and re.fullmatch(r"\d+(?:[.,]\d+)?", raw))
         ):

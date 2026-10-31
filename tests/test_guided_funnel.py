@@ -105,6 +105,27 @@ def test_branch_status_aggregates_every_cart_line() -> None:
     asyncio.run(run())
 
 
+def test_address_step_preserves_words_that_overlap_policy_topics() -> None:
+    async def run() -> None:
+        container = _guided_container()
+        key = "address-policy-overlap"
+        address = "Barrio Santo Domingo, Calle 10 # 20-30"
+        try:
+            await add_product(container, key, "cemento", "CEM-50", 10)
+            await container.agent.respond_reply("more:view", conversation_key=key)
+            prompt = await container.agent.respond_reply("delivery:home", conversation_key=key)
+            assert prompt.step == "direccion"
+
+            payment = await container.agent.respond_reply(address, conversation_key=key)
+
+            assert payment.step == "pago"
+            assert container.agent._funnel.state(key).address == address  # type: ignore[union-attr]
+        finally:
+            await container.aclose()
+
+    asyncio.run(run())
+
+
 def test_numbered_text_and_unrelated_redirect() -> None:
     async def run() -> None:
         container = _guided_container()
