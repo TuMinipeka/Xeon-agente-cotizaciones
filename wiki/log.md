@@ -404,3 +404,17 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 
 - **Nueva guía:** `docs/METODO_DE_TRABAJO.md`, para agentes que se suman al proyecto. Cubre las fuentes de verdad, el grafo, los roles en herdr, ramas y worktrees, el formato de commits, el gate de dos perfiles, el protocolo de la wiki y la seguridad.
 - **Enlaces:** se enlaza desde `AGENTS.md` y `docs/README.md`.
+
+## [2026-10-31] integración | Base comercial real sanitizada
+
+- **Fuente:** reporte de 4.830 SKU proporcionado por el usuario y atribuido a Ferretería El Campín;
+  el libro original y los datos sensibles permanecen fuera de Git.
+- **Implementado en `QA/testing`:** migraciones comerciales aisladas, catálogo normalizado hasta
+  4FN, impuestos y cinco listas de precio con vigencia, tabla `stock`, búsqueda textual, cimiento
+  `pgvector` sin ANN, semilla con huella, cargador transaccional y conector SQL de solo lectura.
+- **Decisión temporal:** stock vendible en Bucaramanga para esta prueba, bloqueado en producción;
+  antes de un uso real debe reemplazarse por inventario observado.
+- **Pendiente:** crear el secreto local de conexión, aplicar las migraciones y verificar la carga
+  contra PostgreSQL. Embeddings, dimensión e índice ANN continúan planificados.
+- **Notas integradas:** revisión de recomendaciones del agente y decisiones/perfilado de la base
+  comercial del 2026-10-31.

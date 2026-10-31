@@ -67,6 +67,7 @@ En la bóveda de la raíz del repositorio también se colorean `docs/` (verde az
 - [Reporte QA de Conde](pages/qa-conde-2026-10-24.md) — 23 fallos conversacionales, 4 causas raíz, correcciones y corrida en vivo S16–S20.
 - [Embudo de cotización](pages/embudo-cotizacion.md) — conversación guiada con botones y listas, políticas por ferretería y confirmación ante un asesor (D14, implementado; Kapso interactive sin verificar en sandbox).
 - [Conector de la ferretería](pages/conector-ferreteria.md) — conectar XEON a la base de datos de cualquier ferretería (D13).
+- [Base comercial de Ferretería El Campín](pages/base-comercial.md) — esquema 4FN, semilla sanitizada, stock temporal y cimiento pgvector.
 - [Auditoría 2026-10-24](pages/auditoria-2026-10-24.md) — comportamiento real confirmado, defectos E1–E6, incompleto, hipótesis y riesgos.
 - [Contratos de herramientas](pages/contratos-herramientas.md) — `search_products`, `get_stock_by_branches`, `create_quote_draft`.
 

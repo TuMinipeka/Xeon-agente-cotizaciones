@@ -62,4 +62,11 @@ Revisado: 2026-10-26. Estado: **`implementado`** (Codex, `87ca4d2`; fusionado en
   - **H1:** `DATETIME` no guarda zona horaria, por eso el stock quedaba «pendiente». El conector admite el campo opcional `naive_datetime_timezone` (zona IANA, por ejemplo `UTC` o `America/Bogota`): solo las fechas sin zona se interpretan con ella. Sin declararlo se mantiene el rechazo (falla segura).
   - **H2:** la conexión no estaba en modo solo lectura. `SqlReader` ejecuta `SET SESSION TRANSACTION READ ONLY` en MySQL/MariaDB; la integración prueba que una escritura forjada falla incluso con la cuenta de escritura, en ambos motores (10 pruebas de integración aprobadas, `pytest -m integration`).
 
+## Base comercial propia (2026-10-31)
+
+`connectors/ferreteria-el-campin.yaml` adapta las vistas normalizadas creadas por las migraciones
+comerciales. Conserva `price_divisor: 1`, filtra stock vigente y usa los códigos de sucursal como
+identidad estable. Su configuración valida con el mismo contrato de solo lectura. Ver
+[base comercial](base-comercial.md). La ejecución E2E contra la instancia local sigue pendiente.
+
 Grafo: [capa adaptadores](../graph/hub-adaptadores.md) · [mapa del proyecto](../graph/mapa-proyecto.md)
