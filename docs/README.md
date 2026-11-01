@@ -8,6 +8,8 @@
 - [MODELO_DATOS_COMERCIAL.md](MODELO_DATOS_COMERCIAL.md): modelos E/R, lógico y físico del esquema comercial.
 - [DESIGN.md](DESIGN.md): identidad visual y reglas de uso de marca.
 - [GLOSSARY.md](GLOSSARY.md): términos del dominio y del proyecto.
+- [entrega_s3/](entrega_s3/README.md): documentación integral y análisis de la Semana 3 (Hito S3: datos reales, evaluación propia y costo por tarea).
+- [CONDE_IMPLEMENTADO_31_OCTUBRE.md](CONDE_IMPLEMENTADO_31_OCTUBRE.md): detalle commit por commit de las 33 contribuciones de Juan Pablo Conde el 31 de octubre de 2026.
 - [CAMBIOS_CONDE.md](CAMBIOS_CONDE.md): historial de aportes de la rama de Conde.
 - [qa/reporte_conde_qa.md](qa/reporte_conde_qa.md): informe de QA de Conde (2026-10-24), 23 fallos conversacionales del agente.
 - [QA_EMBUDO.md](QA_EMBUDO.md): guía de prueba manual para QA humano del embudo guiado por WhatsApp (contrato D14).

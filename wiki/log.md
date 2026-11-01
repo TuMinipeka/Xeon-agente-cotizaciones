@@ -422,3 +422,15 @@ El usuario pidió una CLI `xeon` basada en `XeonCli.png`, el uso de las skills `
 - **Pendiente:** embeddings, dimensión e índice ANN continúan planificados.
 - **Notas integradas:** revisión de recomendaciones del agente y decisiones/perfilado de la base
   comercial del 2026-10-31.
+
+## [2026-10-31] integración | Entrega y consolidación del Hito S3 (Datos reales, evaluación propia y costo por tarea)
+
+- **Alcance:** Consolidación de la documentación del Hito S3 desde el cierre del Hito #2 (24 de octubre) hasta el 31 de octubre de 2026 sobre la rama `QA/testing`.
+- **Ejes integrados:**
+  - *Datos reales:* Catálogo normalizado hasta 4FN con 4.830 artículos comerciales reales de Ferretería El Campín, 23.148 precios versionados en 5 listas, 37.216 registros de stock multisede, cimiento `pgvector 0.8.7` en PostgreSQL 18.6 compilado en Windows (`install_pgvector_windows.cmd`), cargador transaccional idempotente bajo FK `RESTRICT` y conector SQL de solo lectura (`ferreteria-el-campin.yaml`).
+  - *Evaluación propia:* Arnés de evaluación conversacional con 22 escenarios (S01–S22), runner offline con costo $0 (66/66 PASS en 3 iteraciones) y modo live con Grok-4.6, oráculos inmutables y arquetipos de cliente.
+  - *Costo por tarea:* Módulo de observabilidad `MetricsRecorder` (`JsonlMetrics`, `observability.jsonl`) cronometrando 6 etapas internas (`turno`, `llm`, `ejecutor`, `catalogo`, `inventario`, `envio_kapso`), captura de tokens reales de entrada/salida y reporte monetario por tarea en USD con `scripts/cost_report.py`.
+  - *Persistencia y Operación (D15 A y B):* Persistencia operativa de embudo, carrito versionado y deduplicación en PostgreSQL propio (`0001_operational_state`), bandeja del asesor (`0002_advisor_inbox`), Transactional Outbox de Kapso (`0003_kapso_outbox`), panel web `/panel` con autenticación robusta y descarga de PDF formal con ReportLab.
+  - *Endurecimiento QA (31 de octubre):* 33 commits de Juan Pablo Conde corrigiendo etiquetado a `TOTAL BORRADOR` (`4d24f30`), agregación conservadora de disponibilidad multilínea (`c14cd7d`), preservación de palabras en direcciones (`d2ad21b`), rollback atómico de notificación (`ebcd373`), regla `no_completion_claims` (`02b7790`) y verificación automatizada (`verify_commercial_db.py`).
+- **Páginas creadas y actualizadas:** [Hito S3](pages/hito-s3.md) (`xeon/estado`), [índice](index.md), [docs/entrega_s3/](../../docs/entrega_s3/README.md), [docs/CONDE_IMPLEMENTADO_31_OCTUBRE.md](../../docs/CONDE_IMPLEMENTADO_31_OCTUBRE.md) y [docs/CAMBIOS_CONDE.md](../../docs/CAMBIOS_CONDE.md).
+- **Límites registrados:** Generación de embeddings e índice ANN pendientes (S4); stock de Bucaramanga con asignación fija de prueba bloqueada en producción; sesiones web del panel en memoria (requieren afinidad en balanceadores); validación de botones Kapso en teléfono físico pendiente.

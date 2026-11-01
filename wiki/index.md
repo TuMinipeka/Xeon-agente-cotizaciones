@@ -52,6 +52,7 @@ En la bóveda de la raíz del repositorio también se colorean `docs/` (verde az
 - [Qué es XEON](pages/que-es-xeon.md) — problema, usuarios y relación con la venta ferretera.
 - [Estado del corte](pages/estado-del-corte.md) — capacidades observadas y pendientes.
 - [Hito S2](pages/hito-s2.md) — hoja de ruta S1–S4, trabajo delegado y hallazgos para la demo.
+- [Hito S3](pages/hito-s3.md) — entrega S3: datos reales, evaluación propia, costo por tarea, persistencia y QA.
 - [Propuestas de escalado](pages/propuestas-escalado.md) — ideas por eje con valor, dependencia y riesgo (no aprobadas).
 - [Propuesta de la fase 3](pages/propuesta-fase3.md) — opciones A–E (persistencia, asesor y PDF, búsqueda híbrida, ERP REST, observabilidad), orden recomendado y preguntas para el usuario (propuesta, sin aprobar).
 

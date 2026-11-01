@@ -1,0 +1,42 @@
+# Matriz de Cumplimiento de Entregables — Hito S3
+
+**Tema principal:** Datos reales, evaluación propia y costo por tarea  
+**Período:** Semana 3 del proyecto XEON  
+**Destinatarios:** Presentación ejecutiva, clientes y evaluadores del proyecto  
+
+---
+
+## 1. Tabla de Cumplimiento de Requerimientos
+
+| Área de Trabajo | Requerimiento de la Semana 3 | Estado | Lo que se construyó y cómo funciona | Cómo se comprobó | Qué queda pendiente o límites |
+|---|---|---|---|---|---|
+| **Datos reales** | Catálogo comercial de una ferretería de verdad | **Cumplido** | Se integraron **4.830 productos reales** con descripciones, marcas comerciales y precios de venta en Colombia. | Se revisó que los 4.830 productos estén completos en la base de datos y que el archivo no sufriera alteraciones. | Los datos pertenecen a Ferretería El Campín; el archivo original en Excel se guarda bajo llave fuera del sistema. |
+| **Datos reales** | Organización ordenada de los productos | **Cumplido** | La información se organizó en casillas independientes para marcas, colores, categorías y unidades de empaque (bulto, metro, etc.). | Se verificó que ningún producto quede con datos mezclados o repetidos. | Permite que el buscador encuentre materiales fácilmente sin confundir características. |
+| **Datos reales** | Precios organizados con fecha de vencimiento | **Cumplido** | Se prepararon **5 listas de precios** (al detal, por mayor, contratista) con fechas de inicio y fin, e IVA incluido. | Se auditaron **23.148 precios activos** y se apartaron 19 productos que no tenían precio para no regalarlos. | Un producto sin precio jamás se ofrece a cero pesos; el sistema avisa que debe consultarse con el vendedor. |
+| **Datos reales** | Inventario por tiendas y bodegas | **Cumplido** | Se estructuró el conteo de materiales por bodega física, diferenciando lo que está listo para entregar de lo que viene en camino. | Se verificaron **37.216 registros de existencias** repartidos entre bodegas. | Para este ensayo se asignaron cantidades de prueba en Bucaramanga; está prohibido usar cantidades de prueba en la tienda real. |
+| **Datos reales** | Base lista para buscador inteligente | **Cumplido** | Se instalaron las herramientas de base de datos que permiten buscar productos por similitud y significado de las palabras. | El motor de búsqueda quedó instalado y probado con éxito en el computador principal. | La preparación del catálogo para búsquedas avanzadas por significado se completará en la siguiente fase (Semana 4). |
+| **Datos reales** | Protección de la información del negocio | **Cumplido** | El asistente solo tiene permiso de mirar y consultar precios e inventario; no puede borrar ni cambiar nada de la ferretería. | Se comprobó con pruebas de seguridad que el sistema rechaza cualquier intento de modificar datos maestros. | El negocio tiene la total tranquilidad de que el asistente no puede alterar sus registros contables. |
+| **Evaluación propia** | Pruebas con clientes simulados | **Cumplido** | Se crearon **22 conversaciones de prueba** que simulan compradores reales pidiendo materiales con dudas, medidas o rebajas. | Se ensayaron las 22 situaciones de principio a fin, evaluando que el asistente conteste siempre de forma correcta. | Ayuda a garantizar que el asistente esté bien entrenado antes de ponerlo a hablar con clientes reales. |
+| **Evaluación propia** | Ensayos rápidos sin costo de saldo | **Cumplido** | Un modo de prueba que revisa las 22 conversaciones en segundos sin gastar dinero de internet ni consumir saldo de IA. | **66 pruebas seguidas con 100% de éxito** (se corrieron los 22 casos 3 veces seguidas sin una sola falla). | Permite al equipo de desarrollo revisar que todo funcione bien todos los días sin gastar presupuesto. |
+| **Evaluación propia** | Reglas de oro que el asistente nunca rompe | **Cumplido** | Se programaron alarmas para asegurar que el asistente nunca invente precios, nunca invente existencias y no cierre ventas solo. | El detector automático revisa cada mensaje y avisa de inmediato si el asistente llega a salirse de las reglas. | Las reglas son obligatorias y no se pueden apagar. |
+| **Costo por tarea** | Medición de tiempos de respuesta | **Cumplido** | El sistema mide con cronómetro cuánto tarda cada paso: entender la pregunta, buscar el producto, revisar bodegas y responder. | Se auditaron los tiempos de 6 etapas diferentes en cada turno de conversación. | Permite optimizar el sistema para que el comprador reciba su respuesta en pocos segundos. |
+| **Costo por tarea** | Contador de palabras y costo en dinero | **Cumplido** | Se mide la cantidad exacta de texto que procesa el asistente y se calcula el costo exacto en dólares de cada mensaje. | El sistema calcula el valor monetario de cada respuesta según las tarifas de uso del servicio. | El dueño de la ferretería sabe con total exactitud cuánto dinero le cuesta operar el sistema al mes. |
+| **Persistencia** | Guardado de conversaciones y pedidos | **Cumplido** | Las charlas de los clientes, sus carritos de compra y las cotizaciones no se borran si el computador se apaga o reinicia. | Se comprobó reiniciando el sistema y verificando que el cliente puede retomar su compra donde la dejó. | Da la seguridad de que un cliente no perderá su tiempo si sufre una desconexión en el celular. |
+| **Persistencia** | Manejo de clientes que escriben rápido | **Cumplido** | Si un comprador manda tres mensajes seguidos en el mismo segundo, el sistema los atiende en orden sin cruzarse. | Se probaron mensajes simultáneos y se confirmó que el carrito no se duplica ni se confunden los totales. | Evita errores de cobro o confusiones en pedidos grandes. |
+| **Supervisión humana** | Pantalla web para los vendedores | **Cumplido** | Una página web privada donde los empleados del negocio ven las cotizaciones que los clientes armaron por WhatsApp. | Se verificó el ingreso con clave segura y la protección contra accesos no autorizados. | El vendedor puede revisar qué necesita el comprador y cómo prefiere recibir sus materiales. |
+| **Supervisión humana** | Aprobación en manos de personas | **Cumplido** | Solo un vendedor humano puede oprimir el botón de "Aprobar venta"; el asistente inteligente no tiene permiso para hacerlo. | Se confirmó que el asistente solo puede armar borradores y no puede autorizar facturas por su cuenta. | La responsabilidad comercial y el cierre de ventas sigue siendo 100% de los trabajadores del negocio. |
+| **Supervisión humana** | Hoja de cotización formal en PDF | **Cumplido** | El vendedor puede descargar una hoja membretada en PDF con número de cotización, lista de materiales, totales e IVA. | Se generó el documento en PDF y se comprobó que incluye todos los datos legales y advertencias de rigor. | Documento listo para imprimir en la tienda o enviar por correo electrónico. |
+| **Canal WhatsApp** | Respaldo para que no se pierdan mensajes | **Cumplido** | Los mensajes que van a salir a WhatsApp se guardan en una bandeja segura antes de enviarse. | Se probó desconectando la red y se confirmó que los mensajes se entregan solos cuando vuelve la conexión. | Garantiza que ningún comprador se quede esperando respuesta por fallas momentáneas de internet. |
+| **Canal WhatsApp** | Candado contra mensajes falsos | **Cumplido** | El sistema revisa una firma digital en cada mensaje para certificar que viene del WhatsApp oficial y no de un impostor. | Mensajes de prueba sin firma fueron rechazados de inmediato por seguridad. | Protege al negocio contra bromas o ataques informáticos. |
+| **Atención ágil** | Botones de respuesta rápida en el chat | **Cumplido** | El cliente puede oprimir botones para elegir cantidades usuales, formas de entrega y medios de pago. | Se confirmó que los botones responden de inmediato y no generan costo adicional de inteligencia artificial. | Hace la atención mucho más cómoda para el comprador en su celular. |
+
+---
+
+## 2. Resumen de Cifras del Trabajo Realizado
+
+- **Productos reales cargados:** 4.830 referencias ferreteras.
+- **Precios de venta registrados:** 23.148 precios con fecha de vigencia.
+- **Registros de existencias por bodega:** 37.216 registros de inventario.
+- **Conversaciones de prueba diseñadas:** 22 situaciones reales de mostrador.
+- **Resultado en las pruebas de control:** 100% de aprobación (cero fallas registradas).
+- **Pruebas automáticas totales del sistema:** 422 verificaciones superadas con éxito.
